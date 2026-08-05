@@ -19,19 +19,24 @@ return {
       -- `tectonic` (or `pdflatex`) and `ghostscript`. `typst` is not involved:
       -- it only handles typst source files. Mermaid additionally needs `mmdc`.
       -- Run `:checkhealth snacks` to see which converters are missing.
-      -- `doc.conceal` is left at its default, which conceals math only.
-      --
-      -- Concealing charts as well was tried and reverted: it does render the
-      -- diagram in place of its source, but image rows beyond the source
-      -- block's line count are attached as virt_lines to a line that conceal
-      -- has just hidden, and those never render. A 6-line mermaid block needing
-      -- ~20 rows is therefore truncated to 6. Confirmed by padding a block with
-      -- comment lines until it was taller than its diagram - that one rendered
-      -- in full while the unpadded one stayed clipped.
-      --
-      -- Math is small enough to fit inside its own block, which is why
-      -- concealing it works and is the upstream default.
-      image = { enabled = true },
+      image = {
+        enabled = true,
+        doc = {
+          -- Conceal charts as well as math, so a mermaid diagram is rendered
+          -- in place of its source and the source returns when the cursor
+          -- moves into it.
+          --
+          -- This truncated diagrams on the first attempt, but that was caused
+          -- by render-markdown concealing the ``` fence lines: virtual lines
+          -- anchored to a concealed line never render. It now skips mermaid
+          -- blocks entirely (`code.disable`), so the fences stay real.
+          --
+          -- Image links are left unconcealed so `![alt](path)` stays readable.
+          ---@param _ string tree-sitter language
+          ---@param type snacks.image.Type
+          conceal = function(_, type) return type == 'math' or type == 'chart' end,
+        },
+      },
     },
   },
 }
