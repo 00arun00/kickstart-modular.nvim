@@ -14,8 +14,11 @@ return {
       --
       -- Renders images, mermaid diagrams and latex math inline using the kitty
       -- graphics protocol, which ghostty supports natively.
-      -- Requires `imagemagick`; mermaid additionally needs `mmdc` and math
-      -- needs `typst`.
+      -- Requires `imagemagick`. Latex math in markdown is compiled as a real
+      -- latex document and rasterized through a pdf, so it needs both
+      -- `tectonic` (or `pdflatex`) and `ghostscript`. `typst` is not involved:
+      -- it only handles typst source files. Mermaid additionally needs `mmdc`.
+      -- Run `:checkhealth snacks` to see which converters are missing.
       image = { enabled = true },
     },
   },
