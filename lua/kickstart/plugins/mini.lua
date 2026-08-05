@@ -39,6 +39,28 @@ return {
       ---@diagnostic disable-next-line: duplicate-set-field
       statusline.section_location = function() return '%2l:%-2v' end
 
+      -- Start screen / dashboard
+      local starter = require 'mini.starter'
+      starter.setup {
+        header = table.concat({
+          '███╗   ██╗██╗   ██╗██╗███╗   ███╗',
+          '████╗  ██║██║   ██║██║████╗ ████║',
+          '██╔██╗ ██║██║   ██║██║██╔████╔██║',
+          '██║╚██╗██║╚██╗ ██╔╝██║██║╚██╔╝██║',
+          '██║ ╚████║ ╚████╔╝ ██║██║ ╚═╝ ██║',
+          '╚═╝  ╚═══╝  ╚═══╝  ╚═╝╚═╝     ╚═╝',
+        }, '\n'),
+        items = {
+          starter.sections.recent_files(5, false),
+          starter.sections.recent_files(5, true),
+          starter.sections.builtin_actions(),
+        },
+        content_hooks = {
+          starter.gen_hook.adding_bullet(),
+          starter.gen_hook.aligning('center', 'center'),
+        },
+      }
+
       -- ... and there is more!
       --  Check out: https://github.com/nvim-mini/mini.nvim
     end,
