@@ -196,6 +196,7 @@ return {
       vim.list_extend(ensure_installed, {
         -- You can add other tools here that you want Mason to install
         'prettier', -- Used to format markdown, see `conform.lua`
+        'markdownlint-cli2', -- Used to lint markdown, see `custom/plugins/lint.lua`
       })
 
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
