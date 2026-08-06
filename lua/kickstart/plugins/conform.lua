@@ -34,6 +34,10 @@ return {
       },
       -- You can also specify external formatters in here.
       formatters_by_ft = {
+        -- Prettier handles the GFM this config actually uses - tables, task
+        -- lists, footnotes and yaml frontmatter - none of which is CommonMark.
+        -- `proseWrap` defaults to `preserve`, so paragraphs are not rewrapped.
+        markdown = { 'prettier' },
         -- rust = { 'rustfmt' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },

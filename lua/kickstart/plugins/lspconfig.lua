@@ -135,6 +135,21 @@ return {
 
         stylua = {}, -- Used to format Lua code
 
+        -- PKM language server for markdown: wiki/markdown link completion,
+        -- go to definition, backlinks, and rename that updates every link to a
+        -- file or heading. Attaches on `.git`, `.obsidian` or `.moxide.toml`,
+        -- so it works in plain repos as well as vaults.
+        markdown_oxide = {},
+
+        -- Grammar, spelling and style diagnostics for prose, with per-issue
+        -- code actions (`gra`) to correct a word or add it to the dictionary.
+        -- Runs locally, no network. It lints code comments in many languages
+        -- by default, which is noisy in source files, so it is scoped to prose
+        -- here - widen `filetypes` if it turns out to be useful elsewhere.
+        harper_ls = {
+          filetypes = { 'markdown', 'gitcommit' },
+        },
+
         -- Special Lua Config, as recommended by neovim help docs
         lua_ls = {
           on_init = function(client)
@@ -180,6 +195,7 @@ return {
       local ensure_installed = vim.tbl_keys(servers or {})
       vim.list_extend(ensure_installed, {
         -- You can add other tools here that you want Mason to install
+        'prettier', -- Used to format markdown, see `conform.lua`
       })
 
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
