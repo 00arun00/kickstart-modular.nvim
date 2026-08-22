@@ -23,6 +23,11 @@ vim.diagnostic.config {
 
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
 
+-- Exit insert mode without reaching for <Esc>. Note that after typing a literal
+-- `j` nvim waits `timeoutlen` (300ms here) to see whether a `k` follows, so the
+-- `j` appears with a slight delay.
+vim.keymap.set('i', 'jk', '<Esc>', { desc = 'Exit insert mode' })
+
 -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
 -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
 -- is not what someone will guess without a bit more experience.
