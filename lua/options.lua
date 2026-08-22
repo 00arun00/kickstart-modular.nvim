@@ -69,4 +69,6 @@ vim.o.scrolloff = 10
 -- See `:help 'confirm'`
 vim.o.confirm = true
 
+-- Reclaim the always-reserved command line row under the status line.
+vim.o.cmdheight = 0
 -- vim: ts=2 sts=2 sw=2 et

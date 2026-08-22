@@ -8,9 +8,11 @@ return {
     ---@module 'snacks'
     ---@type snacks.Config
     opts = {
-      -- Only the image module is enabled. `snacks.nvim` is a collection of
-      -- independent modules and every other one stays off, so this does not
+      -- Only the `image` and `notifier` modules are enabled.
+      -- `snacks.nvim` is a collection of independent modules and
+      -- every other one stays off, so this does not
       -- turn into a second plugin framework alongside kickstart.
+      notifier = { enabled = true },
       --
       -- Renders images, mermaid diagrams and latex math inline using the kitty
       -- graphics protocol, which ghostty supports natively.
