@@ -124,7 +124,6 @@ return {
       local servers = {
         -- clangd = {},
         -- gopls = {},
-        -- pyright = {},
         -- rust_analyzer = {},
         --
         -- Some languages (like typescript) have entire language plugins that can be useful:
@@ -134,6 +133,65 @@ return {
         -- ts_ls = {},
 
         stylua = {}, -- Used to format Lua code
+
+        -- Python type checking, completion and navigation. A `pyright` fork
+        -- with inlay hints and stricter inference enabled, which upstream
+        -- reserves for Pylance. Linting and formatting belong to `ruff` below.
+        basedpyright = {
+          -- The interpreter has to be resolved per project root, so it is set
+          -- here rather than statically. See `custom/python/venv.lua`.
+          --
+          -- `python.pythonPath` is deliberately not one of basedpyright's
+          -- "discouraged" settings, so unlike the `analysis.*` options below it
+          -- still applies in projects that ship their own config file.
+          --
+          -- NOTE: this has to mutate `client.settings`, not `config.settings`
+          -- via `before_init`. The client captures a reference to the settings
+          -- table when it is created, so reassigning `config.settings` later
+          -- leaves the client pointing at the original table and the value is
+          -- silently dropped. Same `on_init` shape `lua_ls` uses below.
+          on_init = function(client)
+            client.settings = vim.tbl_deep_extend('force', client.settings or {}, {
+              python = { pythonPath = require('custom.python.venv').python(client.root_dir or assert(vim.uv.cwd())) },
+            })
+          end,
+          settings = {
+            basedpyright = {
+              -- Everything under `analysis` is a "discouraged" language server
+              -- setting: basedpyright ignores it outright when the project has
+              -- a `[tool.basedpyright]` section or a `pyrightconfig.json`.
+              -- These are therefore defaults for projects that have not
+              -- decided, not policy imposed on ones that have.
+              analysis = {
+                -- `recommended` enables every rule at error severity, which is
+                -- unusable on an existing untyped codebase. `standard` matches
+                -- pyright's baseline; raise it per project in `pyproject.toml`.
+                typeCheckingMode = 'standard',
+                diagnosticSeverityOverrides = {
+                  -- ruff reports these (F401/F841) *with* autofixes attached,
+                  -- so let it own them rather than showing each twice.
+                  reportUnusedImport = 'none',
+                  reportUnusedVariable = 'none',
+                },
+              },
+            },
+          },
+        },
+
+        -- Lint diagnostics and code actions - `gra` to autofix a violation or
+        -- organise imports. Formatting goes through conform, see `conform.lua`.
+        ruff = {
+          -- `cmd` as a function runs a different ruff per project: a repo that
+          -- pins ruff in its dev-dependencies is linted by that exact version,
+          -- so the editor and CI agree. Falls back to the mason-installed one.
+          cmd = function(dispatchers, config)
+            local ruff = require('custom.python.venv').ruff(config.root_dir or assert(vim.uv.cwd()))
+            return vim.lsp.rpc.start({ ruff, 'server' }, dispatchers)
+          end,
+          -- basedpyright owns hover. Without this both servers answer and the
+          -- popup renders the same symbol twice.
+          on_attach = function(client) client.server_capabilities.hoverProvider = false end,
+        },
 
         -- PKM language server for markdown: wiki/markdown link completion,
         -- go to definition, backlinks, and rename that updates every link to a

@@ -19,11 +19,12 @@ return {
         'luadoc',
         'markdown',
         'markdown_inline',
+        'python',
         'query',
         'regex',
         'vim',
         'vimdoc',
-        'yaml'
+        'yaml',
       }
       require('nvim-treesitter').install(parsers)
 

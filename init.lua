@@ -105,5 +105,9 @@ require 'lazy-bootstrap'
 -- [[ Configure and install plugins ]]
 require 'lazy-plugins'
 
+-- [[ Python interpreter resolution and `:PyVenvInfo` / `:PyVenvSet` ]]
+-- Loaded eagerly so the commands exist before the first Python buffer opens.
+require 'custom.python.venv'
+
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et

@@ -38,12 +38,22 @@ return {
         -- lists, footnotes and yaml frontmatter - none of which is CommonMark.
         -- `proseWrap` defaults to `preserve`, so paragraphs are not rewrapped.
         markdown = { 'prettier' },
+        -- ruff replaces both black (formatting) and isort (import sorting),
+        -- and is fast enough that two passes are imperceptible. The ruff *LSP*
+        -- owns diagnostics and code actions, see `lspconfig.lua`; formatting
+        -- stays here so `<leader>f` remains the single formatting entry point
+        -- across every filetype.
+        python = { 'ruff_organize_imports', 'ruff_format' },
         -- rust = { 'rustfmt' },
-        -- Conform can also run multiple formatters sequentially
-        -- python = { "isort", "black" },
         --
         -- You can use 'stop_after_first' to run the first available formatter from the list
         -- javascript = { "prettierd", "prettier", stop_after_first = true },
+      },
+      -- Same project-first resolution as the LSP, so a formatted file matches
+      -- what CI's ruff would produce rather than whatever mason last installed.
+      formatters = {
+        ruff_format = { command = function(_, ctx) return require('custom.python.venv').ruff(ctx.dirname) end },
+        ruff_organize_imports = { command = function(_, ctx) return require('custom.python.venv').ruff(ctx.dirname) end },
       },
     },
   },
