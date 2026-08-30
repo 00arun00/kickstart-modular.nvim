@@ -32,7 +32,7 @@ return {
         { '<leader>t', group = '[T]oggle' },
         { '<leader>g', group = '[G]it' },
         { '<leader>h', group = 'Git [H]unk', mode = { 'n', 'v' } }, -- Enable gitsigns recommended keymaps first
-        { '<leader>n', group = '[N]oice'},
+        { '<leader>n', group = '[N]oice' },
         { 'gr', group = 'LSP Actions', mode = { 'n' } },
       },
     },

@@ -4,7 +4,7 @@ return {
   {
     -- Replaces the UI for `messages`, `cmdline` and the `popupmenu`.
     --
-   'folke/noice.nvim',
+    'folke/noice.nvim',
     event = 'VeryLazy',
     dependencies = {
       -- Rendering primitives.
@@ -49,7 +49,7 @@ return {
       },
 
       presets = {
-        -- Keep `/` at the bottom of the screen. 
+        -- Keep `/` at the bottom of the screen.
         bottom_search = true,
         -- Position the cmdline and popupmenu together as one palette.
         command_palette = true,
