@@ -34,7 +34,26 @@ return {
       vim.g.molten_auto_open_output = false
       vim.g.molten_virt_text_output = true
       vim.g.molten_virt_lines_off_by_1 = true
-      vim.g.molten_output_win_max_height = 20
+      vim.g.molten_enter_output_behavior = 'open_and_enter'
+      vim.g.molten_virt_text_max_lines = 16
+      vim.g.molten_output_win_max_height = 24
+      vim.g.molten_output_win_max_width = 120
+      vim.g.molten_output_win_style = 'minimal'
+      vim.g.molten_output_win_border = { '╭', '─', '╮', '│', '╯', '─', '╰', '│' }
+      vim.g.molten_output_win_cover_gutter = false
+      vim.g.molten_output_show_more = true
+      vim.g.molten_use_border_highlights = true
+      vim.g.molten_wrap_output = false -- Keep tables aligned; gw toggles wrapping inside output.
+      vim.g.molten_tick_rate = 200
+      local function highlights()
+        vim.api.nvim_set_hl(0, 'MoltenOutputBorderSuccess', { link = 'DiagnosticOk' })
+        vim.api.nvim_set_hl(0, 'MoltenOutputBorderFail', { link = 'DiagnosticError' })
+      end
+      highlights()
+      vim.api.nvim_create_autocmd('ColorScheme', {
+        group = vim.api.nvim_create_augroup('python-output-colors', { clear = true }),
+        callback = highlights,
+      })
       -- Text works in any terminal. Rich HTML/images can be opened externally.
       vim.g.molten_image_provider = 'none'
     end,
@@ -42,9 +61,11 @@ return {
       { '<leader>ji', function() require('custom.python.notebook').init() end, desc = 'Notebook: initialize project kernel' },
       { '<leader>jl', '<cmd>MoltenEvaluateLine<cr>', desc = 'Notebook: run line' },
       { '<leader>jv', ':<C-u>MoltenEvaluateVisual<cr>gv', mode = 'x', desc = 'Notebook: run selection' },
-      { '<leader>jo', '<cmd>MoltenShowOutput<cr>', desc = 'Notebook: show output' },
-      { '<leader>je', '<cmd>noautocmd MoltenEnterOutput<cr>', desc = 'Notebook: enter output' },
-      { '<leader>jh', '<cmd>MoltenHideOutput<cr>', desc = 'Notebook: hide output' },
+      { '<leader>jo', function() require('custom.python.output').preview() end, desc = 'Notebook: show output' },
+      { '<leader>je', function() require('custom.python.output').enter() end, desc = 'Notebook: enter output' },
+      { '<leader>jO', function() require('custom.python.output').inspect() end, desc = 'Notebook: inspect full output in split' },
+      { '<leader>jy', '<cmd>MoltenYankOutput!<cr>', desc = 'Notebook: copy output to clipboard' },
+      { '<leader>jh', function() require('custom.python.output').hide() end, desc = 'Notebook: hide output' },
       { '<leader>jx', '<cmd>MoltenInterrupt<cr>', desc = 'Notebook: interrupt' },
       { '<leader>jr', function() require('custom.python.notebook').restart() end, desc = 'Notebook: restart kernel' },
       { '<leader>jq', '<cmd>MoltenDeinit<cr>', desc = 'Notebook: stop kernel' },

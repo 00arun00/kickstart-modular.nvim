@@ -129,3 +129,33 @@ To rerun the real debugger/test checks using the disposable uv project:
 This test creates `test_pde_smoke.py` (one intentionally failing test) and
 `pde_debug.py`, then verifies LSP interpreter selection/restart, both pytest
 results, a debugpy breakpoint, and the running debuggee's interpreter.
+
+
+## Reading long outputs
+
+Inline previews show up to 16 lines. Floating output windows show up to 24 rows
+and 120 columns, with rounded borders and success/error colors. These limits
+control the preview size; the complete captured text remains available. A footer
+shows additional lines when the floating window reaches its height limit (space
+near the bottom of the editor can limit the window further).
+
+- `Space j o`: preview the active cell's output.
+- `Space j e`: open **and enter** the floating output in one press.
+- Inside output: `j`/`k`, `Ctrl-d`/`Ctrl-u`, `gg`/`G`, and `/` navigate/search normally.
+- `gw` toggles wrapping in that output window. Wrapping starts off to preserve
+  table columns; `zH`/`zL` scroll wide tables horizontally.
+- `q` or `Esc` closes the output and returns to the originating code window.
+- `Space j O` (uppercase O) opens the complete output in a normal bottom split.
+  This also works from inside the floating output. The split is a read-only
+  snapshot, so it stays stable when you change cells or rerun code; reopen it to
+  capture updated output. Normal window resizing/maximizing works here.
+- `Space j y`, from the code cell, copies its output to the system clipboard.
+
+The snapshot includes the execution header and text output; plots and HTML still
+use `Space j p` and `Space j b`. Closing a snapshot removes its temporary buffer.
+
+Regression test (uses a disposable project with ipykernel):
+
+```sh
+~/.local/share/nvim/python/bin/python tests/output.py '/tmp/test project'
+```
