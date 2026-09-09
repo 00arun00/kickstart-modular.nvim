@@ -34,7 +34,7 @@ return {
       vim.g.molten_auto_open_output = false
       vim.g.molten_virt_text_output = true
       vim.g.molten_virt_lines_off_by_1 = true
-      vim.g.molten_enter_output_behavior = 'open_and_enter'
+      vim.g.molten_enter_output_behavior = 'open_then_enter' -- The output helper validates before focusing.
       vim.g.molten_virt_text_max_lines = 16
       vim.g.molten_output_win_max_height = 24
       vim.g.molten_output_win_max_width = 120

@@ -140,7 +140,9 @@ shows additional lines when the floating window reaches its height limit (space
 near the bottom of the editor can limit the window further).
 
 - `Space j o`: preview the active cell's output.
-- `Space j e`: open **and enter** the floating output in one press.
+- `Space j e`: open **and enter** the floating output in one press. If the
+  output anchor is off-screen, this scrolls to reveal the cell end. A split too
+  small for output produces a message asking you to enlarge it.
 - Inside output: `j`/`k`, `Ctrl-d`/`Ctrl-u`, `gg`/`G`, and `/` navigate/search normally.
 - `gw` toggles wrapping in that output window. Wrapping starts off to preserve
   table columns; `zH`/`zL` scroll wide tables horizontally.

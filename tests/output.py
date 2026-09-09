@@ -102,9 +102,42 @@ try:
     )
     n.input("q")
     wait(lambda: n.current.window.handle == source_win)
+    # Reproduce the reported None-window crash with the cell end off screen.
+    start = len(n.current.buffer[:]) + 2
+    n.current.buffer.append(
+        ["# %%", "value = 1"] + ["# padding"] * 80 + ["print('long-cell-output')"]
+    )
+    n.current.window.cursor = (start, 0)
+    n.command("normal! zt")
+    n.exec_lua("require('custom.python.notebook').run()")
+    time.sleep(1)
+    reproduced = n.exec_lua("""
+      vim.fn.MoltenUpdateOption('enter_output_behavior', 'open_and_enter')
+      local ok, err = pcall(vim.cmd, 'noautocmd MoltenEnterOutput')
+      return not ok and tostring(err):find('expecting Window', 1, true) ~= nil
+    """)
+    assert reproduced, "Expected the upstream off-screen window failure"
+    n.exec_lua("require('custom.python.output').enter()")
+    assert n.current.window.handle != source_win, (
+        n.exec_lua("return _G.output_messages"),
+        n.current.window.cursor,
+        n.funcs.winsaveview(),
+    )
+    assert "long-cell-output" in "\n".join(n.current.buffer[:])
+    n.input("q")
+    wait(lambda: n.current.window.handle == source_win)
+    assert n.exec_lua("return #vim.fn.MoltenRunningKernels(true)") == 1
+    n.command("botright 2split")
+    tiny = n.current.window.handle
+    n.exec_lua("require('custom.python.output').enter()")
+    assert n.current.window.handle == tiny
+    assert any(
+        "Enlarge this split" in msg for msg in n.exec_lua("return _G.output_messages")
+    )
+    n.command("close")
     n.command("MoltenDeinit")
     print(
-        "PASS: one-press entry, full 100-line output, dimensions, scrolling, wrapping, q/Esc, snapshot split/cleanup, source preservation"
+        "PASS: one-press entry, full 100-line output, dimensions, scrolling, wrapping, q/Esc, snapshot split/cleanup, source preservation, off-screen recovery, tiny-window fallback"
     )
 finally:
     try:
