@@ -164,20 +164,22 @@ Regression test (uses a disposable project with ipykernel):
 
 ## Plots in Ghostty (with or without tmux)
 
-Molten uses image.nvim with Kitty graphics and ImageMagick (`brew install
-imagemagick`). Images appear inline and in the output float, bounded to 100
-columns by 20 rows. Unsupported terminals and headless sessions keep text output
-and external plot access. `:checkhealth custom.python` reports image availability.
+Molten shares the existing Snacks image renderer with Markdown. ImageMagick
+(`brew install imagemagick`) handles image processing. Notebook images are
+bounded to 100 columns by 20 rows, independently of Markdown image sizes.
+`:checkhealth custom.python` reports the selected renderer; `:checkhealth snacks`
+checks graphics support.
 
-For tmux 3.3+, add this to `~/.tmux.conf`, then reload the configuration:
+No global tmux configuration change is needed. Snacks automatically enables
+`allow-passthrough all` for its current pane, just as it does for Markdown.
+This setting includes hidden-pane output and can remain after Neovim exits;
+it does not enable passthrough in all other panes. Ghostty without tmux uses
+Snacks directly.
 
-```tmux
-source-file -q ~/.config/nvim/scripts/tmux-images.conf
-```
-
-The snippet enables graphics passthrough and focus events and disables visual
-activity. Passthrough lets applications send terminal escape sequences through
-tmux. Ghostty without tmux needs no tmux settings.
+A local adapter (`lua/custom/python/snacks_canvas.lua`) keeps inline and floating
+placements separate and fixes cleanup in Molten's bundled Snacks adapter. It
+uses Molten's existing RPC interface without editing installed plugin files.
+Unsupported terminals and headless sessions retain text/external output.
 
 Restart Neovim after installing the plugin. Initialize a fresh kernel with
 `Space j i` (stop an existing kernel with `Space j q` first). The kernel uses the
@@ -226,3 +228,16 @@ Plot payload regression test (disposable project with the packages above):
 ```sh
 ~/.local/share/nvim/python/bin/python tests/plots.py '/tmp/test project'
 ```
+
+To test the actual Snacks graphics path in disposable terminals (protocol capture,
+not visual Ghostty inspection), after running the plot payload test:
+
+```sh
+~/.local/share/nvim/python/bin/python tests/snacks_plots.py '/tmp/test project'
+~/.local/share/nvim/python/bin/python tests/snacks_plots.py '/tmp/test project' --tmux
+```
+
+The tmux test uses a private server and lets Snacks configure only its test pane.
+Text, tables and tracebacks remain in Molten's navigable output buffers. Snacks
+handles plot rendering and the existing notification UI; it does not provide a
+browser engine for Plotly or Jupyter widgets.

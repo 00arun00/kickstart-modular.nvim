@@ -6,39 +6,30 @@ function M.status()
   end
   if vim.fn.executable 'magick' ~= 1 then return false, 'ImageMagick missing: brew install imagemagick' end
   local terminal = (vim.env.TERM_PROGRAM or '') .. ' ' .. (vim.env.TERM or '')
-  if vim.env.TMUX then
-    terminal = terminal .. ' ' .. vim.fn.system { 'tmux', 'display-message', '-p', '#{client_termname}' }
-    local passthrough = vim.trim(vim.fn.system { 'tmux', 'show', '-Apv', 'allow-passthrough' })
-    if passthrough ~= 'on' and passthrough ~= 'all' then return false, 'tmux passthrough disabled: source scripts/tmux-images.conf in tmux' end
-  end
+  if vim.env.TMUX then terminal = terminal .. ' ' .. vim.fn.system { 'tmux', 'display-message', '-p', '#{client_termname}' } end
   if not (terminal:lower():find('ghostty', 1, true) or vim.env.GHOSTTY_RESOURCES_DIR or vim.env.KITTY_WINDOW_ID) then
     return false, 'Inline images require Ghostty or Kitty; Space j p opens plots externally'
   end
-  return true, 'Inline plots enabled (image.nvim / Kitty graphics)'
+  return true, 'Snacks plot renderer selected; :checkhealth snacks checks terminal support'
 end
 
 function M.enabled() return (M.status()) end
 
-function M.options()
-  return {
-    backend = 'kitty',
-    processor = 'magick_cli',
-    max_width = 100,
-    max_height = 20,
-    max_width_window_percentage = math.huge,
-    max_height_window_percentage = math.huge,
-    window_overlap_clear_enabled = true,
-    window_overlap_clear_ft_ignore = { 'cmp_menu', 'cmp_docs', '' },
-    tmux_show_only_in_active_window = true,
-    hijack_file_patterns = {},
-    integrations = {
-      markdown = { enabled = false },
-      asciidoc = { enabled = false },
-      typst = { enabled = false },
-      neorg = { enabled = false },
-      syslang = { enabled = false },
-    },
-  }
+-- Molten's bundled adapter keys by file path, so inline/float placements collide,
+-- and clear_all passes records instead of IDs. Keep the compatibility fix here.
+function M.setup()
+  package.preload['load_snacks_nvim'] = function() return { snacks_api = require 'custom.python.snacks_canvas' } end
+  vim.g.molten_image_provider = M.enabled() and 'snacks.nvim' or 'none'
+  vim.api.nvim_create_autocmd('User', {
+    group = vim.api.nvim_create_augroup('python-snacks-cleanup', { clear = true }),
+    pattern = 'MoltenDeinitPost',
+    callback = function()
+      -- Molten removes the kernel from its registry after this event returns.
+      vim.schedule(function()
+        if package.loaded['custom.python.snacks_canvas'] and #vim.fn.MoltenRunningKernels() == 0 then require('custom.python.snacks_canvas').clear_all() end
+      end)
+    end,
+  })
 end
 
 return M
