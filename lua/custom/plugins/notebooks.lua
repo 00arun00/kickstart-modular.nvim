@@ -1,0 +1,82 @@
+return {
+  {
+    'goerz/jupytext.nvim',
+    lazy = false, -- Must intercept the first .ipynb read, including CLI arguments.
+    opts = function()
+      return {
+        jupytext = require('custom.python.host').executable 'jupytext',
+        format = 'py:percent',
+        filetype = 'python',
+        update = true,
+        async_write = false, -- :write must complete before output export or :wq.
+        handle_url_schemes = false,
+      }
+    end,
+  },
+  {
+    'benlubas/molten-nvim',
+    build = ':UpdateRemotePlugins',
+    lazy = false,
+    init = function()
+      vim.g.molten_auto_open_output = false
+      vim.g.molten_virt_text_output = true
+      vim.g.molten_virt_lines_off_by_1 = true
+      vim.g.molten_output_win_max_height = 20
+      -- Text works in any terminal. Rich HTML/images can be opened externally.
+      vim.g.molten_image_provider = 'none'
+    end,
+    keys = {
+      { '<leader>ji', function() require('custom.python.notebook').init() end, desc = 'Notebook: initialize project kernel' },
+      { '<leader>jl', '<cmd>MoltenEvaluateLine<cr>', desc = 'Notebook: run line' },
+      { '<leader>jv', ':<C-u>MoltenEvaluateVisual<cr>gv', mode = 'x', desc = 'Notebook: run selection' },
+      { '<leader>jo', '<cmd>MoltenShowOutput<cr>', desc = 'Notebook: show output' },
+      { '<leader>je', '<cmd>noautocmd MoltenEnterOutput<cr>', desc = 'Notebook: enter output' },
+      { '<leader>jh', '<cmd>MoltenHideOutput<cr>', desc = 'Notebook: hide output' },
+      { '<leader>jx', '<cmd>MoltenInterrupt<cr>', desc = 'Notebook: interrupt' },
+      { '<leader>jr', '<cmd>MoltenRestart<cr>', desc = 'Notebook: restart kernel' },
+      { '<leader>jq', '<cmd>MoltenDeinit<cr>', desc = 'Notebook: stop kernel' },
+      { '<leader>js', function() require('custom.python.notebook').export() end, desc = 'Notebook: save with outputs' },
+      { '<leader>jI', function() require('custom.python.notebook').import() end, desc = 'Notebook: import saved outputs' },
+      { '<leader>jb', '<cmd>MoltenOpenInBrowser<cr>', desc = 'Notebook: open HTML output' },
+      { '<leader>jp', '<cmd>MoltenImagePopup<cr>', desc = 'Notebook: open plot' },
+    },
+  },
+  {
+    'GCBallesteros/NotebookNavigator.nvim',
+    ft = 'python',
+    dependencies = { 'benlubas/molten-nvim' },
+    opts = { repl_provider = 'molten', syntax_highlight = true },
+    keys = {
+      { ']n', function() require('notebook-navigator').move_cell 'd' end, desc = 'Next notebook cell', ft = 'python' },
+      { '[n', function() require('notebook-navigator').move_cell 'u' end, desc = 'Previous notebook cell', ft = 'python' },
+      { '<leader>jc', function() require('custom.python.notebook').run() end, desc = 'Notebook: run cell', ft = 'python' },
+      { '<leader>jn', function() require('custom.python.notebook').run(false, true) end, desc = 'Notebook: run cell and advance', ft = 'python' },
+      { '<leader>ja', function() require('custom.python.notebook').run(true) end, desc = 'Notebook: run all cells', ft = 'python' },
+      { '<leader>jN', function() require('notebook-navigator').add_cell_below() end, desc = 'Notebook: add cell below', ft = 'python' },
+    },
+  },
+  {
+    'lewis6991/gitsigns.nvim',
+    opts = function(_, opts)
+      local attach = opts.on_attach
+      opts.on_attach = function(buf)
+        if vim.api.nvim_buf_get_name(buf):match '%.ipynb$' then return false end
+        if attach then return attach(buf) end
+      end
+    end,
+  },
+  {
+    'stevearc/conform.nvim',
+    opts = function(_, opts)
+      -- The buffer is Python, but its filename still ends in .ipynb. Otherwise
+      -- Ruff tries to parse this percent script as JSON, including range format.
+      for _, name in ipairs { 'ruff_format', 'ruff_organize_imports' } do
+        opts.formatters[name].append_args = { '--extension', 'ipynb:python' }
+      end
+    end,
+  },
+  {
+    'folke/which-key.nvim',
+    opts = function(_, opts) vim.list_extend(opts.spec, { { '<leader>j', group = 'notebook' }, { '<leader>p', group = 'python' } }) end,
+  },
+}

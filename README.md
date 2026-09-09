@@ -1,3 +1,7 @@
+# Personal Python setup
+
+See [Python PDE](docs/python-pde.md) for uv environments, Molten notebooks, keybindings, and verification.
+
 # kickstart-modular.nvim
 
 ## Introduction

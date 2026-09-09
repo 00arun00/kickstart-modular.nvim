@@ -49,7 +49,7 @@ end
 local function tool(venv, name)
   if not venv then return nil end
   local p = vim.fs.joinpath(venv, bindir, name .. exe)
-  return vim.uv.fs_stat(p) and p or nil
+  return vim.fn.executable(p) == 1 and p or nil
 end
 
 --- `vim.fn.exepath` returns an empty string when nothing is found, not nil.
@@ -70,12 +70,54 @@ end
 --- Interpreter for a path: the project venv's, else the system one.
 ---@param path string
 ---@return string
+function M.root(path) return project_root(path) or path end
+
+function M.venv(path) return find_venv(path) end
+
+function M.tool(path, name) return tool(find_venv(path), name) or on_path(name) end
+
+function M.here() return here() end
+
 function M.python(path) return tool(find_venv(path), 'python') or on_path 'python3' or 'python3' end
 
 --- ruff for a path: the project's pinned one, else PATH (mason installs there).
 ---@param path string
 ---@return string
 function M.ruff(path) return tool(find_venv(path), 'ruff') or on_path 'ruff' or 'ruff' end
+
+-- Restart only clients serving this project, preserving other open projects.
+function M.restart(root)
+  local pending = {}
+  for _, client in ipairs(vim.lsp.get_clients()) do
+    if (client.name == 'basedpyright' or client.name == 'ruff') and M.root(client.root_dir or root) == root then
+      for bufnr in pairs(client.attached_buffers) do
+        pending[bufnr] = pending[bufnr] or {}
+        pending[bufnr][client.name] = true
+      end
+      client:stop(true)
+    end
+  end
+  vim.defer_fn(function()
+    for bufnr, names in pairs(pending) do
+      if vim.api.nvim_buf_is_valid(bufnr) then
+        vim.api.nvim_buf_call(bufnr, function()
+          for name in pairs(names) do
+            local config = vim.lsp.config[name]
+            if config then vim.lsp.start(config, { bufnr = bufnr }) end
+          end
+        end)
+      end
+    end
+  end, 200)
+end
+
+vim.api.nvim_create_user_command('PyVenvReset', function()
+  local root = project_root(here())
+  if root then
+    overrides[root] = nil
+    M.restart(root)
+  end
+end, { desc = 'Return this project to automatic .venv detection' })
 
 vim.api.nvim_create_user_command('PyVenvInfo', function()
   local path = here()
@@ -103,13 +145,12 @@ vim.api.nvim_create_user_command('PyVenvSet', function(opts)
   if not root then return vim.notify('Not inside a project - nothing to attach the override to', vim.log.levels.WARN, { title = 'Python env' }) end
   overrides[root] = vim.fn.fnamemodify(venv, ':p'):gsub('/$', '')
 
-  -- Both servers read the interpreter once at startup, so they must restart.
-  for _, name in ipairs { 'basedpyright', 'ruff' } do
-    for _, client in ipairs(vim.lsp.get_clients { name = name }) do
-      client:stop()
-    end
-  end
-  vim.notify('venv set to ' .. overrides[root] .. '\nrestarting basedpyright and ruff', vim.log.levels.INFO, { title = 'Python env' })
+  M.restart(root)
+  vim.notify(
+    'venv set to ' .. overrides[root] .. '\nPython servers restarting; restart active kernels/debug sessions separately',
+    vim.log.levels.INFO,
+    { title = 'Python env' }
+  )
 end, {
   nargs = 1,
   desc = 'Point Python tooling at a specific virtualenv',
