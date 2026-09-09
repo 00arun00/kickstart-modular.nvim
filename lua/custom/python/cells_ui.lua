@@ -4,7 +4,7 @@ local ns = vim.api.nvim_create_namespace 'python-cell-frames'
 local states = {}
 
 local function highlights()
-  for name, target in pairs { Code = 'DiagnosticInfo', Markdown = 'Special', Raw = 'DiagnosticWarn', Quiet = 'Comment', Active = 'Title' } do
+  for name, target in pairs { Code = 'DiagnosticInfo', Markdown = 'Special', Raw = 'DiagnosticWarn', Quiet = 'NonText', Active = 'Title' } do
     vim.api.nvim_set_hl(0, 'PythonCell' .. name, { link = target, default = false })
   end
 end
@@ -37,7 +37,7 @@ function M.update(buf, force)
     state.cells, state.tick = M.scan(buf), tick
   end
   local row = vim.api.nvim_win_get_cursor(win)[1] - 1
-  local width = math.max(4, math.min(100, vim.api.nvim_win_get_width(win) - vim.fn.getwininfo(win)[1].textoff - 1))
+  local width = math.max(4, vim.api.nvim_win_get_width(win) - vim.fn.getwininfo(win)[1].textoff)
   local active = 0
   for i, cell in ipairs(state.cells) do
     if row >= cell.first and row <= cell.last then active = i end
@@ -47,41 +47,51 @@ function M.update(buf, force)
   if key == state.key and not force then return end
   state.key = key
   vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
-  local hidden = {}
-  for _, other in pairs(vim.api.nvim_get_namespaces()) do
-    if other ~= ns then
-      for _, extmark in ipairs(vim.api.nvim_buf_get_extmarks(buf, other, 0, -1, { details = true })) do
-        local detail = extmark[4]
-        if detail.conceal_lines ~= nil then
-          for r = extmark[2], detail.end_row or extmark[2] do
-            hidden[r] = true
+  for i, cell in ipairs(state.cells) do
+    local selected = i == active
+    if selected and cell.kind == 'Markdown' and cell.last > cell.first then
+      -- Editable Markdown is prose, rather than a page of dim Python comments.
+      vim.api.nvim_buf_set_extmark(buf, ns, cell.first + 1, 0, {
+        end_row = cell.last + 1,
+        end_col = 0,
+        hl_group = 'Normal',
+        priority = 105,
+      })
+    end
+    local label = (' %02d · %s%s '):format(i, cell.kind, selected and ' · active' or '')
+    if width < 26 then label = (' %02d %s%s '):format(i, cell.kind:sub(1, 1), selected and '*' or '') end
+    label = vim.fn.strcharpart(label, 0, math.max(0, width - 2))
+    local border = selected and 'PythonCellActive' or 'PythonCellQuiet'
+    local line = {
+      { selected and '━' or '─', border },
+      { label, 'PythonCell' .. cell.kind },
+      { string.rep('─', math.max(0, width - vim.fn.strdisplaywidth(label) - 1)), border },
+    }
+    if selected and marker_cursor then
+      -- Keep the actual marker editable, including metadata, on its own row.
+      vim.api.nvim_buf_set_extmark(buf, ns, cell.first, 0, { virt_lines = { line }, virt_lines_above = true, priority = 300 })
+    else
+      -- A concealed long marker can still reserve wrapped screen rows. Hide
+      -- its row entirely and anchor the separator on the first visible body row.
+      local anchor = cell.first + 1
+      local hidden = {}
+      for _, other in pairs(vim.api.nvim_get_namespaces()) do
+        if other ~= ns then
+          for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(buf, other, { anchor, 0 }, { cell.last, -1 }, { details = true })) do
+            if mark[4].conceal_lines ~= nil then hidden[mark[2]] = true end
           end
         end
       end
+      while hidden[anchor] and anchor <= cell.last do
+        anchor = anchor + 1
+      end
+      if anchor <= cell.last then
+        vim.api.nvim_buf_set_extmark(buf, ns, cell.first, 0, { conceal_lines = '', priority = 300 })
+        vim.api.nvim_buf_set_extmark(buf, ns, anchor, 0, { virt_lines = { line }, virt_lines_above = true, priority = 300 })
+      else
+        vim.api.nvim_buf_set_extmark(buf, ns, cell.first, 0, { virt_text = line, virt_text_pos = 'overlay', priority = 300 })
+      end
     end
-  end
-  for i, cell in ipairs(state.cells) do
-    local selected = i == active
-    local label = (' %02d %s%s '):format(i, cell.kind:upper(), selected and ' · ACTIVE' or '')
-    if width < 26 then label = (' %02d %s%s '):format(i, cell.kind:sub(1, 1), selected and '*' or '') end
-    label = vim.fn.strcharpart(label, 0, math.max(0, width - 3))
-    local hl = 'PythonCell' .. cell.kind
-    local border = selected and 'PythonCellActive' or 'PythonCellQuiet'
-    local line = { { '╭─', border }, { label, hl }, { string.rep('─', math.max(0, width - vim.fn.strdisplaywidth(label) - 3)) .. '╮', border } }
-    if selected and marker_cursor then
-      -- The source marker remains editable when the cursor is on that line.
-      vim.api.nvim_buf_set_extmark(buf, ns, cell.first, 0, { virt_lines = { line }, virt_lines_above = true, priority = 300 })
-    else
-      vim.api.nvim_buf_set_extmark(buf, ns, cell.first, 0, { virt_text = line, virt_text_pos = 'overlay', hl_eol = true, hl_group = 'Normal', priority = 300 })
-    end
-    -- A quiet end rule separates source from the next cell even when a long
-    -- Markdown paragraph makes the start disappear above the viewport.
-    local ending = { { '╰' .. string.rep('─', width - 2) .. '╯', border } }
-    local last = cell.last
-    while hidden[last] and last > cell.first do
-      last = last - 1
-    end
-    vim.api.nvim_buf_set_extmark(buf, ns, last, 0, { virt_lines = { ending }, priority = 10 })
   end
 end
 

@@ -41,17 +41,18 @@ try:
     code_row = next(i for i, l in enumerate(source, 1) if l == "x = 42")
     screen = render(code_row)
     assert (
-        "01 MARKDOWN" in screen and "02 CODE · ACTIVE" in screen and "03 RAW" in screen
+        "01 · Markdown" in screen and "02 · Code · active" in screen and "03 · Raw" in screen
     ), screen
     assert "04 " not in screen
-    assert screen.count("╭") == 3 and screen.count("╰") == 3, screen
+    assert "╭" not in screen and "╰" not in screen, screen
+    assert "id=" not in screen, screen
     assert "Introduction" in screen and "# # Introduction" not in screen, screen
     markdown_row = next(i for i, l in enumerate(source, 1) if l == "# # Introduction")
     screen = render(markdown_row)
-    assert "01 MARKDOWN · ACTIVE" in screen and "# # Introduction" in screen, screen
+    assert "01 · Markdown · active" in screen and "# # Introduction" in screen, screen
     marker_row = markdown_row - 1
     screen = render(marker_row)
-    assert "# %% [markdown]" in screen and "01 MARKDOWN · ACTIVE" in screen, screen
+    assert "# %% [markdown]" in screen and "01 · Markdown · active" in screen, screen
     assert n.current.buffer[:] == source
     n.command("write")
     saved = nbformat.read(path, as_version=4)

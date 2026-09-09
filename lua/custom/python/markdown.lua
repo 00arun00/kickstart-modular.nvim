@@ -123,6 +123,23 @@ local function build(buf, cell, win)
       end
     end
   end)
+  -- Legacy notebook answer prompts often use a whole-line <font> wrapper.
+  -- Render only this conservative paired form, never literal code examples.
+  for i, text in ipairs(cell.text) do
+    local opening, body = text:match '^(<font%s+[^>]+>)(.-)</font>$'
+    if opening then
+      local node = parser:parse()[1]:root():named_descendant_for_range(i - 1, 0, i - 1, #text)
+      local literal = false
+      while node do
+        if node:type() == 'fenced_code_block' or node:type() == 'indented_code_block' then literal = true end
+        node = node:parent()
+      end
+      if not literal then
+        table.insert(cell.highlights, { i - 1, 0, { end_row = i - 1, end_col = #opening, conceal = '', priority = 260 } })
+        table.insert(cell.highlights, { i - 1, #opening + #body, { end_row = i - 1, end_col = #text, conceal = '', priority = 260 } })
+      end
+    end
+  end
   if require('custom.python.images').enabled() then
     -- Snacks asks for a parser without a language; register Markdown only for
     -- this scratch buffer, without attaching its document autocmds.
@@ -232,10 +249,11 @@ local function refresh(buf, force)
     end
   end
   for _, window in ipairs(vim.fn.win_findbuf(buf)) do
-    if not state.windows[window] then state.windows[window] = { vim.wo[window].conceallevel, vim.wo[window].concealcursor } end
+    if not state.windows[window] then state.windows[window] = { vim.wo[window].conceallevel, vim.wo[window].concealcursor, vim.wo[window].linebreak } end
     local original = state.windows[window]
     vim.wo[window].conceallevel = state.enabled and #state.cells > 0 and 2 or original[1]
     vim.wo[window].concealcursor = state.enabled and #state.cells > 0 and 'nvic' or original[2]
+    vim.wo[window].linebreak = state.enabled and #state.cells > 0 or original[3]
   end
   return true
 end
@@ -251,7 +269,7 @@ function M.update(buf, force)
     return
   end
   state.updating = true
-  local ok, err = xpcall(function() refresh(buf, force) end, debug.traceback)
+  local ok, err = xpcall(function() return refresh(buf, force) end, debug.traceback)
   state.updating = false
   if state.retry then
     state.retry = false
@@ -299,7 +317,7 @@ function M.attach(buf)
       local win = vim.api.nvim_get_current_win()
       local original = states[buf] and states[buf].windows[win]
       if original then
-        vim.wo[win].conceallevel, vim.wo[win].concealcursor = original[1], original[2]
+        vim.wo[win].conceallevel, vim.wo[win].concealcursor, vim.wo[win].linebreak = original[1], original[2], original[3]
         states[buf].windows[win] = nil
         states[buf].active = nil
       end
