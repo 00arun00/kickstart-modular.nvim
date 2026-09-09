@@ -33,6 +33,7 @@ return {
     init = function()
       require 'custom.python.notebook'
       require('custom.python.markdown').setup()
+      require('custom.python.cells_ui').setup()
       vim.g.molten_auto_open_output = false
       vim.g.molten_virt_text_output = true
       vim.g.molten_virt_lines_off_by_1 = true
@@ -81,7 +82,7 @@ return {
     'GCBallesteros/NotebookNavigator.nvim',
     ft = 'python',
     dependencies = { 'benlubas/molten-nvim' },
-    opts = { repl_provider = 'molten', syntax_highlight = true },
+    opts = { repl_provider = 'molten', syntax_highlight = false },
     keys = {
       { ']n', function() require('notebook-navigator').move_cell 'd' end, desc = 'Next notebook cell', ft = 'python' },
       { '[n', function() require('notebook-navigator').move_cell 'u' end, desc = 'Previous notebook cell', ft = 'python' },

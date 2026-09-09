@@ -197,7 +197,6 @@ local function refresh(buf, force)
       end
       cell.images = {}
     else
-      vim.api.nvim_buf_set_extmark(buf, ns, cell.first, 0, { conceal_lines = '', priority = 250 })
       for i, prefix in ipairs(cell.prefixes) do
         local r = cell.first + i
         vim.api.nvim_buf_set_extmark(buf, ns, r, 0, { end_row = r + 1, hl_group = 'Normal', hl_eol = true, priority = 110 })
@@ -223,6 +222,9 @@ local function refresh(buf, force)
             pos = { r + 1, c },
             range = range,
             conceal = media.type == 'math' or media.type == 'chart',
+            on_update = function()
+              if package.loaded['custom.python.cells_ui'] then require('custom.python.cells_ui').update(buf, true) end
+            end,
           })
           table.insert(cell.images, Snacks.image.placement.new(buf, media.src, opts))
         end
@@ -235,6 +237,7 @@ local function refresh(buf, force)
     vim.wo[window].conceallevel = state.enabled and #state.cells > 0 and 2 or original[1]
     vim.wo[window].concealcursor = state.enabled and #state.cells > 0 and 'nvic' or original[2]
   end
+  return true
 end
 
 -- Snacks may process events while detecting the terminal/converting images.
@@ -256,6 +259,7 @@ function M.update(buf, force)
     vim.schedule(function() M.update(buf) end)
   end
   if not ok then error(err) end
+  if err and package.loaded['custom.python.cells_ui'] then require('custom.python.cells_ui').update(buf, true) end
 end
 
 function M.toggle()
