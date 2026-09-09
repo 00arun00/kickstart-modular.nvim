@@ -44,6 +44,8 @@ end
 function M.cells()
   local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
   local cells = {}
+  local ok, parser = pcall(vim.treesitter.get_parser, 0, 'python')
+  local tree = ok and parser:parse()[1] or nil
   local first, markdown = 1, false
   local function add(last)
     local start, limit = first, last
@@ -56,7 +58,9 @@ function M.cells()
     if not markdown and start <= last then table.insert(cells, { start, last, 1, #lines[last] + 1, marker = math.max(1, first - 1), limit = limit }) end
   end
   for i, line in ipairs(lines) do
-    if line:match '^# %%%% ' or line == '# %%' then
+    local marker = line:match '^# %%%% ' or line == '# %%'
+    if marker and tree then marker = tree:root():named_descendant_for_range(i - 1, 0, i - 1, #line):type() == 'comment' end
+    if marker then
       add(i - 1)
       first, markdown = i + 1, line:find('[markdown]', 1, true) ~= nil or line:find('[raw]', 1, true) ~= nil
     end
@@ -82,6 +86,13 @@ function M.run(all, advance)
     if all or i == current then vim.fn.MoltenEvaluateRange(kernels[1], unpack(cell)) end
   end
   if advance then require('notebook-navigator').move_cell 'd' end
+end
+
+function M.restart()
+  for _, kernel in ipairs(vim.fn.MoltenRunningKernels(true)) do
+    M.ready[kernel] = nil
+  end
+  vim.cmd.MoltenRestart()
 end
 
 function M.import()

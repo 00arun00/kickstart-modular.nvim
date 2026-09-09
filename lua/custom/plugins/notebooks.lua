@@ -5,12 +5,24 @@ return {
     opts = function()
       return {
         jupytext = require('custom.python.host').executable 'jupytext',
-        format = 'py:percent',
-        filetype = 'python',
+        format = function(_, metadata)
+          local language = (metadata.kernelspec or {}).language or (metadata.language_info or {}).name or 'python'
+          -- Other kernels remain editable as JSON; never relabel them as Python.
+          vim.b.jupytext_format = language == 'python' and 'py:percent' or 'ipynb'
+          vim.b.jupytext_filetype = language == 'python' and 'python' or 'json'
+          return vim.b.jupytext_format
+        end,
         update = true,
         async_write = false, -- :write must complete before output export or :wq.
         handle_url_schemes = false,
       }
+    end,
+    config = function(_, opts)
+      if vim.fn.executable(opts.jupytext) ~= 1 then
+        vim.notify('Notebook conversion unavailable: run bash scripts/setup-python.sh and restart Neovim', vim.log.levels.WARN)
+        return
+      end
+      require('jupytext').setup(opts)
     end,
   },
   {
@@ -18,6 +30,7 @@ return {
     build = ':UpdateRemotePlugins',
     lazy = false,
     init = function()
+      require 'custom.python.notebook'
       vim.g.molten_auto_open_output = false
       vim.g.molten_virt_text_output = true
       vim.g.molten_virt_lines_off_by_1 = true
@@ -33,7 +46,7 @@ return {
       { '<leader>je', '<cmd>noautocmd MoltenEnterOutput<cr>', desc = 'Notebook: enter output' },
       { '<leader>jh', '<cmd>MoltenHideOutput<cr>', desc = 'Notebook: hide output' },
       { '<leader>jx', '<cmd>MoltenInterrupt<cr>', desc = 'Notebook: interrupt' },
-      { '<leader>jr', '<cmd>MoltenRestart<cr>', desc = 'Notebook: restart kernel' },
+      { '<leader>jr', function() require('custom.python.notebook').restart() end, desc = 'Notebook: restart kernel' },
       { '<leader>jq', '<cmd>MoltenDeinit<cr>', desc = 'Notebook: stop kernel' },
       { '<leader>js', function() require('custom.python.notebook').export() end, desc = 'Notebook: save with outputs' },
       { '<leader>jI', function() require('custom.python.notebook').import() end, desc = 'Notebook: import saved outputs' },

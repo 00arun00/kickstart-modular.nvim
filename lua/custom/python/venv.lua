@@ -92,7 +92,7 @@ function M.restart(root)
     if (client.name == 'basedpyright' or client.name == 'ruff') and M.root(client.root_dir or root) == root then
       for bufnr in pairs(client.attached_buffers) do
         pending[bufnr] = pending[bufnr] or {}
-        pending[bufnr][client.name] = true
+        pending[bufnr][client.name] = client.root_dir or root
       end
       client:stop(true)
     end
@@ -101,9 +101,13 @@ function M.restart(root)
     for bufnr, names in pairs(pending) do
       if vim.api.nvim_buf_is_valid(bufnr) then
         vim.api.nvim_buf_call(bufnr, function()
-          for name in pairs(names) do
+          for name, client_root in pairs(names) do
             local config = vim.lsp.config[name]
-            if config then vim.lsp.start(config, { bufnr = bufnr }) end
+            if config then
+              config = vim.deepcopy(config)
+              config.root_dir = client_root
+              vim.lsp.start(config, { bufnr = bufnr })
+            end
           end
         end)
       end

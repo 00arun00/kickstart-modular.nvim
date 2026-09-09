@@ -26,6 +26,23 @@ local ok, err = xpcall(function()
   assert(spec.argv[3] == root)
   assert(spec.env.VIRTUAL_ENV == root .. '/.venv')
   assert(name ~= require('custom.python.notebook').kernel(root .. '/src'))
+  vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+    '# ---',
+    '# jupyter: metadata',
+    '# ---',
+    '# %% [markdown]',
+    '# hello',
+    '# %%',
+    'print(1)',
+    '',
+    '# %% [raw]',
+    'not Python!',
+    '# %%',
+    'print(2)',
+  })
+  local cells = require('custom.python.notebook').cells()
+  assert(#cells == 2 and cells[1][1] == 7 and cells[2][1] == 12)
+  assert(cells[1][2] == 7 and cells[1][4] == 9)
   local stopped, started = {}, {}
   local original_get, original_start = vim.lsp.get_clients, vim.lsp.start
   vim.lsp.config('basedpyright', { cmd = { 'unused' } })
@@ -35,7 +52,10 @@ local ok, err = xpcall(function()
       { name = 'ruff', root_dir = '/other/project', attached_buffers = {}, stop = function() stopped.other = true end },
     }
   end
-  vim.lsp.start = function() started.ours = true end
+  vim.lsp.start = function(config)
+    assert(config.root_dir == root)
+    started.ours = true
+  end
   env.restart(root)
   assert(vim.wait(1000, function() return started.ours end))
   assert(stopped.ours and not stopped.other)

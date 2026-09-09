@@ -1,4 +1,5 @@
 """Launch ipykernel in the resolved project root, independent of Neovim's cwd."""
+
 import os
 import runpy
 import sys

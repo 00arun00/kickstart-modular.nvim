@@ -36,7 +36,7 @@ Stop and reinitialize active notebook kernels after changing environments.
 
 The shared Neovim Python host is separate from project Python. Each notebook
 kernel uses an absolute project interpreter and starts in the project root.
-Private kernelspecs live under `stdpath('data')/jupyter/kernels/nvim-*`; two
+Wait for the kernel-ready notification before running cells. Private kernelspecs live under `stdpath('data')/jupyter/kernels/nvim-*`; two
 projects with the same directory name cannot collide. With no `.venv`, the
 resolver falls back to Python on PATH; check `:PyVenvInfo` before running code.
 
@@ -76,7 +76,10 @@ stale after code edits until you rerun the cells. See
 Gitsigns is disabled on converted notebook buffers because its JSON diff cannot
 safely map to Python lines. It continues to work normally in `.py` files.
 
-This workflow targets local Python notebooks; use a notebook frontend for rich
+Jupytext percent format comments out IPython `%` and `!` syntax. For executable
+magics use explicit `get_ipython().run_line_magic(...)` calls in Python cells.
+
+This workflow targets local Python notebooks; other languages open as raw JSON; use a notebook frontend for rich
 widget interaction or other notebook languages.
 
 ## Verification
@@ -88,6 +91,41 @@ XDG_STATE_HOME=/tmp/nvim-test-state nvim --headless -u NONE -l tests/venv.lua
 stylua --check lua/custom/python lua/custom/plugins/notebooks.lua tests/venv.lua init.lua
 ```
 
-The integration test creates `pde-smoke.ipynb` and `pde-new.ipynb` in the supplied
+The integration test creates `pde-smoke.ipynb`, `pde-new.ipynb`, and `pde-foreign.ipynb` in the supplied
 disposable project. It checks notebook metadata/output preservation, formatting,
 real kernel execution, interpreter/cwd selection, output export, and reopening.
+
+## Tests and debugging
+
+Neotest discovers pytest tests and shows results inline and in a summary tree.
+The test interpreter comes from the same resolver as notebook kernels and LSP.
+Debugpy itself lives in the editor host; the program being debugged uses project
+Python. This avoids requiring debugpy in each project.
+
+| Key | Action |
+| --- | --- |
+| `<leader>pt` / `<leader>pf` / `<leader>pa` | Run nearest test / file / project |
+| `<leader>pd` | Debug nearest test |
+| `<leader>ps` | Toggle test summary tree |
+| `<leader>po` / `<leader>pO` | Open test output / output panel |
+| `<leader>pl` / `<leader>px` | Rerun last / stop tests |
+| `<leader>db` / `<leader>dB` | Toggle breakpoint / conditional breakpoint |
+| `<F5>` or `<leader>dc` | Start or continue debugger |
+| `<F10>` / `<F11>` / `<F12>` | Step over / into / out |
+| `<leader>de` | Evaluate expression (normal or visual mode) |
+| `<leader>du` / `<leader>dq` | Toggle debugger UI / terminate |
+
+Start debugging from a `.py` file. The launch picker offers current-file and
+pytest-current-file configurations. For custom modules/arguments, use a project
+`.vscode/launch.json` as supported by nvim-dap. Notebook cell debugging is not
+part of this workflow; move code into a Python module and debug/test it there.
+
+To rerun the real debugger/test checks using the disposable uv project:
+
+```sh
+~/.local/share/nvim/python/bin/python tests/python_tools.py '/tmp/test project'
+```
+
+This test creates `test_pde_smoke.py` (one intentionally failing test) and
+`pde_debug.py`, then verifies LSP interpreter selection/restart, both pytest
+results, a debugpy breakpoint, and the running debuggee's interpreter.
