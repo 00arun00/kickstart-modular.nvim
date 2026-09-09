@@ -67,8 +67,8 @@ Leader is Space. Existing Noice mappings remain under Space-n.
 | `<leader>jb` / `<leader>jp` | Open HTML output / plot externally |
 | `<leader>f` | Format and organize imports with project Ruff |
 
-Execution is always explicit. Text outputs appear inline; inline graphics are
-not enabled because they depend on terminal support. Molten's output import/export
+Execution is always explicit. Text outputs appear inline; graphics use Snacks
+in supported terminals. Molten's output import/export
 is experimental: it matches cells by source text, so duplicate code cells can
 be ambiguous. Execute both duplicates before exporting. Saved outputs can remain
 stale after code edits until you rerun the cells. See
@@ -241,3 +241,45 @@ The tmux test uses a private server and lets Snacks configure only its test pane
 Text, tables and tracebacks remain in Molten's navigable output buffers. Snacks
 handles plot rendering and the existing notification UI; it does not provide a
 browser engine for Plotly or Jupyter widgets.
+
+
+## Rendered Markdown cells
+
+Markdown cells in `.ipynb` files (and existing Python percent notebooks) render
+on open using the same render-markdown styling as `.md` files. Headings, emphasis,
+lists, tables, quotes and fenced code are rendered. Snacks handles images,
+LaTeX and Mermaid with the same converters as normal Markdown. Pasted PNG/JPEG/GIF
+notebook attachments are read from the notebook JSON and cached for display.
+
+- Move into a Markdown cell to reveal the **whole cell's** editable source,
+  including `# %% [markdown]` and the comment prefixes.
+- Move back into code or another cell to render it again.
+- `Space j m` toggles Markdown rendering for the current notebook.
+- Add Markdown with `# %% [markdown]`, followed by commented Markdown lines.
+  Use `#` for a blank Markdown line. Editing and undo operate on the original
+  percent text; rendering never writes to the notebook.
+
+Python completion, formatting, execution and saved notebook JSON keep the same
+workflow. A kernel is not needed for Markdown rendering. Images/math/diagrams
+still need terminal support and the existing Snacks conversion dependencies.
+HTML widgets are not browser-rendered inside Neovim.
+
+The implementation in `lua/custom/python/markdown.lua` parses hidden, per-cell
+Markdown buffers and projects decorations onto the Python buffer. It does not
+inject Markdown into, or patch, Python's parser. This small adapter uses internal
+render-markdown context/handler APIs from the version pinned in `lazy-lock.json`;
+rerun the checks when updating that plugin. When one notebook is shown in several
+windows, source reveal follows the active window and is shared across them.
+
+Verification (use a disposable project; media checks need ImageMagick, tectonic
+and mmdc):
+
+```sh
+~/.local/share/nvim/python/bin/python tests/notebook_markdown.py '/tmp/test project'
+~/.local/share/nvim/python/bin/python tests/notebook_markdown_media.py '/tmp/test project'
+~/.local/share/nvim/python/bin/python tests/notebook_markdown_media.py '/tmp/test project' --tmux
+```
+
+The text test checks Neovim's rendered UI grid as well as decorations, code-cell
+isolation and save/undo preservation. Media tests check real conversion and
+Kitty graphics transmission in disposable terminals, not visual Ghostty screenshots.

@@ -32,6 +32,7 @@ return {
     lazy = false,
     init = function()
       require 'custom.python.notebook'
+      require('custom.python.markdown').setup()
       vim.g.molten_auto_open_output = false
       vim.g.molten_virt_text_output = true
       vim.g.molten_virt_lines_off_by_1 = true
@@ -58,6 +59,7 @@ return {
       require('custom.python.images').setup()
     end,
     keys = {
+      { '<leader>jm', function() require('custom.python.markdown').toggle() end, desc = 'Notebook: toggle Markdown rendering' },
       { '<leader>ji', function() require('custom.python.notebook').init() end, desc = 'Notebook: initialize project kernel' },
       { '<leader>jl', '<cmd>MoltenEvaluateLine<cr>', desc = 'Notebook: run line' },
       { '<leader>jv', ':<C-u>MoltenEvaluateVisual<cr>gv', mode = 'x', desc = 'Notebook: run selection' },
