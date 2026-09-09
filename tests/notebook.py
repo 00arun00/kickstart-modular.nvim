@@ -4,9 +4,9 @@ Usage: ~/.local/share/nvim/python/bin/python tests/notebook.py '/tmp/test projec
 Requires installed plugins and :UpdateRemotePlugins. Only writes test notebooks.
 """
 
-from pathlib import Path
 import sys
 import time
+from pathlib import Path
 
 import nbformat
 import pynvim

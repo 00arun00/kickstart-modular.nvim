@@ -4,9 +4,9 @@ Run with the editor host Python after installing plugins; argv[1] is a uv projec
 with pytest. Its .venv is selected even when Neovim starts outside that project.
 """
 
-from pathlib import Path
 import sys
 import time
+from pathlib import Path
 
 import pynvim
 
