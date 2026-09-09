@@ -19,6 +19,7 @@ function M.kernel(path)
     language = 'python',
     env = { PATH = vim.fs.dirname(python) .. (vim.fn.has 'win32' == 1 and ';' or ':') .. (vim.env.PATH or '') },
   }
+  spec.env.MPLBACKEND = 'module://matplotlib_inline.backend_inline'
   if env.venv(path) then spec.env.VIRTUAL_ENV = env.venv(path) end
   return name, spec
 end

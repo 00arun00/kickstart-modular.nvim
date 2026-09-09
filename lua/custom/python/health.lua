@@ -10,6 +10,12 @@ function M.check()
       vim.health.error('Missing editor ' .. name, { 'Run bash scripts/setup-python.sh, restart, :UpdateRemotePlugins, restart' })
     end
   end
+  local images, reason = require('custom.python.images').status()
+  if images then
+    vim.health.ok(reason)
+  else
+    vim.health.warn(reason)
+  end
   local path = env.here()
   vim.health.info('Project root: ' .. env.root(path))
   vim.health.info('Project Python: ' .. env.python(path))

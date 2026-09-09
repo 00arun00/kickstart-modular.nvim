@@ -161,3 +161,68 @@ Regression test (uses a disposable project with ipykernel):
 ```sh
 ~/.local/share/nvim/python/bin/python tests/output.py '/tmp/test project'
 ```
+
+## Plots in Ghostty (with or without tmux)
+
+Molten uses image.nvim with Kitty graphics and ImageMagick (`brew install
+imagemagick`). Images appear inline and in the output float, bounded to 100
+columns by 20 rows. Unsupported terminals and headless sessions keep text output
+and external plot access. `:checkhealth custom.python` reports image availability.
+
+For tmux 3.3+, add this to `~/.tmux.conf`, then reload the configuration:
+
+```tmux
+source-file -q ~/.config/nvim/scripts/tmux-images.conf
+```
+
+The snippet enables graphics passthrough and focus events and disables visual
+activity. Passthrough lets applications send terminal escape sequences through
+tmux. Ghostty without tmux needs no tmux settings.
+
+Restart Neovim after installing the plugin. Initialize a fresh kernel with
+`Space j i` (stop an existing kernel with `Space j q` first). The kernel uses the
+project `.venv`; install plotting packages there:
+
+```sh
+uv add matplotlib seaborn
+uv add --dev ipykernel
+```
+
+Run this cell with `Space j c`:
+
+```python
+# %%
+import matplotlib.pyplot as plt
+plt.plot([1, 2, 3], [1, 4, 2])
+plt.show()
+```
+
+The kernel defaults to Matplotlib's inline backend, including Seaborn plots.
+`Space j o` previews output; `Space j e` enters it; `Space j p` opens the full
+image externally. `Space j s` saves PNG outputs into the notebook. The `Space j O`
+text snapshot does not render images. A deliberate `%matplotlib` backend change
+in a cell overrides the default; `%matplotlib inline` restores it.
+
+Interactive Plotly charts open in the browser, not inside terminal images:
+
+```sh
+uv add plotly nbformat
+```
+
+```python
+# %%
+import plotly.graph_objects as go
+fig = go.Figure(go.Scatter(x=[1, 2, 3], y=[1, 4, 2]))
+fig.show(renderer="notebook")
+```
+
+Use `Space j b` on that cell to open its HTML output, with zoom and hover.
+The explicit renderer avoids needing Plotly in the editor's Python host.
+Other libraries must emit a supported image or HTML representation; terminal
+output does not provide Jupyter widgets.
+
+Plot payload regression test (disposable project with the packages above):
+
+```sh
+~/.local/share/nvim/python/bin/python tests/plots.py '/tmp/test project'
+```

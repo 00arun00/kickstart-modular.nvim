@@ -28,6 +28,16 @@ return {
   {
     'benlubas/molten-nvim',
     build = ':UpdateRemotePlugins',
+    dependencies = {
+      {
+        '3rd/image.nvim',
+        build = false,
+        opts = function() return require('custom.python.images').options() end,
+        config = function(_, opts)
+          if require('custom.python.images').enabled() then require('image').setup(opts) end
+        end,
+      },
+    },
     lazy = false,
     init = function()
       require 'custom.python.notebook'
@@ -54,8 +64,7 @@ return {
         group = vim.api.nvim_create_augroup('python-output-colors', { clear = true }),
         callback = highlights,
       })
-      -- Text works in any terminal. Rich HTML/images can be opened externally.
-      vim.g.molten_image_provider = 'none'
+      vim.g.molten_image_provider = require('custom.python.images').enabled() and 'image.nvim' or 'none'
     end,
     keys = {
       { '<leader>ji', function() require('custom.python.notebook').init() end, desc = 'Notebook: initialize project kernel' },
