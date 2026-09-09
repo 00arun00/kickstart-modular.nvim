@@ -288,40 +288,53 @@ Kitty graphics transmission in disposable terminals, not visual Ghostty screensh
 
 ## Cell boundaries
 
-Every percent cell has a numbered, typed header and a bottom rule. Code uses the
-theme's information color, Markdown uses its special/accent color, and raw cells
-use the warning color. The active cell has a brighter border and an explicit
-`ACTIVE` label. Numbers are document positions, not execution counts.
+Each percent cell has one full-width separator with its number and type.
+Code uses the theme's information color, Markdown its accent color, and raw
+cells the warning color. The active cell has a brighter rule and an `active`
+label. Numbers are document positions, not execution counts.
 
 ```text
-╭─ 01 MARKDOWN ────────────────────╮
+─ 01 · Markdown ─────────────────────────────────
   Introduction
   Rendered Markdown content
-╰─────────────────────────────────╯
-╭─ 02 CODE · ACTIVE ───────────────╮
+━ 02 · Code · active ────────────────────────────
   print("hello")
-╰─────────────────────────────────╯
-╭─ 03 RAW ────────────────────────╮
+  Out[1]: hello
+─ 03 · Raw ──────────────────────────────────────
   Raw content
-╰─────────────────────────────────╯
 ```
 
-Headers normally replace the displayed `# %%` marker. Moving onto that marker
-reveals the original line and puts the header above it, so cell type/metadata
-remain editable. Markdown source still reveals for the whole active cell.
-Frames are virtual decorations and never appear in notebook saves, copied source
-or execution input. They mark source-cell boundaries; Molten owns output layout.
-They resize to the available text width (up to 100 columns), with compact `C`,
-`M`, `R` labels and `*` for active cells in very narrow splits.
+Headers replace the displayed `# %%` marker, including long metadata. Moving
+onto the marker reveals the editable source underneath its header. Entering a
+Markdown cell reveals its complete source in a readable foreground color.
+Separators are decorations: they never enter notebook saves, copied source or
+execution input. Molten continues to own output layout.
 
-Ordinary Python files without cell markers receive no frames. Markdown rendering
-can still be toggled independently with `Space j m`. In multiple views of the
-same notebook, the most recently focused window determines frame width and
-active state, as with Markdown source reveal.
+The separator follows the available text width; very narrow windows use `C`,
+`M`, `R` and `*` for the active cell. Wrapped Markdown breaks at word boundaries.
+That window option is restored when rendering is disabled or the buffer is left.
+Legacy whole-line `<font ...>text</font>` prompts display their text in reading
+mode; their tags remain editable and literal fenced examples remain untouched.
+This is deliberately limited support, not a general HTML renderer.
 
-The typed frames take visual inspiration from
-[ipynb.nvim](https://github.com/ajbucci/ipynb.nvim); the existing Jupytext/Molten
-editing and execution workflow remains in place.
+Notebook `.ipynb` buffers keep diagnostic signs, underlines and navigation floats,
+but omit long inline diagnostic messages. `[d` / `]d` still open diagnostic details.
+Ordinary Python diagnostics are unchanged.
+
+Ordinary Python without percent markers receives no separators. Markdown rendering
+can be toggled independently with `Space j m`. In multiple views of the same
+notebook, the last focused window determines separator width and active state,
+as with Markdown source reveal. Notebook metadata remains editable at the top.
+
+The initial design took inspiration from [ipynb.nvim](https://github.com/ajbucci/ipynb.nvim).
+The refined design uses single separators and retains Jupytext, Molten and Snacks.
+
+Visual review used isolated Neovim grid captures, not screenshots of live Ghostty.
+The critic scored the baseline 5.5, the revised design 9.0, then reviewed three
+additional rounds covering long metadata, source contrast and concealed content.
+`tests/capture_cells.py /tmp/review.png [columns] [source-prefix] [concealed]`
+reproduces the fixture; its output rows are representative virtual lines. The
+separate Molten/media tests exercise real execution and image placement.
 
 ```sh
 ~/.local/share/nvim/python/bin/python tests/cells_ui.py '/tmp/test project'

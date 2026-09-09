@@ -41,7 +41,9 @@ try:
     code_row = next(i for i, l in enumerate(source, 1) if l == "x = 42")
     screen = render(code_row)
     assert (
-        "01 · Markdown" in screen and "02 · Code · active" in screen and "03 · Raw" in screen
+        "01 · Markdown" in screen
+        and "02 · Code · active" in screen
+        and "03 · Raw" in screen
     ), screen
     assert "04 " not in screen
     assert "╭" not in screen and "╰" not in screen, screen
@@ -59,6 +61,15 @@ try:
     assert [(c.cell_type, c.source) for c in saved.cells] == [
         (c.cell_type, c.source) for c in notebook.cells
     ]
+    # Concealed media/block ranges must not swallow the following header.
+    n.exec_lua(
+        "local ns=vim.api.nvim_create_namespace('test-concealed-body'); vim.api.nvim_buf_set_extmark(0,ns,...,0,{end_row=(...)+1,conceal_lines=''})",
+        markdown_row - 1,
+    )
+    assert "01 · Markdown" in render(code_row)
+    # Long metadata must not leak or consume wrapped blank rows.
+    n.current.buffer[marker_row - 1] += ' id="' + "long-marker-" * 20 + '"'
+    assert "long-marker-" not in render(code_row)
     # Narrow split frames fit inside the source text area.
     n.command("vsplit")
     n.command("vertical resize 36")

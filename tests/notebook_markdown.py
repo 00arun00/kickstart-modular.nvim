@@ -59,12 +59,16 @@ try:
     )
     assert "Results" in screen, screen
     assert "# # Results" not in screen, screen
-    font_row = next(i for i, line in enumerate(source) if 'Answer here.' in line)
-    literal_row = next(i for i, line in enumerate(source) if 'Literal example' in line)
-    font_marks = [m for m in marks() if m[1] == font_row and 'conceal' in m[3] and m[2] >= 2]
+    font_row = next(i for i, line in enumerate(source) if "Answer here." in line)
+    literal_row = next(i for i, line in enumerate(source) if "Literal example" in line)
+    font_marks = [
+        m for m in marks() if m[1] == font_row and "conceal" in m[3] and m[2] >= 2
+    ]
     assert len(font_marks) == 2, [m for m in marks() if m[1] == font_row]
-    assert not any(m[1] == literal_row and 'conceal' in m[3] and m[2] >= 2 for m in marks())
-    assert n.current.window.options['linebreak']
+    assert not any(
+        m[1] == literal_row and "conceal" in m[3] and m[2] >= 2 for m in marks()
+    )
+    assert n.current.window.options["linebreak"]
     inactive = marks()
     assert any("RenderMarkdownH1" in str(m) for m in inactive)
     assert any("RenderMarkdownTable" in str(m) for m in inactive)

@@ -47,6 +47,18 @@ function M.update(buf, force)
   if key == state.key and not force then return end
   state.key = key
   vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+  local hidden = {}
+  for _, other in pairs(vim.api.nvim_get_namespaces()) do
+    if other ~= ns then
+      for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(buf, other, 0, -1, { details = true })) do
+        if mark[4].conceal_lines ~= nil then
+          for r = mark[2], mark[4].end_row or mark[2] do
+            hidden[r] = true
+          end
+        end
+      end
+    end
+  end
   for i, cell in ipairs(state.cells) do
     local selected = i == active
     if selected and cell.kind == 'Markdown' and cell.last > cell.first then
@@ -74,14 +86,6 @@ function M.update(buf, force)
       -- A concealed long marker can still reserve wrapped screen rows. Hide
       -- its row entirely and anchor the separator on the first visible body row.
       local anchor = cell.first + 1
-      local hidden = {}
-      for _, other in pairs(vim.api.nvim_get_namespaces()) do
-        if other ~= ns then
-          for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(buf, other, { anchor, 0 }, { cell.last, -1 }, { details = true })) do
-            if mark[4].conceal_lines ~= nil then hidden[mark[2]] = true end
-          end
-        end
-      end
       while hidden[anchor] and anchor <= cell.last do
         anchor = anchor + 1
       end
