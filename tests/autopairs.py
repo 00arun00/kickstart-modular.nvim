@@ -46,9 +46,9 @@ with tempfile.TemporaryDirectory(prefix="nvim-autopairs-") as directory:
             wait(lambda: n.exec_lua("return package.loaded['nvim-autopairs'] ~= nil"))
             n.input("\x1b")
             wait(lambda: n.funcs.mode() == "n")
-            assert n.exec_lua("return require('nvim-autopairs').config.map_cr") is False
+            assert n.exec_lua("return require('nvim-autopairs').config.map_cr") is True
             cr = n.funcs.maparg("<CR>", "i", False, True)
-            assert "autopairs" not in str(cr).lower(), cr
+            assert cr, "Expected an Insert-mode Enter mapping"
             assert n.current.buffer.options["indentexpr"] in (
                 "python#GetIndent(v:lnum)",
                 "GetPythonIndent(v:lnum)",
@@ -67,6 +67,24 @@ with tempfile.TemporaryDirectory(prefix="nvim-autopairs-") as directory:
                 )
                 assert n.current.buffer[: len(prefix)] == prefix
 
+            # Enter between braces opens an indented line and moves the closer.
+            n.current.buffer[:] = prefix + ["values = {}"]
+            n.current.window.cursor = (len(prefix) + 1, len("values = {"))
+            n.input("i<CR>X<Esc>")
+            wait(
+                lambda prefix=prefix: (
+                    n.funcs.mode() == "n" and len(n.current.buffer) == len(prefix) + 3
+                )
+            )
+            # Document the current built-in continuation behavior, not ideal layout.
+            assert n.current.buffer[-3:] == ["values = {", "        X", "        }"], (
+                n.current.buffer[:]
+            )
+
+            print(
+                "NOTE: Enter inside {} currently gives both body and closer eight spaces"
+            )
+
             for opening, closing in [
                 ("(", ")"),
                 ("[", "]"),
@@ -83,7 +101,7 @@ with tempfile.TemporaryDirectory(prefix="nvim-autopairs-") as directory:
             check('"""docstring<End>', '"""docstring"""')
             check('"a\\"b"', '"a\\"b"')
             print(
-                f"PASS {path.suffix}: pairs, closing skip, paired Backspace, annotations, f-strings, triple/escaped quotes; Enter untouched"
+                f"PASS {path.suffix}: pairs, closing skip, paired Backspace, annotations, f-strings, triple/escaped quotes; Enter enabled"
             )
             if path == notebook:
                 prefix = source[: source.index("# Notes")]

@@ -345,8 +345,11 @@ separate Molten/media tests exercise real execution and image placement.
 
 `nvim-autopairs` inserts closing brackets and quotes as you type, skips existing
 single-character closers, and removes both characters when Backspace is pressed
-inside an empty pair. Its Enter mapping is disabled (`map_cr = false`), preserving
-the normal Python indentation behavior. Blink completion keeps its own mappings;
+inside an empty pair. Its default Enter mapping is enabled: Enter between matching brackets opens
+an indented line and moves the closer below. Python indentation still uses the
+built-in indenter. Known interaction: Enter inside `values = {}` currently gives
+both the new line and closing brace eight spaces. Enter pairing remains enabled;
+this layout may need manual correction or formatting. Blink completion keeps its own mappings;
 no nvim-cmp integration is installed.
 
 Python triple quotes automatically insert the closing triple delimiter. Use End
