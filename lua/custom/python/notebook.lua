@@ -1,4 +1,17 @@
-local M = { ready = {} }
+local M = { ready = {}, connections = {} }
+local launch_specs = {}
+vim.api.nvim_create_autocmd('VimLeavePre', {
+  group = vim.api.nvim_create_augroup('python-kernel-launch-files', { clear = true }),
+  callback = function()
+    for path in pairs(launch_specs) do
+      vim.fn.delete(path .. '/kernel.json')
+      vim.fn.delete(path, 'd')
+    end
+    for _, path in pairs(M.connections) do
+      vim.fn.delete(path)
+    end
+  end,
+})
 vim.api.nvim_create_autocmd('User', {
   pattern = 'MoltenKernelReady',
   group = vim.api.nvim_create_augroup('python-kernel-ready', { clear = true }),
@@ -33,11 +46,19 @@ function M.init()
     return vim.notify('ipykernel is missing from ' .. python .. '\nIn your project run: uv add --dev ipykernel\nThen retry <leader>ji.', vim.log.levels.ERROR)
   end
   local name, spec = M.kernel(path)
+  -- Separate Neovim processes must not overwrite each other's launch registry.
+  name = name .. '-' .. vim.fn.getpid()
+  local registry = vim.fn.tempname() .. '-molten.json'
+  spec.env.NVIM_MOLTEN_REGISTRY = registry
   local dir = vim.fs.joinpath(vim.fn.stdpath 'data', 'jupyter', 'kernels', name)
   vim.fn.mkdir(dir, 'p')
   vim.fn.writefile({ vim.json.encode(spec) }, vim.fs.joinpath(dir, 'kernel.json'))
-  M.ready[name] = nil
+  launch_specs[dir] = true
+  -- Do not clear a different buffer's ready flag when Molten assigns a suffix.
+  if not vim.tbl_contains(vim.fn.MoltenRunningKernels(false), name) then M.ready[name] = nil end
   vim.cmd.MoltenInit { args = { name } }
+  local kernels = vim.fn.MoltenRunningKernels(true)
+  if #kernels == 1 then M.connections[kernels[1]] = registry end
 end
 
 -- Use exact cell spans: NotebookNavigator's Molten adapter adds a trailing

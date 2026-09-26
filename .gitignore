@@ -15,3 +15,6 @@
 
 # Local Neovim runtime log
 /nvim.log
+
+# Python integration test bytecode
+__pycache__/

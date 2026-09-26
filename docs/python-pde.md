@@ -58,6 +58,7 @@ Leader is Space. Existing Noice mappings remain under Space-n.
 | `<leader>jc` / `<leader>jn` | Run cell / run and advance |
 | `<leader>ja` | Run all cells |
 | `<leader>jN` | Add a cell below |
+| `<leader>jV` | Open variable explorer (uppercase V) |
 | `<leader>jl` | Run line |
 | `<leader>jv` (visual) | Run selection |
 | `<leader>jo` / `<leader>je` / `<leader>jh` | Show / enter / hide output |
@@ -130,6 +131,81 @@ This test creates `test_pde_smoke.py` (one intentionally failing test) and
 `pde_debug.py`, then verifies LSP interpreter selection/restart, both pytest
 results, a debugpy breakpoint, and the running debuggee's interpreter.
 
+
+## Variable explorer
+
+Restart Neovim after updating this config and start a fresh kernel with `Space j i`.
+For an already running session, stop its old kernel with `Space j q` first. The
+explorer needs the connection registration supplied by this config's launcher;
+it does not attach to arbitrary kernels by guessing the newest connection file.
+
+Run a cell, then press **`Space j V`** (uppercase V), or `:MoltenVariables`, from
+the notebook. A right-hand split shows a snapshot of that kernel's user variables.
+It also works from a `.py` buffer attached to a kernel started through this config.
+
+| In the explorer | Action |
+| --- | --- |
+| `j` / `k`, `/` | Move and search using normal Vim navigation |
+| `Enter` | Preview the selected variable |
+| `r` | Refresh the list or current preview |
+| `u` | Return to the variable list |
+| `]p` / `[p` | Next / previous 20 rows |
+| `]c` / `[c` | Next / previous 8 columns |
+| `zL` / `zH` | Scroll horizontally through a wide table |
+| `q` / `Esc` | Close the explorer |
+
+`:MoltenInspect tensor_name` opens a named variable directly from the notebook.
+Names are looked up literally; this command does not evaluate expressions such
+as `model.parameters()` or `data[0]`.
+
+PyTorch tensors show their full shape, dtype, device, and whether they require
+gradients. NumPy arrays show shape/dtype; DataFrames show shape and a paged table
+with column labels and index. Lists, tuples, dictionaries, and sets have shallow
+paged previews. Scalars and strings have limited text previews. Modules,
+functions, classes, and underscore-prefixed names are excluded from the list.
+The list displays at most 200 variables; named inspection can access others.
+
+Snapshots do **not** automatically refresh after execution. Press `r` for current
+values. Browsing the list does not fetch tensor values or run custom `repr`
+methods. Pressing Enter on a tensor explicitly copies at most 20 × 8 elements to
+CPU; on a GPU this may synchronize pending work. Higher-dimensional arrays/tensors
+preview index zero in leading dimensions and page over the final two dimensions.
+Sparse, quantized, and meta tensors show metadata only. Custom objects and
+subclasses use metadata-only previews. Table cells truncate at 24 characters.
+
+Busy kernels produce a timeout message instead of being interrupted. A queued
+inspection may still finish when the running cell ends; it does not add execution
+history. Refresh when idle. Restarted/stopped kernels are checked before accepting
+results; reopen the pane from a different notebook to inspect its kernel.
+
+### Implementation and compatibility
+
+`custom/python/variables.lua` manages the pane and calls `scripts/inspect-kernel.py`
+using the existing editor Python host. That client loads `inspect-namespace.py`
+inside the exact project kernel using a silent, history-free expression. No new
+plugin or project dependency is required beyond the existing `ipykernel`.
+
+The launcher uses a small `IPythonKernel` subclass to suppress **only our inspector
+client's** busy/idle broadcasts. Molten otherwise mistakes those messages for
+cell execution events. Normal notebook execution retains its normal messages.
+This uses ipykernel's protected `_publish_status` hook and should be regression
+tested on ipykernel upgrades. The pane also polls its source through Molten's
+existing tick function while focused, because Molten normally polls only the
+current buffer. Installed Molten files are not patched.
+
+Each Neovim process gets its own private launch spec and each kernel launch gets
+a registry/generation identifier. Temporary specs are removed on normal editor
+exit. Source, outputs, namespace names, and execution counts are covered by tests.
+The integration test also covers CPU tensors, empty/scalar/3D/meta values,
+noncontiguous NumPy arrays, paging, multiple kernels, timeouts, restart, and stop.
+Physical GPU transfers have not been verified on this test host.
+The adapter was exercised with ipykernel 6.30.1 and 7.3.0.
+
+```sh
+~/.local/share/nvim/python/bin/python tests/variables.py /path/to/disposable-project
+```
+
+The disposable project's `.venv` needs `ipykernel`, `numpy`, `pandas`, and `torch`.
 
 ## Reading long outputs
 

@@ -34,6 +34,8 @@ return {
       require 'custom.python.notebook'
       require('custom.python.markdown').setup()
       require('custom.python.cells_ui').setup()
+      vim.api.nvim_create_user_command('MoltenVariables', function() require('custom.python.variables').open() end, {})
+      vim.api.nvim_create_user_command('MoltenInspect', function(args) require('custom.python.variables').open(args.args) end, { nargs = 1 })
       vim.g.molten_auto_open_output = false
       vim.g.molten_virt_text_output = true
       vim.g.molten_virt_lines_off_by_1 = true
@@ -60,6 +62,7 @@ return {
       require('custom.python.images').setup()
     end,
     keys = {
+      { '<leader>jV', function() require('custom.python.variables').open() end, desc = 'Notebook: variable explorer' },
       { '<leader>jm', function() require('custom.python.markdown').toggle() end, desc = 'Notebook: toggle Markdown rendering' },
       { '<leader>ji', function() require('custom.python.notebook').init() end, desc = 'Notebook: initialize project kernel' },
       { '<leader>jl', '<cmd>MoltenEvaluateLine<cr>', desc = 'Notebook: run line' },
