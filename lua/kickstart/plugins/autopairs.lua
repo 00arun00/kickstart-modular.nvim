@@ -6,5 +6,6 @@
 return {
   'windwp/nvim-autopairs',
   event = 'InsertEnter',
-  opts = {},
+  -- Let the normal indenter handle Enter; keep bracket and quote pairing.
+  opts = { map_cr = false },
 }

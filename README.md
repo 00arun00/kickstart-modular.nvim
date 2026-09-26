@@ -2,6 +2,10 @@
 
 See [Python PDE](docs/python-pde.md) for uv environments, Molten notebooks, keybindings, and verification.
 
+See [Breadcrumbs and navigation](docs/navigation.md) for Dropbar, notebook cell titles, and symbol menus.
+
+See [Diagnostics and batch-fix workflows](docs/diagnostics-workflows.md) for the installed tooling, quickfix/location lists, Telescope, Ruff, and optional Trouble integration.
+
 # kickstart-modular.nvim
 
 ## Introduction
