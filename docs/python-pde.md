@@ -145,6 +145,11 @@ It also works from a `.py` buffer attached to a kernel started through this conf
 
 The pane sits beside your notebook on wide screens and below it on narrow screens;
 it adapts when the editor is resized. Press `?` for help at any time.
+Slice prompts show the actual tensor expression and valid zero-based ranges:
+for `X` shaped `64 × 1 × 28 × 28`, `t` asks for `X[a, b, :, :]`, with
+`a=0–63` and `b=0–0`. Enter `5, 0` to inspect the sixth item's only channel.
+The table's page counters are one-based positions; `t` and `g` use zero-based indices.
+`R` is labelled **custom view**, and `p` explicitly plots the fetched page only.
 
 | In the explorer | Action |
 | --- | --- |

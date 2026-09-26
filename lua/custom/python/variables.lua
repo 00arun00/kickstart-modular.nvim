@@ -50,6 +50,22 @@ local function metadata(item)
   if item.requires_grad then table.insert(parts, 'grad') end
   return table.concat(parts, ' · ')
 end
+local function slice_hint(s)
+  local shape = s.schema and s.schema.shape or {}
+  local symbols, ranges, defaults = {}, {}, {}
+  for i = 1, #shape - 2 do
+    local symbol = #shape <= 5 and string.char(96 + i) or ('i' .. (i - 1))
+    symbols[i] = symbol
+    ranges[i] = symbol .. '=0–' .. (shape[i] - 1)
+    defaults[i] = 0
+  end
+  local expression = (s.schema and s.schema.name or s.view.name or 'tensor') .. '[' .. table.concat(symbols, ', ') .. ', :, :]'
+  return expression .. ' · ' .. table.concat(ranges, ', '), defaults
+end
+local function selected_column(s)
+  local index = (s.selected_col or 1)
+  return s.schema and s.schema.columns and s.schema.columns[index] or tostring((s.view.col or 0) + index - 1)
+end
 local function popup(title, content, tall)
   local buf = api.nvim_create_buf(false, true)
   local width, height = math.min(100, vim.o.columns - 6), math.min(#content + 2, vim.o.lines - 8)
@@ -85,14 +101,14 @@ local function render(s, data)
   if not s.view.name then
     actions = 'Enter inspect   f filter   s sort   ' .. actions
   elseif schema.rows then
-    actions = 'p plot   ' .. actions
+    actions = 'p plot page   ' .. actions
     if not s.view.renderer and (schema.kind == 'dataframe' or schema.kind == 'series') then actions = 'f filter   s sort   ' .. actions end
     if schema.shape and #schema.shape > 2 then actions = 't slice   ' .. actions end
   end
   if api.nvim_win_get_width(s.win) < 60 then
     actions = not s.view.name and 'Enter inspect · f/s · r · u · ? · q' or 'Enter value · r · u · ? · q'
     if schema.rows then
-      actions = 'p plot · r · u · ? · q'
+      actions = 'p plot page · r · u · ? · q'
       if not s.view.renderer and (schema.kind == 'dataframe' or schema.kind == 'series') then actions = 'f/s · ' .. actions end
       if schema.shape and #schema.shape > 2 then actions = 't slice · ' .. actions end
     end
@@ -104,7 +120,7 @@ local function render(s, data)
   local name = data.name or (data.error and schema.name) or s.view.name or 'Namespace'
   local content = { '  ' .. title .. '   ' .. fit(source, math.max(8, width - 12)), '  ' .. fit(name, width) }
   local subtitle = data.entries and string.format('%d variables · snapshot %s', data.total or #data.entries, os.date '%H:%M:%S') or metadata(data)
-  if s.view.renderer then subtitle = 'Renderer: ' .. s.view.renderer .. ' · source ' .. metadata(schema) end
+  if s.view.renderer then subtitle = 'Custom view: ' .. s.view.renderer .. ' · source ' .. metadata(schema) end
   if data.error then subtitle = 'Unable to refresh' end
   table.insert(content, '  ' .. fit(subtitle, width))
   if s.message then table.insert(content, '  ' .. fit(s.message, width)) end
@@ -120,7 +136,7 @@ local function render(s, data)
     add('  ' .. clean(data.error), 'DiagnosticWarn')
     add('  r retry · u back · q close', 'Comment')
     if s.view.filter then add('  f correct filter (blank clears)', 'Comment') end
-    if s.view.slice then add('  t correct leading indices', 'Comment') end
+    if s.view.slice then add('  t choose valid indices for this tensor', 'Comment') end
   elseif data.entries or data.children then
     local items = data.entries or data.children
     if s.view.query and s.view.query ~= '' then add('  Filter: ' .. s.view.query, 'DiagnosticInfo') end
@@ -146,7 +162,7 @@ local function render(s, data)
     if s.view.sort_col then add('  Sorted: col ' .. s.view.sort_col .. (s.view.descending and ' ↓' or ' ↑'), 'DiagnosticInfo') end
     add(
       string.format(
-        '  Rows %d–%d / %d · columns %d–%d / %d',
+        '  Page: rows %d–%d of %d · cols %d–%d of %d',
         math.min(s.row + 1, s.total_rows),
         s.row + #data.rows,
         s.total_rows,
@@ -182,8 +198,8 @@ local function render(s, data)
     if #data.rows == 0 then add('  Empty view · f clears filter', 'Comment') end
     add ''
     add('  h/l select column · Enter value text · y copy', 'Comment')
-    add('  [p/]p rows · [c/]c columns · g jump', 'Comment')
-    local controls = '  p plot · R render'
+    add('  [p/]p row pages · [c/]c column pages · g jump', 'Comment')
+    local controls = '  p plot page · R custom view'
     if (data.kind == 'dataframe' or data.kind == 'series') and not s.view.renderer then controls = controls .. ' · f filter · s sort' end
     if data.shape and #data.shape > 2 and (data.kind == 'tensor' or data.kind == 'array') then controls = controls .. ' · t slice' end
     add(controls, 'Comment')
@@ -191,7 +207,7 @@ local function render(s, data)
     add ''
     add('  ' .. (data.note or data.summary or 'No preview'))
     add ''
-    add('  Enter value text · R custom renderer', 'Comment')
+    add('  Enter value text · R custom view · ? help', 'Comment')
   end
   write(s, content)
   api.nvim_buf_clear_namespace(s.buf, ns, 0, -1)
@@ -368,13 +384,18 @@ function M.sort()
 end
 function M.slice(input)
   if not state or not state.schema or not state.schema.shape or #state.schema.shape <= 2 then
-    return vim.notify('Slicing applies to arrays/tensors with leading dimensions', vim.log.levels.INFO)
+    return vim.notify('Open a tensor/array with 3 or more dimensions first. A 1D/2D value already fits a table.', vim.log.levels.INFO)
   end
   local indices = {}
   if input ~= '' then
     for index in input:gmatch '[^,%s]+' do
       local value = tonumber(index)
-      if not value or value % 1 ~= 0 then return vim.notify('Enter integer indices separated by commas', vim.log.levels.WARN) end
+      if not value or value % 1 ~= 0 then
+        return vim.notify(
+          'Enter one whole-number index per requested dimension, separated by commas (e.g. 0, 0). Ranges such as 0:5 are not supported.',
+          vim.log.levels.WARN
+        )
+      end
       table.insert(indices, value)
     end
   end
@@ -474,32 +495,49 @@ function M.open(name)
   map('<BS>', M.back, 'Parent view')
   map('<CR>', M.enter, 'Inspect')
   map('f', function()
-    vim.ui.input(
-      { prompt = s.view.name and 'Filter selected column (e.g. > 3 / contains text; blank clears): ' or 'Filter name/type: ', default = s.view.query },
-      function(value)
-        if value ~= nil and state == s then M.filter(value) end
-      end
-    )
+    if s.view.name and (s.view.renderer or not s.schema or not vim.tbl_contains({ 'dataframe', 'series' }, s.schema.kind)) then return M.filter '' end
+    vim.ui.input({
+      prompt = s.view.name and ('Filter "' .. selected_column(s) .. '" · > 3 / contains text · blank clears: ')
+        or 'Find variables by name or type · blank shows all: ',
+      default = s.view.query,
+    }, function(value)
+      if value ~= nil and state == s then M.filter(value) end
+    end)
   end, 'Filter')
   map('s', M.sort, 'Sort')
   map('H', function() M.view { hidden = not s.view.hidden, row = 0 } end, 'Include hidden variables')
   map('t', function()
-    vim.ui.input({ prompt = 'Leading dimension indices (e.g. 0, 2): ', default = table.concat(s.view.slice or {}, ', ') }, function(value)
+    if not s.schema or not s.schema.shape or #s.schema.shape <= 2 then return M.slice '' end
+    local hint, defaults = slice_hint(s)
+    vim.ui.input({ prompt = hint .. ' · enter indices: ', default = table.concat(s.view.slice or s.schema.slice or defaults, ', ') }, function(value)
       if value ~= nil and state == s then M.slice(value) end
     end)
-  end, 'Tensor slice')
+  end, 'Choose tensor slice (zero-based indices)')
   map('R', function()
-    vim.ui.input({ prompt = 'Custom renderer (blank resets): ' }, function(value)
+    if not s.view.name then
+      return vim.notify(
+        'Press Enter on a variable first. R applies a Python function registered in __nvim_inspect_renderers__; ? explains how.',
+        vim.log.levels.INFO
+      )
+    end
+    vim.ui.input({ prompt = 'Custom view · registered Python renderer name · blank restores normal view: ', default = s.view.renderer }, function(value)
       if value ~= nil and state == s then M.view { renderer = value ~= '' and value or false, row = 0, col = 0, filter = false, sort_col = false } end
     end)
-  end, 'Custom renderer')
+  end, 'Custom view (registered Python renderer)')
   map('p', function()
-    vim.ui.select({ 'line', 'histogram', 'heatmap' }, { prompt = 'Plot current page (line/histogram use selected column)' }, function(value)
+    if not s.data or not s.data.rows then return M.plot 'line' end
+    vim.ui.select({ 'line', 'histogram', 'heatmap' }, {
+      prompt = 'Plot fetched page only (not the full slice/dataset)',
+      format_item = function(value)
+        if value == 'heatmap' then return 'Heatmap — all numeric cells on this page' end
+        return (value == 'line' and 'Line' or 'Histogram') .. ' — column "' .. selected_column(s) .. '" on this page'
+      end,
+    }, function(value)
       if value and state == s then M.plot(value) end
     end)
-  end, 'Plot page')
+  end, 'Plot fetched page only')
   map('g', function()
-    vim.ui.input({ prompt = 'Go to row, column (zero-based): ' }, function(value)
+    vim.ui.input({ prompt = 'Jump to view position · zero-based row, column · e.g. 20, 0: ' }, function(value)
       if not value or state ~= s then return end
       local r, c = value:match '^(%d+)%s*,?%s*(%d*)$'
       if not r then return vim.notify('Enter row or row, column', vim.log.levels.WARN) end
@@ -533,25 +571,39 @@ function M.open(name)
       vim.notify 'Value copied'
     end
   end, 'Copy value')
-  map(
-    '?',
-    function()
-      popup('Inspector controls', {
-        'NAVIGATE   j/k rows · h/l or Tab columns · Enter inspect/value text',
-        '           u / Backspace parent · / search this page · q close',
-        'VIEWS      f filter · s sort (asc/desc/reset) · H hidden names',
-        '           [p/]p row pages · [c/]c column pages · g jump to row,column',
-        'TENSORS    t leading indices · last two axes remain the table',
-        'EXPLORE    p line/histogram/heatmap of this page · y copy selected value',
-        'RENDERERS  R named Python renderer · blank restores standard view',
-        'REFRESH    r refresh snapshot · no automatic value/GPU reads',
-        '',
-        'Filters and sorting change this view only. They do not modify your variable.',
-        'GPU values are fetched only on explicit inspection. Plots use this page only.',
-      })
-    end,
-    'Help'
-  )
+  map('?', function()
+    local help = {
+      'Enter opens a variable/child; inside a table it opens the selected value.',
+      'j/k move rows · h/l or Tab select columns · y copies value text',
+      'u / Backspace returns to the previous view · q closes · / searches this page',
+      'r fetches fresh values. Snapshots do not update automatically.',
+      '',
+      'FIND & PAGE',
+      'Namespace: f finds names/types · s sorts by name/type · H includes hidden names',
+      'DataFrame/Series: f filters the selected column · s cycles ascending/descending/off',
+      '[p / ]p previous/next row page · [c / ]c previous/next column page',
+      'g jumps to a zero-based view position. Page counters above the table are 1-based.',
+      '',
+      't — CHOOSE A TENSOR SLICE',
+      'For 3+ dimensions, enter one index for each dimension before the last two.',
+      'Example: shape 64 × 1 × 28 × 28 → 5, 0 shows tensor[5, 0, :, :].',
+      'Indices start at zero. The last two dimensions become table rows/columns.',
+      'This selects a view; it does not change your tensor. Ranges are not supported.',
+      '',
+      'p — PLOT THE FETCHED PAGE',
+      'Line/histogram use the selected column; heatmap uses all numeric cells on the page.',
+      'Only up to 20 rows × 8 columns are fetched. A 28 × 28 image will be incomplete.',
+      '',
+      'R — CUSTOM VIEW (advanced; uppercase R)',
+      'Run a notebook cell registering a Python function, then enter its name:',
+      '__nvim_inspect_renderers__ = {"summary": my_function}',
+      'The function receives this object and returns {"columns": [...], "rows": [[...]]}.',
+      'It runs again on refresh. Use trusted functions; they can change Python state.',
+      'Submit a blank name to return to the normal view. This is not an image viewer.',
+    }
+    if s.schema and s.schema.shape and #s.schema.shape > 2 then table.insert(help, 17, 'For this tensor: ' .. slice_hint(s)) end
+    popup('Inspector controls', help)
+  end, 'Help')
   api.nvim_create_autocmd('BufWipeout', {
     buffer = buf,
     once = true,
