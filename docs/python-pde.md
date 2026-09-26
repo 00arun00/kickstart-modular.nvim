@@ -143,35 +143,87 @@ Run a cell, then press **`Space j V`** (uppercase V), or `:MoltenVariables`, fro
 the notebook. A right-hand split shows a snapshot of that kernel's user variables.
 It also works from a `.py` buffer attached to a kernel started through this config.
 
+The pane sits beside your notebook on wide screens and below it on narrow screens;
+it adapts when the editor is resized. Press `?` for help at any time.
+
 | In the explorer | Action |
 | --- | --- |
-| `j` / `k`, `/` | Move and search using normal Vim navigation |
-| `Enter` | Preview the selected variable |
-| `r` | Refresh the list or current preview |
-| `u` | Return to the variable list |
-| `]p` / `[p` | Next / previous 20 rows |
-| `]c` / `[c` | Next / previous 8 columns |
-| `zL` / `zH` | Scroll horizontally through a wide table |
-| `q` / `Esc` | Close the explorer |
+| `j` / `k`, `/` | Move and search this page using Vim navigation |
+| `Enter` | Drill into a variable/child, or open the selected cell's value text |
+| `u` / Backspace | Return to the previous view, preserving its selection |
+| `r` | Refresh the current snapshot |
+| `h` / `l`, Tab / Shift-Tab | Select a table column |
+| `f` | Filter namespace names/types, or the selected DataFrame/Series column |
+| `s` | Toggle namespace name/type ordering; cycle table ascending/descending/reset |
+| `H` | Include hidden names in the namespace |
+| `]p` / `[p` | Next/previous page: 100 variables or 20 detail rows |
+| `]c` / `[c` | Next/previous group of columns, sized to the pane (up to 8) |
+| `g` | Jump to zero-based `row, column` (or just `row`) |
+| `t` | Choose leading tensor/array indices, e.g. `1, 2` for a 4D tensor |
+| `p` | Plot the current page: line, histogram, or heatmap |
+| `R` | Apply a named custom renderer; blank restores the standard view |
+| `y` | Copy the selected value text |
+| `q` / Esc | Close the explorer or value/plot popup |
 
 `:MoltenInspect tensor_name` opens a named variable directly from the notebook.
 Names are looked up literally; this command does not evaluate expressions such
-as `model.parameters()` or `data[0]`.
+as `model.parameters()` or `data[0]`. Enter traverses dictionaries, lists, tuples,
+and stored object fields through structural paths. Properties and custom `repr`
+methods are not evaluated. Unsupported dictionary keys and sets have previews but
+cannot be traversed. Modules, functions, classes, and hidden names are excluded
+from the namespace by default; the list is paginated rather than capped at 200.
 
-PyTorch tensors show their full shape, dtype, device, and whether they require
-gradients. NumPy arrays show shape/dtype; DataFrames show shape and a paged table
-with column labels and index. Lists, tuples, dictionaries, and sets have shallow
-paged previews. Scalars and strings have limited text previews. Modules,
-functions, classes, and underscore-prefixed names are excluded from the list.
-The list displays at most 200 variables; named inspection can access others.
+For a typical training session:
+
+1. Run the cell defining your tensors and metrics, then `Space j V`.
+2. Press `f`, enter `metrics`, and Enter to open the matching DataFrame.
+3. Use `h`/`l` to choose `loss`, then `s` to sort. Press `f` and enter `> 0.2`
+   to filter it. Other predicates include `contains train`, `== "valid"`, `!=`,
+   `>=`, and `<=`; blank clears the filter. These operations affect the view only.
+4. Press `p` for a line plot or histogram of the selected column on this page.
+   Heatmaps use all numeric cells on the page. Every plot labels this bounded
+   scope; it is not a full-dataset analysis. `o` in the plot popup opens the SVG
+   externally. Inline images use the existing Snacks/terminal image setup and
+   ImageMagick; the external SVG remains available if inline display is unavailable.
+5. Return with `q`, then `u` to your previous view. Open a 4D tensor and press `t`
+   to choose the first two indices; the last two axes form the table.
+
+PyTorch tensors show shape, dtype, device, and gradient status. NumPy arrays and
+pandas tables retain their shape and labels. Table columns fit the pane; long
+values are visually abbreviated and numbers use six significant digits. Enter
+opens the underlying value text, preserving newlines/tabs. Text is bounded at
+4,000 characters per table cell and 10,000 for scalar strings, with an explicit
+truncation marker. Copy uses that bounded text, not the abbreviated table display.
+DataFrame sort/filter is limited to 100,000 rows; narrow larger data in Python.
 
 Snapshots do **not** automatically refresh after execution. Press `r` for current
-values. Browsing the list does not fetch tensor values or run custom `repr`
-methods. Pressing Enter on a tensor explicitly copies at most 20 × 8 elements to
-CPU; on a GPU this may synchronize pending work. Higher-dimensional arrays/tensors
-preview index zero in leading dimensions and page over the final two dimensions.
-Sparse, quantized, and meta tensors show metadata only. Custom objects and
-subclasses use metadata-only previews. Table cells truncate at 24 characters.
+values. Browsing the namespace does not fetch tensor values. Explicitly opening
+or refreshing a tensor copies at most 20 × 8 elements to CPU; on a GPU this may
+synchronize pending work. Higher-dimensional tensors start at zero in leading
+axes. Sparse, quantized, and meta tensors show metadata only. Physical GPU
+transfers have not been verified on this test host.
+
+### Custom renderers
+
+Define a renderer in a notebook cell, run it, then inspect an object and press `R`
+to select its registered name. For example:
+
+```python
+__nvim_inspect_renderers__ = {
+    "training": lambda value: {
+        "columns": ["metric", "value"],
+        "rows": [[name, score] for name, score in value.items()],
+        "note": "Training summary",
+    }
+}
+```
+
+Renderers return `rows` (a list of lists/tuples), optional `columns`, and optional
+`note`. Returned data supports paging, selected-cell inspection, copy, and numeric
+plots. Up to 10,000 returned rows are accepted. Renderer functions are **explicit,
+trusted Python code**: they can mutate state or perform expensive work, unlike
+standard structural inspection. Keep their computation bounded. Table sort/filter
+is available for standard DataFrame/Series views, not renderer results.
 
 Busy kernels produce a timeout message instead of being interrupted. A queued
 inspection may still finish when the running cell ends; it does not add execution

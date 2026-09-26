@@ -121,7 +121,9 @@ print('output intact')
         capture(n, sys.argv[2])
     # Exercise the actual Enter mapping, then row and column paging.
     row = next(
-        i for i, line in enumerate(n.current.buffer[:], 1) if "  tensor  ·" in line
+        i
+        for i, line in enumerate(n.current.buffer[:], 1)
+        if line.strip().startswith("tensor ")
     )
     n.current.window.cursor = (row, 0)
     n.input("\r")
@@ -131,21 +133,22 @@ print('output intact')
         )
     )
     data = snapshot()
-    assert len(data["rows"]) == 20 and len(data["rows"][0]) == 8
+    assert len(data["rows"]) == 20 and 1 <= len(data["rows"][0]) <= 8
     assert data["rows"][0][0] == "0.0"
     n.input("]p")
     wait(lambda: n.current.buffer.vars.get("variable_snapshot", {}).get("row") == 20)
     assert snapshot()["rows"][0][0] == "400.0"
     n.input("]c")
-    wait(lambda: n.current.buffer.vars.get("variable_snapshot", {}).get("col") == 8)
-    assert snapshot()["rows"][0][0] == "408.0"
+    wait(lambda: n.current.buffer.vars.get("variable_snapshot", {}).get("col", 0) > 0)
+    assert float(snapshot()["rows"][0][0]) == 400 + snapshot()["col"]
     assert open_explorer(first, "cube")["rows"][0] == ["0", "1", "2", "3"]
     assert open_explorer(first, "scalar")["rows"] == [["4.0"]]
     assert open_explorer(first, "empty")["rows"] == []
-    assert "unavailable" in open_explorer(first, "meta")["note"]
+    assert "Metadata only" in open_explorer(first, "meta")["note"]
     assert open_explorer(first, "array")["rows"][0] == ["0", "6", "12", "18"]
-    assert open_explorer(first, "frame")["rows"][0] == [str(i) for i in range(8)]
-    assert "custom object repr" in open_explorer(first, "custom")["note"]
+    frame = open_explorer(first, "frame")
+    assert frame["rows"][0] == [str(i) for i in range(len(frame["columns"]))]
+    assert open_explorer(first, "custom")["children"] == []
     assert "no longer exists" in open_explorer(first, "missing")["error"]
     assert query(client, "repr_calls") == 0
     assert query(client, "get_ipython().execution_count") == count

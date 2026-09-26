@@ -2,12 +2,13 @@
 
 from pathlib import Path
 
+_states = {}
+
 
 def capture(n, path, width=150, height=48):
     from PIL import Image, ImageDraw, ImageFont
 
-    grid, attrs = {}, {}
-    defaults = [0xCDD6F4, 0x1E1E2E]
+    grid, attrs, defaults = _states.setdefault(id(n), ({}, {}, [0xCDD6F4, 0x1E1E2E]))
 
     def event(name, args):
         if name == "capture_done":
