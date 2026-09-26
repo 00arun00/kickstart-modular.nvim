@@ -45,8 +45,9 @@ return {
         -- in case there is no indent query, the indentexpr will fallback to the vim's built in one
         local has_indent_query = vim.treesitter.query.get(language, 'indents') ~= nil
 
-        -- enables treesitter based indentation
-        if has_indent_query then vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()" end
+        -- Keep the built-in Python indenter: Tree-sitter over-indents unfinished
+        -- multiline signatures. This also covers Jupytext notebook buffers.
+        if has_indent_query and language ~= 'python' then vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()" end
       end
 
       local available_parsers = require('nvim-treesitter').get_available()
