@@ -155,6 +155,7 @@ The table's page counters are one-based positions; `t` and `g` use zero-based in
 | --- | --- |
 | `j` / `k`, `/` | Move and search this page using Vim navigation |
 | `Enter` | Drill into a variable/child, or open the selected cell's value text |
+| `i` | Open a complete tensor, NumPy, or PIL image |
 | `u` / Backspace | Return to the previous view, preserving its selection |
 | `r` | Refresh the current snapshot |
 | `h` / `l`, Tab / Shift-Tab | Select a table column |
@@ -210,6 +211,51 @@ synchronize pending work. Higher-dimensional tensors start at zero in leading
 axes. Sparse, quantized, and meta tensors show metadata only. Physical GPU
 transfers have not been verified on this test host.
 
+### Complete image viewer
+
+Select `X` and press **`i`**, either in the variable list or its detail view.
+For a tensor shaped `64 × 1 × 28 × 28`, this opens the **complete 28 × 28 image**
+from batch index zero. Table pagination does not limit this viewer.
+
+| In the image viewer | Action |
+| --- | --- |
+| `]` / `[` | Next / previous image in the batch |
+| `c` | Choose an individual channel or a color composite |
+| `n` | Toggle original display and min/max contrast normalization |
+| `L` | Choose the dimension layout explicitly |
+| `r` | Reload the image from the kernel |
+| `o` | Open the complete PNG externally |
+| `?` | Explain controls and display scaling |
+| `q` / Esc | Return to the explorer |
+
+Supported layouts are `HW`, `CHW`, `HWC`, grayscale batches `BHW`, and color
+batches `NCHW`/`NHWC`. Common layouts are inferred; ambiguous channel-first
+versus grayscale-batch shapes prompt for a choice. `L` always lets you override
+the interpretation. PIL images retain palette transparency and alpha when present.
+NumPy is required in the project kernel; PIL support additionally requires Pillow.
+
+**Original display** maps floating-point and boolean values from 0–1, and integer
+values from 0–255, to display pixels. Values outside that range clip; the header
+reports clipping. **Contrast display** maps the selected image's finite color
+minimum/maximum to black/white using a shared range across color channels.
+Constant images become black; alpha is preserved rather than contrast-scaled.
+Nonfinite color components display as black. These are display conversions;
+the source tensor/array is never modified, and no training normalization is
+automatically reversed. The viewer produces an 8-bit PNG preview.
+
+One complete image (or selected channel) is copied from the GPU to CPU on request,
+which can synchronize GPU work. Images are limited to four million pixels;
+larger images must be resized in Python. Sparse, quantized, meta, complex, and
+empty tensors are rejected with an explanation. This version fits the image to
+the viewer; zoom/pan and pixel inspection are not implemented yet.
+
+Inline display uses the existing Snacks image support. The external PNG fallback
+works when terminal image support is unavailable. PNGs are temporary previews;
+only the most recent 16 are retained, and they are removed on normal Neovim exit.
+Native Ghostty/tmux image display could not be visually verified because the
+computer-use tool denied access to Ghostty; pixel output and Neovim controls
+are covered by automated tests.
+
 ### Custom renderers
 
 Define a renderer in a notebook cell, run it, then inspect an object and press `R`
@@ -264,9 +310,12 @@ The adapter was exercised with ipykernel 6.30.1 and 7.3.0.
 ~/.local/share/nvim/python/bin/python tests/variables.py /path/to/disposable-project
 ~/.local/share/nvim/python/bin/python tests/variables_workspace.py /path/to/disposable-project /tmp/variable-review
 /path/to/disposable-project/.venv/bin/python tests/variable_values.py
+~/.local/share/nvim/python/bin/python tests/image_viewer.py /path/to/disposable-project /tmp/image-review
+/path/to/disposable-project/.venv/bin/python tests/image_values.py
 ```
 
 The disposable project's `.venv` needs `ipykernel`, `numpy`, `pandas`, and `torch`.
+The image tests additionally use Pillow to verify decoded PNG pixels and PIL objects.
 
 ## Reading long outputs
 

@@ -99,16 +99,16 @@ local function render(s, data)
   local schema = s.schema or data
   local actions = 'r refresh   u back   ? help   q close'
   if not s.view.name then
-    actions = 'Enter inspect   f filter   s sort   ' .. actions
+    actions = 'Enter inspect   i image   f filter   s sort   ' .. actions
   elseif schema.rows then
-    actions = 'p plot page   ' .. actions
+    actions = 'i image   p plot page   ' .. actions
     if not s.view.renderer and (schema.kind == 'dataframe' or schema.kind == 'series') then actions = 'f filter   s sort   ' .. actions end
     if schema.shape and #schema.shape > 2 then actions = 't slice   ' .. actions end
   end
   if api.nvim_win_get_width(s.win) < 60 then
     actions = not s.view.name and 'Enter inspect · f/s · r · u · ? · q' or 'Enter value · r · u · ? · q'
     if schema.rows then
-      actions = 'p plot page · r · u · ? · q'
+      actions = 'i image · p plot · r · u · ? · q'
       if not s.view.renderer and (schema.kind == 'dataframe' or schema.kind == 'series') then actions = 'f/s · ' .. actions end
       if schema.shape and #schema.shape > 2 then actions = 't slice · ' .. actions end
     end
@@ -199,7 +199,7 @@ local function render(s, data)
     add ''
     add('  h/l select column · Enter value text · y copy', 'Comment')
     add('  [p/]p row pages · [c/]c column pages · g jump', 'Comment')
-    local controls = '  p plot page · R custom view'
+    local controls = '  i image · p plot page · R custom view'
     if (data.kind == 'dataframe' or data.kind == 'series') and not s.view.renderer then controls = controls .. ' · f filter · s sort' end
     if data.shape and #data.shape > 2 and (data.kind == 'tensor' or data.kind == 'array') then controls = controls .. ' · t slice' end
     add(controls, 'Comment')
@@ -207,7 +207,7 @@ local function render(s, data)
     add ''
     add('  ' .. (data.note or data.summary or 'No preview'))
     add ''
-    add('  Enter value text · R custom view · ? help', 'Comment')
+    add('  Enter value text · i image · R custom view · ? help', 'Comment')
   end
   write(s, content)
   api.nvim_buf_clear_namespace(s.buf, ns, 0, -1)
@@ -408,6 +408,27 @@ function M.plot(style)
     vim.notify('Open a numeric table or tensor before plotting', vim.log.levels.INFO)
   end
 end
+function M.image()
+  local s = state
+  if not s then return end
+  local item = s.entries[api.nvim_win_get_cursor(s.win)[1]]
+  local name, path = s.view.name, s.view.path or {}
+  if item and not (name and s.schema and (s.schema.image or s.schema.kind == 'tensor' or s.schema.kind == 'array')) then
+    if s.data.children and (not item.path or item.path == vim.NIL) then return vim.notify 'Open an addressable image variable first' end
+    name, path = name or item.name, item.path or {}
+  end
+  if not name then return vim.notify 'Select an image variable, then press i' end
+  require('custom.python.image_viewer').open {
+    name = name,
+    path = path,
+    python = require('custom.python.host').executable 'python',
+    helper = root .. '/scripts/inspect-kernel.py',
+    connection = function() return connection(s.source, s.kernel) end,
+    poll = function()
+      if api.nvim_buf_is_valid(s.source) then pcall(api.nvim_buf_call, s.source, function() vim.fn.MoltenTick(0) end) end
+    end,
+  }
+end
 function M.enter()
   local s = state
   if not s or s.job then return end
@@ -494,6 +515,7 @@ function M.open(name)
   map('u', M.back, 'Parent view')
   map('<BS>', M.back, 'Parent view')
   map('<CR>', M.enter, 'Inspect')
+  map('i', M.image, 'View complete image (tensor, array, PIL)')
   map('f', function()
     if s.view.name and (s.view.renderer or not s.schema or not vim.tbl_contains({ 'dataframe', 'series' }, s.schema.kind)) then return M.filter '' end
     vim.ui.input({
@@ -593,6 +615,7 @@ function M.open(name)
       'p — PLOT THE FETCHED PAGE',
       'Line/histogram use the selected column; heatmap uses all numeric cells on the page.',
       'Only up to 20 rows × 8 columns are fetched. A 28 × 28 image will be incomplete.',
+      'i opens a COMPLETE image instead: ]/[ batch · c channel · n contrast · L layout.',
       '',
       'R — CUSTOM VIEW (advanced; uppercase R)',
       'Run a notebook cell registering a Python function, then enter its name:',

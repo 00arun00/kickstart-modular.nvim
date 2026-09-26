@@ -71,6 +71,9 @@ def fields(value):
 def describe(name, value):
     category = kind(value)
     item = {"name": name, "type": type(value).__name__, "kind": category, "summary": ""}
+    pil = sys.modules.get("PIL.Image")
+    if pil and isinstance(value, pil.Image):
+        item["image"] = True
     if category in ("tensor", "array", "dataframe", "series"):
         item["shape"] = list(value.shape)
         if category != "dataframe":
@@ -219,6 +222,14 @@ def inspect_value(namespace, request):
             "page_size": VARIABLES,
         }
     value, label = resolve(namespace, name, path)
+    if request.get("action") == "image":
+        preview = runpy.run_path(str(Path(__file__).with_name("inspect-image.py")))[
+            "preview"
+        ]
+        return {
+            "name": label,
+            "image": preview(value, request.get("image_options", {})),
+        }
     result = describe(label, value)
     result["path"] = path
     category = result["kind"]
