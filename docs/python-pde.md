@@ -190,8 +190,10 @@ For a typical training session:
 
 PyTorch tensors show shape, dtype, device, and gradient status. NumPy arrays and
 pandas tables retain their shape and labels. Table columns fit the pane; long
-values are visually abbreviated and numbers use six significant digits. Enter
-opens the underlying value text, preserving newlines/tabs. Text is bounded at
+values are visually abbreviated and floating-point numbers use six significant digits.
+Integers and numeric-looking strings preserve their text. Enter
+opens the underlying value text, preserving newlines/tabs; `y` also copies directly
+from that popup. Text is bounded at
 4,000 characters per table cell and 10,000 for scalar strings, with an explicit
 truncation marker. Copy uses that bounded text, not the abbreviated table display.
 DataFrame sort/filter is limited to 100,000 rows; narrow larger data in Python.
@@ -255,6 +257,8 @@ The adapter was exercised with ipykernel 6.30.1 and 7.3.0.
 
 ```sh
 ~/.local/share/nvim/python/bin/python tests/variables.py /path/to/disposable-project
+~/.local/share/nvim/python/bin/python tests/variables_workspace.py /path/to/disposable-project /tmp/variable-review
+/path/to/disposable-project/.venv/bin/python tests/variable_values.py
 ```
 
 The disposable project's `.venv` needs `ipykernel`, `numpy`, `pandas`, and `torch`.

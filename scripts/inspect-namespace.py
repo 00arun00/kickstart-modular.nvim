@@ -42,6 +42,19 @@ def kind(value):
     return "object"
 
 
+def table_rows(result, rows):
+    """Keep exact value text separate from compact float presentation."""
+    np = sys.modules.get("numpy")
+
+    def display(value):
+        if type(value) is float or (np and isinstance(value, np.floating)):
+            return format(value, ".6g")
+        return text(value, 4000)
+
+    result["rows"] = [[text(v, 4000) for v in row] for row in rows]
+    result["display_rows"] = [[display(v) for v in row] for row in rows]
+
+
 def fields(value):
     # Bypass user __getattribute__, and never evaluate a property/slot descriptor.
     descriptor = inspect.getattr_static(type(value), "__dict__", None)
@@ -84,6 +97,8 @@ def resolve(namespace, name, path):
     value, label = namespace[name], name
     for step in path:
         key, mode = step["key"], step["kind"]
+        if mode == "int_key" and type(key) is str:
+            key, mode = int(key), "key"
         if mode == "index" and type(value) in (list, tuple) and type(key) is int:
             value = value[key]
             label += f"[{key}]"
@@ -245,9 +260,7 @@ def inspect_value(namespace, request):
             )
         height, width = len(rows), max([len(r) for r in rows] or [0])
         row, col = min(row, max(0, height - 1)), min(col, max(0, width - 1))
-        result["rows"] = [
-            [text(v, 4000) for v in r[col : col + cols]] for r in rows[row : row + ROWS]
-        ]
+        table_rows(result, [r[col : col + cols] for r in rows[row : row + ROWS]])
         result["columns"] = [
             text(v)
             for v in rendered.get("columns", [str(i) for i in range(width)])[
@@ -282,10 +295,7 @@ def inspect_value(namespace, request):
         if category in ("dataframe", "series"):
             block = frame.iloc[row : row + ROWS, col : col + cols]
             result["columns"] = [text(v) for v in block.columns]
-            result["rows"] = [
-                [text(v, 4000) for v in r]
-                for r in block.itertuples(index=False, name=None)
-            ]
+            table_rows(result, list(block.itertuples(index=False, name=None)))
             result["index"] = [text(v) for v in block.index]
         else:
             if len(shape) > 2 and any(s == 0 for s in shape[:-2]):
@@ -314,7 +324,7 @@ def inspect_value(namespace, request):
             raw = block.tolist()
             raw = raw if shape else [raw]
             raw = raw if len(shape) >= 2 else [[v] for v in raw]
-            result["rows"] = [[text(v, 4000) for v in r] for r in raw]
+            table_rows(result, raw)
             result["columns"] = [str(i) for i in range(col, min(col + cols, width))]
             if prefix:
                 result["note"] = "Slice [" + ", ".join(map(str, prefix)) + ", :, :]"
@@ -338,6 +348,8 @@ def inspect_value(namespace, request):
                     and not (type(key) is float and not math.isfinite(key))
                 ):
                     step = {"kind": "key", "key": key}
+                    if type(key) is int and abs(key) > 2**53:
+                        step = {"kind": "int_key", "key": str(key)}
                 elif type(value) in (list, tuple):
                     step = {"kind": "index", "key": key}
                 item = describe(text(key), child)

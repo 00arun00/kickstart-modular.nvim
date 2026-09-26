@@ -73,6 +73,9 @@ metrics = pd.DataFrame({'step': range(60), 'loss': [1/(i+1) for i in range(60)],
 series = pd.Series([3, 1, 2], name='score')
 experiment = {'model': {'weights': features, 'labels': ['cat', 'dog']}, 42: {'answer': 'yes'}}
 long_text = 'Long text: ' + 'abcdefghij'*100
+text_table = pd.DataFrame({'text': ['hello\\n世界\\tfin', 'x'*5000]})
+precise = pd.DataFrame({'value': ['000123', 9007199254740993, 1.2345678901]})
+large_keys = {2**70 + 1: 'exact'}
 class Record:
     def __init__(self): self.metrics = metrics
     @property
@@ -156,6 +159,7 @@ print('workspace output intact')
     assert data["rows"][0][0] == "100.0"
     shot("03-tensor")
     assert "error" in action("slice", "99, 0")
+    assert 'experiment["model"]["weights"]' in "\n".join(n.current.buffer[:])
     shot("08-recover-slice")
     assert action("slice", "0, 1")["rows"][0][0] == "20.0"
     data = open_view("record")
@@ -189,14 +193,41 @@ print('workspace output intact')
     data = open_view("duplicate")
     data = action("view", {"sort_col": 1})
     assert data["rows"][0] == ["2", "4"]
+    data = open_view("large_keys")
+    action("enter")
+    assert snap()["note"] == "exact"
+    data = open_view("precise")
+    assert data["display_rows"][:2] == [["000123"], ["9007199254740993"]]
+    shot("14-precision")
     data = open_view("series")
     assert data["columns"] == ["score"]
     data = open_view("long_text")
     assert len(data["note"]) > 1000
+    data = open_view("text_table")
+    inspector = n.current.buffer.number
+    action("enter")
+    assert n.current.buffer[:] == ["hello", "世界\tfin"]
+    n.input("y")
+    time.sleep(0.1)
+    assert n.funcs.getreg('"') == "hello\n世界\tfin"
+    shot("12-value-popup")
+    n.input("q")
+    time.sleep(0.1)
+    assert n.current.buffer.number == inspector
+    n.input("j")
+    time.sleep(0.1)
+    action("enter")
+    assert "truncated at 4000" in "\n".join(n.current.buffer[:])
+    n.input("q")
+    time.sleep(0.1)
     data = open_view("record")
     data = action("view", {"renderer": "summary"})
     assert data["rows"][0] == ["layers", "4"]
     shot("05-renderer")
+    data = open_view("metrics")
+    action("view", {"renderer": "summary"})
+    assert "f filter" not in n.current.window.options["winbar"]
+    shot("11-renderer-controls")
     n.exec_lua("require('custom.python.variables').close()")
     n.ui_try_resize(86, 36)
     time.sleep(0.2)
@@ -210,6 +241,16 @@ print('workspace output intact')
     snap()
     assert n.current.window.width < 100
     shot("10-resized-wide")
+    n.ui_try_resize(50, 18)
+    time.sleep(0.2)
+    snap()
+    shot("13-tiny", 50, 18)
+    assert n.funcs.winsaveview()["leftcol"] == 0
+    n.input("?")
+    time.sleep(0.1)
+    assert "Inspector controls" in n.api.win_get_config(n.current.window)["title"][0][0]
+    n.input("q")
+    time.sleep(0.1)
     assert n.buffers[source][:] == original
     assert query("get_ipython().execution_count") == count
     assert query("sorted(get_ipython().user_ns)") == keys

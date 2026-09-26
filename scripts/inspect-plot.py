@@ -9,7 +9,7 @@ def draw(rows, style, title, column=0, row_offset=0, col_offset=0):
         raise ValueError("Choose line, histogram, or heatmap")
     if not rows or not any(rows):
         raise ValueError("No values in this page to plot")
-    column = min(max(column, 0), len(rows[0]) - 1)
+    column = min(max(column, 0), max(len(r) for r in rows) - 1)
     points = [
         (i, r[column])
         for i, r in enumerate(rows)
@@ -33,7 +33,7 @@ def draw(rows, style, title, column=0, row_offset=0, col_offset=0):
         '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="480" viewBox="0 0 800 480">',
         '<rect width="800" height="480" rx="16" fill="#1e1e2e"/>',
         f'<text x="56" y="44" fill="#cdd6f4" font-family="sans-serif" font-size="21">{escape(title[:65])}</text>',
-        f'<text x="56" y="72" fill="#a6adc8" font-family="sans-serif" font-size="13">{style.title()} · current page · rows {row_offset}–{row_offset + len(rows) - 1} · column {col_offset + column}</text>',
+        f'<text x="56" y="72" fill="#a6adc8" font-family="sans-serif" font-size="13">{style.title()} · current page · view rows {row_offset}–{row_offset + len(rows) - 1} · {"columns " + str(col_offset) + "–" + str(col_offset + max(len(r) for r in rows) - 1) if style == "heatmap" else "column " + str(col_offset + column)}</text>',
     ]
 
     def label(x, y, value, anchor="end"):

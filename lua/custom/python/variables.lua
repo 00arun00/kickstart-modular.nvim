@@ -64,11 +64,14 @@ local function popup(title, content, tall)
     border = 'rounded',
     title = ' ' .. title .. ' ',
     title_pos = 'center',
+    footer = ' q close ',
+    footer_pos = 'right',
     style = 'minimal',
   })
   vim.bo[buf].bufhidden = 'wipe'
   vim.bo[buf].modifiable = false
   vim.wo[win].wrap = true
+  vim.wo[win].list = false
   for _, key in ipairs { 'q', '<Esc>' } do
     vim.keymap.set('n', key, function() api.nvim_win_close(win, true) end, { buffer = buf })
   end
@@ -80,18 +83,28 @@ local function render(s, data)
   local schema = s.schema or data
   local actions = 'r refresh   u back   ? help   q close'
   if not s.view.name then
-    actions = 'f filter   s sort   ' .. actions
+    actions = 'Enter inspect   f filter   s sort   ' .. actions
   elseif schema.rows then
     actions = 'p plot   ' .. actions
-    if schema.kind == 'dataframe' or schema.kind == 'series' then actions = 'f filter   s sort   ' .. actions end
+    if not s.view.renderer and (schema.kind == 'dataframe' or schema.kind == 'series') then actions = 'f filter   s sort   ' .. actions end
     if schema.shape and #schema.shape > 2 then actions = 't slice   ' .. actions end
+  end
+  if api.nvim_win_get_width(s.win) < 60 then
+    actions = not s.view.name and 'Enter inspect · f/s · r · u · ? · q' or 'Enter value · r · u · ? · q'
+    if schema.rows then
+      actions = 'p plot · r · u · ? · q'
+      if not s.view.renderer and (schema.kind == 'dataframe' or schema.kind == 'series') then actions = 'f/s · ' .. actions end
+      if schema.shape and #schema.shape > 2 then actions = 't slice · ' .. actions end
+    end
   end
   vim.wo[s.win].winbar = '%#Comment#  ' .. actions .. '%*'
   local width = math.max(20, api.nvim_win_get_width(s.win) - 4)
   local source = api.nvim_buf_is_valid(s.source) and vim.fs.basename(api.nvim_buf_get_name(s.source)) or 'closed notebook'
-  local title = data.entries and 'VARIABLES' or 'INSPECT'
-  local content = { '  ' .. title .. '   ' .. fit(source, math.max(8, width - 12)), '  ' .. fit(data.name or 'Namespace', width) }
+  local title = not s.view.name and 'VARIABLES' or 'INSPECT'
+  local name = data.name or (data.error and schema.name) or s.view.name or 'Namespace'
+  local content = { '  ' .. title .. '   ' .. fit(source, math.max(8, width - 12)), '  ' .. fit(name, width) }
   local subtitle = data.entries and string.format('%d variables · snapshot %s', data.total or #data.entries, os.date '%H:%M:%S') or metadata(data)
+  if s.view.renderer then subtitle = 'Renderer: ' .. s.view.renderer .. ' · source ' .. metadata(schema) end
   if data.error then subtitle = 'Unable to refresh' end
   table.insert(content, '  ' .. fit(subtitle, width))
   if s.message then table.insert(content, '  ' .. fit(s.message, width)) end
@@ -160,8 +173,7 @@ local function render(s, data)
       local line = '  ' .. fit(data.index and data.index[i] or tostring(s.row + i - 1), 6) .. ' │ '
       local cells = {}
       for j, value in ipairs(row) do
-        local numeric = tonumber(value)
-        local display = numeric and string.format('%.6g', numeric) or value
+        local display = data.display_rows and data.display_rows[i] and data.display_rows[i][j] or value
         cells[j] = { byte = #line, finish = #line + #fit(display, cellwidth), value = value, row = i, col = j }
         line = line .. fit(display, cellwidth) .. ' │ '
       end
@@ -205,6 +217,7 @@ local function render(s, data)
       api.nvim_win_set_cursor(s.win, { selectable[1], 0 })
     end
   end
+  api.nvim_win_call(s.win, function() vim.fn.winrestview { leftcol = 0 } end)
 end
 local function choose_cell(s)
   if not api.nvim_win_is_valid(s.win) then return end
@@ -391,7 +404,13 @@ function M.enter()
   end
   local cell = choose_cell(s)
   local value = cell and cell.value or s.data.note or s.data.summary or ''
-  popup('Value · ' .. (s.data.name or ''), vim.split(value, '\n', { plain = true }))
+  local buf, win = popup('Value · ' .. (s.data.name or ''), vim.split(value, '\n', { plain = true }))
+  api.nvim_win_set_config(win, { footer = ' y copy · q close ' })
+  vim.keymap.set('n', 'y', function()
+    vim.fn.setreg('"', value)
+    pcall(vim.fn.setreg, '+', value)
+    vim.notify 'Value copied'
+  end, { buffer = buf })
 end
 function M.close()
   local s = state
@@ -445,6 +464,7 @@ function M.open(name)
   vim.wo[win].winbar = ''
   vim.wo[win].fillchars = 'eob: '
   vim.wo[win].list = false
+  vim.wo[win].sidescrolloff = 0
   vim.wo[win].winbar = '%#Comment#  r refresh   u back   ? help   q close%*'
   local function map(key, fn, desc) vim.keymap.set('n', key, fn, { buffer = buf, silent = true, desc = desc }) end
   map('q', M.close, 'Close inspector')

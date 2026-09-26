@@ -44,6 +44,13 @@ assert (
 assert "error" in see(record, path=[{"kind": "attr", "key": "dangerous"}])
 assert see({None: 3}, path=[{"kind": "key", "key": None}])["note"] == "3"
 assert see([2, 3])["children"][1]["path"] == [{"kind": "index", "key": 1}]
+large_key = 2**70 + 1
+path = see({large_key: "exact"})["children"][0]["path"]
+assert path == [{"kind": "int_key", "key": str(large_key)}]
+assert see({large_key: "exact"}, path=path)["note"] == "exact"
+precise = see(pd.DataFrame({"value": ["000123", 9007199254740993, 1.2345678901]}))
+assert precise["display_rows"] == [["000123"], ["9007199254740993"], ["1.23457"]]
+assert precise["rows"][2] == ["1.2345678901"]
 assert see("line one\nline two\tend")["note"] == "line one\nline two\tend"
 assert "truncated at 10000" in see("x" * 10001)["note"]
 assert see(torch.arange(120).reshape(2, 3, 4, 5), slice=[1, 2], cols=3)["rows"][0] == [
@@ -85,6 +92,13 @@ assert (
             "plot": "line",
             "selected_col": 1,
         },
+    )["plot"]
+)
+ns["__nvim_inspect_renderers__"]["ragged"] = lambda v: {"rows": [[], [1, 2], [3]]}
+assert (
+    "<svg"
+    in inspect_value(
+        ns, {"name": "x", "renderer": "ragged", "action": "plot", "selected_col": 1}
     )["plot"]
 )
 for style in ("line", "histogram", "heatmap"):
