@@ -6,5 +6,6 @@
 return {
   'windwp/nvim-autopairs',
   event = 'InsertEnter',
-  opts = {},
+  -- Keep Enter under the normal Python indenter; only pair typed characters.
+  opts = { map_cr = false },
 }

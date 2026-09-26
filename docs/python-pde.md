@@ -339,3 +339,19 @@ separate Molten/media tests exercise real execution and image placement.
 ```sh
 ~/.local/share/nvim/python/bin/python tests/cells_ui.py '/tmp/test project'
 ```
+
+
+## Bracket and quote pairing
+
+`nvim-autopairs` inserts closing brackets and quotes as you type, skips existing
+single-character closers, and removes both characters when Backspace is pressed
+inside an empty pair. Its Enter mapping is disabled (`map_cr = false`), preserving
+the normal Python indentation behavior. Blink completion keeps its own mappings;
+no nvim-cmp integration is installed.
+
+Python triple quotes automatically insert the closing triple delimiter. Use End
+(on a one-line string) or cursor movement to pass it: typing all three closing
+quotes again can insert an extra quote with the plugin's default rules.
+
+Run `tests/autopairs.py` with the Neovim Python host to check typed pairing in
+Python and notebook buffers. `tests/python_indent.py` checks Enter separately.
