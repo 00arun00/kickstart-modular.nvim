@@ -117,8 +117,8 @@ function M.open(opts)
       '',
     }
     if opts.file then
-      lines[1] = ' Plot preview · ' .. data.width .. ' × ' .. data.height .. ' px'
-      lines[2] = ' Cached chart · q returns to plot setup'
+      lines[1] = ' Plot preview · ' .. view.width .. ' × ' .. view.height .. ' px' .. (opts.svg and ' · vector rendered' or '')
+      lines[2] = ' ' .. (opts.svg and 'Vector redraw · physical-resolution preview' or 'Cached chart') .. ' · q returns to plot setup'
     end
     for _ = 5, api.nvim_win_get_height(win) do
       lines[#lines + 1] = ''
@@ -139,7 +139,7 @@ function M.open(opts)
         ' o         Open the complete PNG externally',
         ' ? / q     Return to preview; q again returns to plot setup',
         '',
-        ' Zoom and pan use the cached PNG without kernel reads.',
+        opts.svg and ' Zoom and pan redraw the cached vector chart without kernel reads.' or ' Zoom and pan use the cached PNG without kernel reads.',
         ' Return to plot setup for data, labels, browser view or export.',
         ' Use the browser view for hover values and axis zoom.',
       })
@@ -207,13 +207,14 @@ function M.open(opts)
       if active ~= s or serial ~= s.view_serial then return end
       local terminal = require('snacks.image.terminal').size()
       local columns, rows = math.max(1, api.nvim_win_get_width(win) - 2), math.max(1, api.nvim_win_get_height(win) - 5)
-      local scale = terminal.scale > 0 and terminal.scale or 1
+      local scale = opts.svg and 1 or (terminal.scale > 0 and terminal.scale or 1)
       local cw = terminal.cell_width > 0 and terminal.cell_width or 8
       local ch = terminal.cell_height > 0 and terminal.cell_height or 16
       local bg = api.nvim_get_hl(0, { name = 'NormalFloat', link = false }).bg or api.nvim_get_hl(0, { name = 'Normal', link = false }).bg or 0x1e1e2e
       local options = {
         width = math.max(1, math.floor(columns * cw / scale)),
         height = math.max(1, math.floor(rows * ch / scale)),
+        svg = opts.svg,
         zoom = s.zoom,
         cx = s.cx,
         cy = s.cy,
@@ -272,7 +273,7 @@ function M.open(opts)
   end
   local function display(data, label)
     s.data = data
-    api.nvim_win_set_config(win, { title = ' Image · ' .. label .. ' ' })
+    api.nvim_win_set_config(win, { title = (opts.file and ' Plot · ' or ' Image · ') .. label .. ' ' })
     s.options.layout, s.options.batch, s.options.channel = data.layout, data.batch, data.channel
     local file = vim.fn.tempname() .. '.png'
     local raw = vim.base64.decode(data.png)

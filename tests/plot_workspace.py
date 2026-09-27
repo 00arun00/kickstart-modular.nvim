@@ -142,9 +142,23 @@ print('plot output preserved')"""
     (out / "export.svg").write_text("keep existing")
     inputs("e", [str(out / "export.svg")])
     assert (out / "export.svg").read_text() == "keep existing"
+    n.exec_lua(
+        "_G.plot_terminal_size = require('snacks.image.terminal').size; require('snacks.image.terminal').size = function() return {cell_width=16,cell_height=32,scale=2} end"
+    )
     key("v")
     image_data()
     fitted = viewport()
+    assert fitted["renderer"] == "vector"
+    assert fitted["width"] == (n.current.window.width - 2) * 16
+    assert fitted["height"] == (n.current.window.height - 5) * 32
+    n.exec_lua(
+        "require('snacks.image.terminal').size = function() return {cell_width=24,cell_height=48,scale=3} end"
+    )
+    key("0")
+    fitted = viewport(fitted["file"])
+    assert fitted["width"] == (n.current.window.width - 2) * 24
+    (out / "sharp-viewport.png").write_bytes(Path(fitted["file"]).read_bytes())
+    shot("09-sharp-preview.png")
     key("+")
     zoomed = viewport(fitted["file"])
     assert zoomed["zoom"] > fitted["zoom"]
@@ -154,6 +168,7 @@ print('plot output preserved')"""
     shot("02-preview-help.png")
     key("q")
     key("q")
+    n.exec_lua("require('snacks.image.terminal').size = _G.plot_terminal_size")
     assert n.current.buffer.number == panel
     assert n.current.buffer.vars["plot_settings"]["ys"] == [1, 2]
     key("?")

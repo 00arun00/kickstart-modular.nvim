@@ -1,7 +1,11 @@
 """Render a bounded local image viewport; never contact the notebook kernel."""
 
+import io
 import json
+import math
 import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
 
 from PIL import Image, ImageDraw
 
@@ -9,7 +13,12 @@ from PIL import Image, ImageDraw
 def render(source, target, options):
     width = max(1, int(options["width"]))
     height = max(1, int(options["height"]))
-    bound = min(1, 2048 / width, 2048 / height)
+    vector = options.get("svg")
+    bound = (
+        min(1, 8192 / width, 8192 / height, math.sqrt(24_000_000 / (width * height)))
+        if vector
+        else min(1, 2048 / width, 2048 / height)
+    )
     width, height = max(1, int(width * bound)), max(1, int(height * bound))
     background = options.get("background", "#1e1e2e")
     with Image.open(source) as image:
@@ -31,13 +40,29 @@ def render(source, target, options):
             min(height, max(1, round(ih * scale))),
         )
         x, y = (width - dw) // 2, (height - dh) // 2
-        # Transform directly into the viewport; never allocate a huge zoomed image.
-        tile = image.transform(
-            (dw, dh),
-            Image.Transform.AFFINE,
-            (1 / scale, 0, left, 0, 1 / scale, top),
-            resample=Image.Resampling.NEAREST,
-        )
+        if vector:
+            import vl_convert as vlc
+
+            # Rasterize only the visible vector region, never a giant zoomed chart.
+            # Keep navigation coordinates in the original PNG's pixel space.
+            root = ET.fromstring(Path(vector).read_text())
+            root.set("width", str(iw))
+            root.set("height", str(ih))
+            svg = (
+                f'<svg xmlns="http://www.w3.org/2000/svg" width="{dw}" height="{dh}" '
+                f'viewBox="{left} {top} {dw / scale} {dh / scale}">'
+                + ET.tostring(root, encoding="unicode")
+                + "</svg>"
+            )
+            tile = Image.open(io.BytesIO(vlc.svg_to_png(svg))).convert("RGBA")
+        else:
+            # Pixel inspection deliberately retains nearest-neighbor sampling.
+            tile = image.transform(
+                (dw, dh),
+                Image.Transform.AFFINE,
+                (1 / scale, 0, left, 0, 1 / scale, top),
+                resample=Image.Resampling.NEAREST,
+            )
         canvas = Image.new("RGBA", (width, height), background)
         # A checkerboard makes transparent pixels distinguishable from black.
         if image.getextrema()[3][0] < 255:
@@ -56,6 +81,7 @@ def render(source, target, options):
         canvas.alpha_composite(tile, (x, y))
         canvas.convert("RGB").save(target, dpi=(96, 96))
     return {
+        "renderer": "vector" if vector else "nearest",
         "width": width,
         "height": height,
         "zoom": zoom,

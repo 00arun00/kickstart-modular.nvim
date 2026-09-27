@@ -364,7 +364,14 @@ function M.open(opts)
   end
   map('v', function()
     if ready() then
-      require('custom.python.image_viewer').open { file = s.files.png, name = s.settings.title, python = opts.python, helper = opts.helper, poll = opts.poll }
+      require('custom.python.image_viewer').open {
+        file = s.files.png,
+        svg = s.files.svg,
+        name = s.settings.title,
+        python = opts.python,
+        helper = opts.helper,
+        poll = opts.poll,
+      }
     end
   end, 'Preview with zoom/pan/fit')
   map('b', function()

@@ -585,8 +585,11 @@ lose precision, and magnitudes above 1e150 require rescaling in Python.
 
 Browser charts embed data and JavaScript locally. Line/scatter/histogram support
 hover, wheel zoom, drag pan and double-click reset; heatmaps support hover.
-Inline PNG preview zooms the rendered image, whereas browser zoom changes the
-chart axes. Exports preserve snapshots and never overwrite existing files.
+Inline preview redraws the cached SVG at the terminal’s physical pixel resolution
+when fitting, zooming, panning, or resizing. It rasterizes only the visible region
+(up to 8192 pixels per side and 24 million pixels), keeping text and lines smooth
+without kernel reads. Browser zoom instead changes chart axes. Ordinary tensor
+image inspection retains nearest-neighbor scaling for individual pixels. Exports preserve snapshots and never overwrite existing files.
 Temporary snapshots are retained for the last eight draws and cleaned on exit;
 export anything you want to keep. Changing settings invalidates the old preview
 until Enter draws again. Source variables, notebook text, execution history and

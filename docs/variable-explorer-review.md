@@ -117,3 +117,22 @@ first 512 columns, eight series, numeric-only axes, bounded extraction, and
 floating-point plotting precision. Browser axes are interactive; terminal
 preview zoom/pan manipulates the rendered PNG. The broader explorer TUI
 consistency pass remains separate follow-up work.
+
+## Sharp terminal plot previews (2026-09-27)
+
+User testing exposed blurry chart labels in native terminal previews. Chart
+previews now use physical terminal cell pixels without dividing by the estimated
+DPI scale, and redraw the visible region from the cached SVG on zoom/pan/resize.
+Rasterization is bounded to 8192 pixels per side and 24 million pixels, without
+allocating the whole zoomed chart. Ordinary image inspection keeps its original
+nearest-neighbor path and bounds. No new dependency or kernel request is added.
+
+Validation: `tests/plot_viewport.py` proves vector detail from a blank source PNG,
+antialiasing through 32x zoom, bounded crops, allocation limits, and matching
+coordinates when the PNG is 1.5x the SVG. The real plot workspace integration
+passes with mocked 2x/3x terminal dimensions and asserts full physical pixel
+sizes. Existing image-viewer and pixel-viewport regressions pass. Ruff/StyLua and
+diff checks pass. The separate skeptic reviewed the vector crop implementation
+and a 3200x1800 rendered chart (about 0.43 seconds locally). Captures and viewport
+artifacts are under `/tmp/sharp-plot-retina`; native Ghostty/tmux appearance still
+requires user confirmation, rather than being inferred from headless captures.
