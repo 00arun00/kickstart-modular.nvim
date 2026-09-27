@@ -585,8 +585,13 @@ lose precision, and magnitudes above 1e150 require rescaling in Python.
 
 Browser charts embed data and JavaScript locally. Line/scatter/histogram support
 hover, wheel zoom, drag pan and double-click reset; heatmaps support hover.
-Inline preview redraws the cached SVG at the terminal’s physical pixel resolution
-when fitting, zooming, panning, or resizing. It rasterizes only the visible region
+Inline preview starts with a native-resolution vector render. Zoom and pan use
+smooth scaling of that pinned snapshot while moving, then redraw from the SVG
+after a 350 ms pause following the last preview frame. Held keys coalesce into
+the latest requested position while cached frames finish, avoiding cancellation
+starvation. Resizing redraws at physical resolution; `r` reloads the chart
+snapshot and forces a native redraw. Each moving frame uses the original native
+snapshot, so repeated navigation does not accumulate blur. The redraw rasterizes only the visible region
 (up to 8192 pixels per side and 24 million pixels), keeping text and lines smooth
 without kernel reads. Browser zoom instead changes chart axes. Ordinary tensor
 image inspection retains nearest-neighbor scaling for individual pixels. Exports preserve snapshots and never overwrite existing files.

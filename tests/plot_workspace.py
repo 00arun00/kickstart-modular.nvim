@@ -157,11 +157,59 @@ print('plot output preserved')"""
     key("0")
     fitted = viewport(fitted["file"])
     assert fitted["width"] == (n.current.window.width - 2) * 24
+    fitted = wait(
+        lambda: (
+            v
+            if (v := n.current.buffer.vars.get("image_viewport"))
+            and v["renderer"] == "vector"
+            else None
+        )
+    )
     (out / "sharp-viewport.png").write_bytes(Path(fitted["file"]).read_bytes())
     shot("09-sharp-preview.png")
     key("+")
     zoomed = viewport(fitted["file"])
     assert zoomed["zoom"] > fitted["zoom"]
+    assert zoomed["renderer"] == "cached"
+    (out / "moving-viewport.png").write_bytes(Path(zoomed["file"]).read_bytes())
+    settled = wait(
+        lambda: (
+            v
+            if (v := n.current.buffer.vars.get("image_viewport"))
+            and v["renderer"] == "vector"
+            and v["file"] != zoomed["file"]
+            else None
+        )
+    )
+    assert settled["crop"] == zoomed["crop"] and settled["width"] == zoomed["width"]
+    # Held navigation must produce frames before release, not cancel every job.
+    moving_frames = set()
+    for i in range(30):
+        n.input("l" if i % 2 else "h")
+        time.sleep(0.04)
+        v = n.current.buffer.vars.get("image_viewport")
+        if v and v["renderer"] == "cached":
+            moving_frames.add(v["file"])
+    assert len(moving_frames) >= 2, moving_frames
+    settled = wait(
+        lambda: (
+            v
+            if (v := n.current.buffer.vars.get("image_viewport"))
+            and v["renderer"] == "vector"
+            and v["file"] != settled["file"]
+            else None
+        )
+    )
+
+    (out / "settled-viewport.png").write_bytes(Path(settled["file"]).read_bytes())
+    key("l")
+    panned = viewport(settled["file"])
+    assert panned["renderer"] == "cached"
+    assert panned["cx"] > settled["cx"]
+    key("?")
+    time.sleep(0.8)
+    assert "PLOT PREVIEW" in "\n".join(n.current.buffer[:])
+    key("q")
     key("0")
     viewport(zoomed["file"])
     key("?")

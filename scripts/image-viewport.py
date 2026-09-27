@@ -40,7 +40,26 @@ def render(source, target, options):
             min(height, max(1, round(ih * scale))),
         )
         x, y = (width - dw) // 2, (height - dh) // 2
-        if vector:
+        cache = options.get("cache") if vector else None
+        if cache:
+            # Reproject the native fit snapshot; never sample a previous scaled
+            # frame, so repeated navigation cannot accumulate blur.
+            with Image.open(cache["file"]) as cached:
+                cs = cache["scale"]
+                tile = cached.convert("RGBA").transform(
+                    (dw, dh),
+                    Image.Transform.AFFINE,
+                    (
+                        cs / scale,
+                        0,
+                        (left - cache["crop"][0]) * cs + cache["image_rect"][0],
+                        0,
+                        cs / scale,
+                        (top - cache["crop"][1]) * cs + cache["image_rect"][1],
+                    ),
+                    resample=Image.Resampling.BICUBIC,
+                )
+        elif vector:
             import vl_convert as vlc
 
             # Rasterize only the visible vector region, never a giant zoomed chart.
@@ -81,7 +100,7 @@ def render(source, target, options):
         canvas.alpha_composite(tile, (x, y))
         canvas.convert("RGB").save(target, dpi=(96, 96))
     return {
-        "renderer": "vector" if vector else "nearest",
+        "renderer": "cached" if cache else "vector" if vector else "nearest",
         "width": width,
         "height": height,
         "zoom": zoom,

@@ -38,6 +38,7 @@ end
 local function close(s, wiped)
   if s.closing then return end
   s.closing = true
+  if s.chart_cache then vim.fn.delete(s.chart_cache.file) end
   if s.job then s.job:kill(15) end
   if s.view_job then s.view_job:kill(15) end
   s.view_serial = (s.view_serial or 0) + 1
@@ -117,8 +118,15 @@ function M.open(opts)
       '',
     }
     if opts.file then
-      lines[1] = ' Plot preview · ' .. view.width .. ' × ' .. view.height .. ' px' .. (opts.svg and ' · vector rendered' or '')
-      lines[2] = ' ' .. (opts.svg and 'Vector redraw · physical-resolution preview' or 'Cached chart') .. ' · q returns to plot setup'
+      lines[1] = ' Plot preview · '
+        .. view.width
+        .. ' × '
+        .. view.height
+        .. ' px'
+        .. (opts.svg and (view.renderer == 'cached' and ' · cached preview' or ' · native redraw') or '')
+      lines[2] = ' '
+        .. (opts.svg and (view.renderer == 'cached' and 'Moving · sharpens after pause' or 'Native resolution') or 'Cached chart')
+        .. ' · q returns to plot setup'
     end
     for _ = 5, api.nvim_win_get_height(win) do
       lines[#lines + 1] = ''
@@ -139,7 +147,7 @@ function M.open(opts)
         ' o         Open the complete PNG externally',
         ' ? / q     Return to preview; q again returns to plot setup',
         '',
-        opts.svg and ' Zoom and pan redraw the cached vector chart without kernel reads.' or ' Zoom and pan use the cached PNG without kernel reads.',
+        opts.svg and ' Zoom/pan scale the native snapshot, then sharpen after a pause.' or ' Zoom and pan use the cached PNG without kernel reads.',
         ' Return to plot setup for data, labels, browser view or export.',
         ' Use the browser view for hover values and axis zoom.',
       })
@@ -183,8 +191,13 @@ function M.open(opts)
     api.nvim_win_set_cursor(win, { 1, 0 })
   end
   local repaint
-  repaint = function()
+  repaint = function(native)
     if active ~= s then return end
+    if s.view_job and s.view_cached and not native and not s.help then
+      s.pending_motion = true
+      return
+    end
+    s.pending_motion = nil
     s.view_serial = s.view_serial + 1
     local serial = s.view_serial
     if s.view_job then
@@ -220,9 +233,11 @@ function M.open(opts)
         cy = s.cy,
         background = string.format('#%06x', bg),
       }
+      if opts.svg and not native and s.chart_cache then options.cache = s.chart_cache end
       local file = vim.fn.tempname() .. '.png'
       s.view_files[#s.view_files + 1] = file
       local helper = vim.fs.dirname(opts.helper) .. '/image-viewport.py'
+      s.view_cached = options.cache ~= nil
       s.view_job = vim.system(
         { opts.python, helper, s.file, file, vim.json.encode(options) },
         { text = true, timeout = 5000 },
@@ -238,10 +253,30 @@ function M.open(opts)
             return write(s, { ' Could not render viewport: ' .. (ok and view.error or 'local renderer failed'), ' o opens the complete PNG · q closes' })
           end
           hide_image()
-          s.cx, s.cy, s.zoom, s.viewport = view.cx, view.cy, view.zoom, view
+          local pending = s.pending_motion
+          s.pending_motion = nil
+          if not pending then
+            s.cx, s.cy, s.zoom = view.cx, view.cy, view.zoom
+          end
+          s.viewport = view
+          if pending then vim.schedule(function()
+            if active == s and serial == s.view_serial then repaint() end
+          end) end
           view.file = file
           view.source_file = s.file
           vim.b[buf].image_viewport = view
+          if opts.svg and view.renderer == 'vector' and view.zoom == 1 then
+            if s.chart_cache then vim.fn.delete(s.chart_cache.file) end
+            local cache_file = vim.fn.tempname() .. '.png'
+            local copied = vim.uv.fs_copyfile(file, cache_file)
+            s.chart_cache = copied and vim.deepcopy(view) or nil
+            if s.chart_cache then s.chart_cache.file = cache_file end
+          end
+          if view.renderer == 'cached' and not pending then
+            vim.defer_fn(function()
+              if active == s and serial == s.view_serial and not s.help then repaint(true) end
+            end, 350)
+          end
           header(view)
           while #s.view_files > 4 do
             vim.fn.delete(table.remove(s.view_files, 1))
@@ -272,6 +307,10 @@ function M.open(opts)
     end, 30)
   end
   local function display(data, label)
+    if s.chart_cache then
+      vim.fn.delete(s.chart_cache.file)
+      s.chart_cache = nil
+    end
     s.data = data
     api.nvim_win_set_config(win, { title = (opts.file and ' Plot · ' or ' Image · ') .. label .. ' ' })
     s.options.layout, s.options.batch, s.options.channel = data.layout, data.batch, data.channel
@@ -482,7 +521,7 @@ function M.open(opts)
     callback = function()
       if active == s and api.nvim_win_is_valid(win) then
         api.nvim_win_set_config(win, geometry())
-        repaint()
+        repaint(true)
       end
     end,
   })

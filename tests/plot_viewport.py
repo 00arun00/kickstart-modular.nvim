@@ -68,6 +68,44 @@ with tempfile.TemporaryDirectory() as folder:
     )
     assert Image.open(output).getpixel((60, 120))[:3] == (255, 0, 0)
 
+    # Cached navigation uses the full native snapshot and no SVG renderer.
+    cache_file = folder / "native.png"
+    native = render(png, cache_file, {"width": 300, "height": 300, "svg": str(svg)})
+    native["file"] = str(cache_file)
+    svg.unlink()  # cached rendering must not even open the vector source
+    cached = render(
+        png,
+        output,
+        {
+            "width": 300,
+            "height": 300,
+            "svg": str(svg),
+            "zoom": 2,
+            "cx": 0.4,
+            "cache": native,
+        },
+    )
+    assert cached["renderer"] == "cached"
+    assert Image.open(output).getpixel((60, 120))[:3] == (255, 0, 0)
+    first = output.read_bytes()
+    render(
+        png,
+        output,
+        {"width": 300, "height": 300, "svg": str(svg), "zoom": 10, "cache": native},
+    )
+    render(
+        png,
+        output,
+        {
+            "width": 300,
+            "height": 300,
+            "svg": str(svg),
+            "zoom": 2,
+            "cx": 0.4,
+            "cache": native,
+        },
+    )
+    assert output.read_bytes() == first  # no cumulative resampling degradation
 print(
     "PASS: physical-resolution vector rendering, antialiased detail at 32x, bounded crops/allocation, unchanged SVG"
 )

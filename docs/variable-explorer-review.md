@@ -136,3 +136,24 @@ diff checks pass. The separate skeptic reviewed the vector crop implementation
 and a 3200x1800 rendered chart (about 0.43 seconds locally). Captures and viewport
 artifacts are under `/tmp/sharp-plot-retina`; native Ghostty/tmux appearance still
 requires user confirmation, rather than being inferred from headless captures.
+
+## Hybrid chart navigation (2026-09-27)
+
+Zoom/pan now reproject a pinned native fit snapshot using bicubic sampling, then
+redraw the visible SVG region after 350 ms without another completed motion
+frame. The cache is independent of the four-frame viewport eviction queue and
+is removed on source reload/close. Every fast frame samples that original cache,
+not a previously scaled result. Resizing forces native rendering; subsequent
+motion can still reuse the full fit cache across viewport dimensions. Native
+jobs and delayed callbacks remain guarded against help, close, or newer input.
+Cached jobs finish while newer motion requests coalesce, preventing held keys
+from repeatedly cancelling every frame.
+
+Tests: real Neovim/kernel flow at 2x/3x pixel scales verifies cached-to-native
+transitions with identical crop coordinates, multiple frames during held keys,
+and help cancelling pending sharpening. Pixel tests render with the SVG deleted
+to prove the fast path uses only the native bitmap; repeated zoom cycles produce
+identical pixels, without cumulative blur. Existing image UI and viewport tests
+pass. Captures and moving/settled PNGs: `/tmp/hybrid-motion-ui`. Native terminal
+motion smoothness still needs manual confirmation; headless tests establish
+frame production, geometry and lifecycle rather than physical display latency.
