@@ -149,7 +149,7 @@ Slice prompts show the actual tensor expression and valid zero-based ranges:
 for `X` shaped `64 × 1 × 28 × 28`, `t` asks for `X[a, b, :, :]`, with
 `a=0–63` and `b=0–0`. Enter `5, 0` to inspect the sixth item's only channel.
 The table's page counters are one-based positions; `t` and `g` use zero-based indices.
-`R` is labelled **custom view**, and `p` explicitly plots the fetched page only.
+`R` is labelled **custom view**. `p` opens full-source plot setup; `P` keeps the quick fetched-page plot.
 
 | In the explorer | Action |
 | --- | --- |
@@ -166,7 +166,7 @@ The table's page counters are one-based positions; `t` and `g` use zero-based in
 | `]c` / `[c` | Next/previous group of columns, sized to the pane (up to 8) |
 | `g` | Jump to zero-based `row, column` (or just `row`) |
 | `t` | Choose leading tensor/array indices, e.g. `1, 2` for a 4D tensor |
-| `p` | Plot the current page: line, histogram, or heatmap |
+| `p` / `P` | Full-source plot setup / quick current-page plot |
 | `R` | Apply a named custom renderer; blank restores the standard view |
 | `y` | Copy the selected value text |
 | `q` / Esc | Close the explorer or value/plot popup |
@@ -186,11 +186,15 @@ For a typical training session:
 3. Use `h`/`l` to choose `loss`, then `s` to sort. Press `f` and enter `> 0.2`
    to filter it. Other predicates include `contains train`, `== "valid"`, `!=`,
    `>=`, and `<=`; blank clears the filter. These operations affect the view only.
-4. Press `p` for a line plot or histogram of the selected column on this page.
-   Heatmaps use all numeric cells on the page. Every plot labels this bounded
-   scope; it is not a full-dataset analysis. `o` in the plot popup opens the SVG
-   externally. Inline images use the existing Snacks/terminal image setup and
-   ImageMagick; the external SVG remains available if inline display is unavailable.
+4. Press `p` to configure a plot from the original variable or selected tensor
+   slice. Choose `t`ype, `x` column, and `y` columns (toggle, then Done).
+   `r` sets a zero-based `[start, stop)` row range; `s` sets the sampling budget.
+   `l` sets title and axis labels; `a` toggles the legend. Enter draws, `v` previews
+   with zoom/pan/fit, `b` opens an interactive local browser chart, and `e` exports
+   PNG, SVG, self-contained HTML, or Vega-Lite JSON. `q` returns from preview to
+   settings. `R` reloads the source schema; `?` explains the controls.
+   Explorer filtering and sorting do not alter this plot source. Use `P` for a
+   quick plot limited to the fetched table page.
 5. Return with `q`, then `u` to your previous view. Open a 4D tensor and press `t`
    to choose the first two indices; the last two axes form the table.
 
@@ -559,3 +563,31 @@ quotes again can insert an extra quote with the plugin's default rules.
 
 Run `tests/autopairs.py` with the Neovim Python host to check typed pairing in
 Python and notebook buffers. `tests/python_indent.py` checks Enter separately.
+
+## Full-source plot limits and rendering
+
+The editor host uses Vega-Lite via `vl-convert-python`, installed by
+`scripts/setup-python.sh`. No plotting package is added to project environments.
+Line, scatter, histogram, and heatmap support real numeric DataFrames, Series,
+NumPy arrays, and dense PyTorch tensors. For higher-dimensional values, select
+leading indices with explorer `t` first. DataFrame indices are not implicit X:
+choose a numeric column, or use zero-based source row positions.
+
+Line/scatter budgets are rows per series (10–20,000); heatmap budgets count cells.
+A separate 100,000-value extraction cap applies. Uniform row sampling includes
+range endpoints and can miss spikes; each chart reports source/range/sample size.
+Lines preserve source order and break at missing sampled values. Histograms use
+shared bin edges and every finite selected value, rejecting ranges above 100,000
+values rather than sampling. Heatmaps sample rows without averaging columns.
+Only the first 512 columns are offered, with up to eight line/scatter/histogram
+series. Numeric plotting uses floating-point values; very large integers may
+lose precision, and magnitudes above 1e150 require rescaling in Python.
+
+Browser charts embed data and JavaScript locally. Line/scatter/histogram support
+hover, wheel zoom, drag pan and double-click reset; heatmaps support hover.
+Inline PNG preview zooms the rendered image, whereas browser zoom changes the
+chart axes. Exports preserve snapshots and never overwrite existing files.
+Temporary snapshots are retained for the last eight draws and cleaned on exit;
+export anything you want to keep. Changing settings invalidates the old preview
+until Enter draws again. Source variables, notebook text, execution history and
+cell outputs are not modified by inspection or rendering.

@@ -101,7 +101,7 @@ local function render(s, data)
   if not s.view.name then
     actions = 'Enter inspect   i image   f filter   s sort   ' .. actions
   elseif schema.rows then
-    actions = 'i image   p plot page   ' .. actions
+    actions = 'i image   p plot setup   ' .. actions
     if not s.view.renderer and (schema.kind == 'dataframe' or schema.kind == 'series') then actions = 'f filter   s sort   ' .. actions end
     if schema.shape and #schema.shape > 2 then actions = 't slice   ' .. actions end
   end
@@ -199,7 +199,7 @@ local function render(s, data)
     add ''
     add('  h/l select column · Enter value text · y copy', 'Comment')
     add('  [p/]p row pages · [c/]c column pages · g jump', 'Comment')
-    local controls = '  i image · p plot page · R custom view'
+    local controls = '  i image · p plot setup · R custom view'
     if (data.kind == 'dataframe' or data.kind == 'series') and not s.view.renderer then controls = controls .. ' · f filter · s sort' end
     if data.shape and #data.shape > 2 and (data.kind == 'tensor' or data.kind == 'array') then controls = controls .. ' · t slice' end
     add(controls, 'Comment')
@@ -429,6 +429,28 @@ function M.image()
     end,
   }
 end
+function M.plot_setup()
+  local s = state
+  if not s then return end
+  local item = s.entries[api.nvim_win_get_cursor(s.win)[1]]
+  local name, path = s.view.name, s.view.path or {}
+  if item then
+    if s.data.children and (not item.path or item.path == vim.NIL) then return vim.notify 'Select an addressable numeric variable first' end
+    name, path = name or item.name, item.path or {}
+  end
+  if not name then return vim.notify 'Select a numeric variable, then press p' end
+  require('custom.python.plot_workspace').open {
+    name = name,
+    path = path,
+    slice = s.view.slice,
+    python = require('custom.python.host').executable 'python',
+    helper = root .. '/scripts/inspect-kernel.py',
+    connection = function() return connection(s.source, s.kernel) end,
+    poll = function()
+      if api.nvim_buf_is_valid(s.source) then pcall(api.nvim_buf_call, s.source, function() vim.fn.MoltenTick(0) end) end
+    end,
+  }
+end
 function M.enter()
   local s = state
   if not s or s.job then return end
@@ -546,7 +568,8 @@ function M.open(name)
       if value ~= nil and state == s then M.view { renderer = value ~= '' and value or false, row = 0, col = 0, filter = false, sort_col = false } end
     end)
   end, 'Custom view (registered Python renderer)')
-  map('p', function()
+  map('p', M.plot_setup, 'Configure full-source plot')
+  map('P', function()
     if not s.data or not s.data.rows then return M.plot 'line' end
     vim.ui.select({ 'line', 'histogram', 'heatmap' }, {
       prompt = 'Plot fetched page only (not the full slice/dataset)',
@@ -612,9 +635,9 @@ function M.open(name)
       'Indices start at zero. The last two dimensions become table rows/columns.',
       'This selects a view; it does not change your tensor. Ranges are not supported.',
       '',
-      'p — PLOT THE FETCHED PAGE',
-      'Line/histogram use the selected column; heatmap uses all numeric cells on the page.',
-      'Only up to 20 rows × 8 columns are fetched. A 28 × 28 image will be incomplete.',
+      'p — PLOT SETUP · P — QUICK PAGE PLOT',
+      'p selects axes, range and sampling from the full variable/slice; v previews, b opens browser.',
+      'P keeps the quick plot limited to this table page (20 rows × 8 columns).',
       'i opens a COMPLETE image instead: ]/[ batch · c channel · n contrast · L layout.',
       '',
       'R — CUSTOM VIEW (advanced; uppercase R)',
@@ -641,7 +664,7 @@ function M.open(name)
     group = api.nvim_create_augroup('python-variables-resize', { clear = true }),
     callback = function()
       if state ~= s or not api.nvim_win_is_valid(s.win) then return end
-      if vim.bo.filetype == 'molten-image' then
+      if vim.bo.filetype == 'molten-image' or vim.bo.filetype == 'molten-plot' then
         s.resize_pending = true
         return
       end

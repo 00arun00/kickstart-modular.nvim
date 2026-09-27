@@ -116,6 +116,10 @@ function M.open(opts)
       ' ' .. mode .. ((view.pan_x or view.pan_y) and (' · ' .. range .. ' · hjkl pan') or ' · whole image'),
       '',
     }
+    if opts.file then
+      lines[1] = ' Plot preview · ' .. data.width .. ' × ' .. data.height .. ' px'
+      lines[2] = ' Cached chart · q returns to plot setup'
+    end
     for _ = 5, api.nvim_win_get_height(win) do
       lines[#lines + 1] = ''
     end
@@ -125,6 +129,24 @@ function M.open(opts)
   end
   local function help()
     hide_image()
+    if opts.file then
+      write(s, {
+        ' PLOT PREVIEW',
+        '',
+        ' + / -     Zoom in / out around the viewport center',
+        ' 0         Fit and center the complete chart',
+        ' h j k l   Pan; arrows and counts such as 3l also work',
+        ' o         Open the complete PNG externally',
+        ' ? / q     Return to preview; q again returns to plot setup',
+        '',
+        ' Zoom and pan use the cached PNG without kernel reads.',
+        ' Return to plot setup for data, labels, browser view or export.',
+        ' Use the browser view for hover values and axis zoom.',
+      })
+      vim.wo[win].wrap = true
+      api.nvim_win_set_cursor(win, { 1, 0 })
+      return
+    end
     write(s, {
       ' IMAGE VIEWER',
       '',
@@ -169,7 +191,10 @@ function M.open(opts)
       s.view_job:kill(15)
       s.view_job = nil
     end
-    api.nvim_win_set_config(win, { footer = s.help and ' ? / q back · j/k scroll ' or geometry().footer })
+    api.nvim_win_set_config(
+      win,
+      { footer = s.help and ' ? / q back · j/k scroll ' or (opts.file and ' +/- zoom · 0 fit · hjkl pan · ? help · q back ' or geometry().footer) }
+    )
     if s.help then return help() end
     if not s.file or not s.data then return write(s, s.help_return or { 'Loading image…' }) end
     if api.nvim_win_get_width(win) < 35 or api.nvim_win_get_height(win) < 10 then
@@ -283,6 +308,25 @@ function M.open(opts)
     end
     vim.b[buf].image_snapshot = nil
     vim.b[buf].image_viewport = nil
+    if opts.file then
+      local input = assert(io.open(opts.file, 'rb'))
+      local bytes = input:read '*a'
+      input:close()
+      local size = require('snacks.image.util').dim(opts.file)
+      display({
+        png = vim.base64.encode(bytes),
+        width = size.width,
+        height = size.height,
+        layout = 'RGB',
+        batch = 0,
+        batch_count = 1,
+        channel = -1,
+        channels = 3,
+        normalize = false,
+        scaling = 'Plot snapshot',
+      }, opts.name)
+      return
+    end
     status { ' Loading complete image…', ' GPU images copy only the selected image/channel to CPU.' }
     local conn, err = opts.connection()
     if not conn then return status { ' ' .. err, ' r retry · q close' } end
@@ -426,6 +470,11 @@ function M.open(opts)
       request()
     end)
   end, 'Jump to batch index')
+  if opts.file then
+    for _, key in ipairs { 'c', 'n', 'L', 'g', ']', '[' } do
+      map(key, function() vim.notify 'q returns to plot setup to change the chart' end, 'Change chart in plot setup')
+    end
+  end
   api.nvim_create_autocmd('BufWipeout', { buffer = buf, once = true, callback = function() close(s, true) end })
   api.nvim_create_autocmd('VimResized', {
     group = api.nvim_create_augroup('python-image-resize', { clear = true }),

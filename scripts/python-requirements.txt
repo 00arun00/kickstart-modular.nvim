@@ -678,3 +678,11 @@ typing-extensions==4.16.0 \
     # via
     #   jupyter-client
     #   referencing
+vl-convert-python==1.9.0.post1 \
+    --hash=sha256:3c1558fa0055e88c465bd3d71760cde9fa2c94a95f776a0ef9178252fd820b1f \
+    --hash=sha256:43e9515f65bbcd317d1ef328787fd7bf0344c2fde9292eb7a0e64d5d3d29fccb \
+    --hash=sha256:7e263269ac0d304640ca842b44dfe430ed863accd9edecff42e279bfc48ce940 \
+    --hash=sha256:a5b06b3128037519001166f5341ec7831e19fbd7f3a5f78f73d557ac2d5859ef \
+    --hash=sha256:b0e7a3245f32addec7e7abeb1badf72b1513ed71ba1dba7aca853901217b3f4e \
+    --hash=sha256:e6ecfe4b7e2ea9e8c30fd6d6eaea3ef85475be1ad249407d9796dce4ecdb5b32
+    # via -r scripts/python-requirements.in

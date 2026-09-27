@@ -222,6 +222,19 @@ def inspect_value(namespace, request):
             "page_size": VARIABLES,
         }
     value, label = resolve(namespace, name, path)
+    if request.get("action") in ("plot_schema", "plot_data"):
+        extract = runpy.run_path(str(Path(__file__).with_name("inspect-plot-data.py")))[
+            "extract"
+        ]
+        return {
+            "name": label,
+            "plot": extract(
+                value,
+                kind(value),
+                request.get("plot_options", {}),
+                request["action"] == "plot_schema",
+            ),
+        }
     if request.get("action") == "image":
         preview = runpy.run_path(str(Path(__file__).with_name("inspect-image.py")))[
             "preview"

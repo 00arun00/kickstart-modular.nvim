@@ -73,3 +73,47 @@ Native rendering of the updated viewport still needs a terminal-side check;
 the available captures show real Neovim UI grids and separately verified PNG
 canvases. Full-data plotting and original tensor-value pixel inspection remain
 separate future work.
+
+## Full-source plotting review (2026-09-27)
+
+Implemented a separate plot setup panel using bounded kernel extraction and
+Vega-Lite rendering in the editor Python host. `p` configures full-source plots;
+`P` preserves quick page plots. No project plotting dependency is required.
+
+Independent skeptic review began at 7.8: control characters in column labels,
+overlapping heatmap ticks, incomparable histogram bin edges, and unverified
+browser rendering were identified. These were addressed and reviewed at 9.1.
+Three additional refinement rounds covered contextual help/error recovery,
+chart-specific controls, and label/deletion/async-close edge cases. Intermediate
+reviews rated the first two additional rounds 9.2; the final independent
+review rated the completed scoped feature 9.3 with no release blockers.
+
+Validation:
+
+- `tests/plot_values.py`: bounded full-source ranges, sampling endpoints,
+  shared exact histogram bins, duplicate labels, missing-value gaps, tensor
+  slices, empty/invalid/extreme data, and source preservation.
+- `tests/plot_renderer.py`: four chart types, PNG/SVG/JSON, bundled HTML,
+  and script-closing label escaping.
+- `tests/plot_workspace.py`: real Neovim and Jupyter kernel; multi-series
+  controls, preview zoom/fit, exports and no-overwrite, resize/focus, invalid
+  ranges, newline/CR labels, close during rendering, deleted sources, and
+  notebook/source/history/output preservation.
+- `tests/plot_browser.cjs`: actual headless Chrome with HTTP blocked; chart
+  renders without page errors and wheel zoom changes its axes.
+- Existing variable workspace, image viewer, variable/image values and viewport
+  regressions pass. Ruff, StyLua, and diff whitespace checks pass.
+
+Actual Neovim grid captures: `/tmp/full-plot-ui`, followed by
+`/tmp/full-plot-refine1`, `/tmp/full-plot-refine2`, and `/tmp/full-plot-refine3`.
+Rendered chart/browser evidence: `/tmp/full-plot-review`.
+These are local temporary QA artifacts, not repository assets. Grid captures
+verify TUI layout; they do not establish physical Ghostty/tmux image placement.
+The existing Snacks image path is reused, and its placement behavior is covered
+by the image-viewer regression. Manual native-terminal confirmation remains.
+
+Limits are documented in `python-pde.md`: uniform sampling may miss spikes,
+first 512 columns, eight series, numeric-only axes, bounded extraction, and
+floating-point plotting precision. Browser axes are interactive; terminal
+preview zoom/pan manipulates the rendered PNG. The broader explorer TUI
+consistency pass remains separate follow-up work.
