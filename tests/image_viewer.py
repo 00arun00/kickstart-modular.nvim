@@ -127,6 +127,19 @@ print('image output preserved')"""
     assert fitted["zoom"] == 1 and fitted["scale"] > 1
     (out / "fit-canvas.png").write_bytes(Path(fitted["file"]).read_bytes())
     shot("01-complete.png")
+    exported = out / "export.png"
+    exported.unlink(missing_ok=True)
+    n.exec_lua(
+        "_G.image_input=vim.ui.input; vim.ui.input=function(opts,cb) cb(...) end".replace(
+            "cb(...)", "cb(" + json.dumps(str(exported)) + ")"
+        )
+    )
+    key("e")
+    assert exported.read_bytes() == Path(first["file"]).read_bytes()
+    exported.write_bytes(b"preserve")
+    key("e")
+    assert exported.read_bytes() == b"preserve"
+    n.exec_lua("vim.ui.input=_G.image_input")
     key("------")
     smaller = viewport(fitted["file"])
     assert smaller["zoom"] < 0.25
@@ -160,7 +173,7 @@ print('image output preserved')"""
     assert n.vars["image_places"] == 1
     placement = n.vars["image_placement_opts"]
     assert (
-        placement["pos"] == [5, 1]
+        placement["pos"] == [1, 1]
         and placement["width"] > 100
         and placement["height"] > 20
     )

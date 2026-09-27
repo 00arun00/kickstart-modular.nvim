@@ -111,6 +111,9 @@ print('plot output preserved')"""
     key("p")
     wait(lambda: n.current.buffer.vars.get("plot_schema"))
     panel = n.current.buffer.number
+    wait(lambda: n.current.buffer.vars.get("plot_snapshot"), 45)
+    wait(lambda: n.current.buffer.vars.get("image_viewport"))
+    shot("00-auto-chart.png")
     n.exec_lua(
         "vim.ui.select=function(items,opts,cb) cb(table.remove(_G.choices,1)) end; vim.ui.input=function(opts,cb) cb(table.remove(_G.inputs,1)) end"
     )
@@ -126,12 +129,20 @@ print('plot output preserved')"""
 
     select("x", [0])
     select("y", [0, 1, 2, -1])
-    inputs("l", ["Training and validation", "Epoch", "Loss"])
-    inputs("s", ["500"])
-    key("<CR>")
+    inputs("L", ["Training and validation", "Epoch", "Loss"])
+    inputs("d", ["500"])
     snap = wait(lambda: n.current.buffer.vars.get("plot_snapshot"), 45)
     assert "500/10,000" in snap["caption"] and snap["settings"]["ys"] == [1, 2]
-    shot("01-setup.png")
+    key("s")
+    shot("01-settings.png")
+    key("q")
+    # Cancelling partial multi-column or label edits preserves the ready chart.
+    select("y", [1])  # toggle then UI returns nil (cancel)
+    time.sleep(0.1)
+    assert n.current.buffer.vars["plot_settings"]["ys"] == [1, 2]
+    inputs("L", ["Uncommitted title"])
+    assert n.current.buffer.vars["plot_settings"]["title"] == "Training and validation"
+    assert n.current.buffer.vars["plot_snapshot"]["files"] == snap["files"]
     for ext, file in snap["files"].items():
         (out / ("chart." + ext)).write_bytes(Path(file).read_bytes())
     n.exec_lua("vim.ui.open=function(path) vim.g.plot_opened=path end")
@@ -145,10 +156,18 @@ print('plot output preserved')"""
     n.exec_lua(
         "_G.plot_terminal_size = require('snacks.image.terminal').size; require('snacks.image.terminal').size = function() return {cell_width=16,cell_height=32,scale=2} end"
     )
-    key("v")
+    key("0")
     image_data()
     fitted = viewport()
-    assert fitted["renderer"] == "vector"
+    fitted = wait(
+        lambda: (
+            v
+            if (v := n.current.buffer.vars.get("image_viewport"))
+            and v["renderer"] == "vector"
+            and v["width"] == (n.current.window.width - 2) * 16
+            else None
+        )
+    )
     assert fitted["width"] == (n.current.window.width - 2) * 16
     assert fitted["height"] == (n.current.window.height - 5) * 32
     n.exec_lua(
@@ -208,13 +227,12 @@ print('plot output preserved')"""
     assert panned["cx"] > settled["cx"]
     key("?")
     time.sleep(0.8)
-    assert "PLOT PREVIEW" in "\n".join(n.current.buffer[:])
+    assert "PLOT WORKSPACE" in "\n".join(n.current.buffer[:])
     key("q")
     key("0")
     viewport(zoomed["file"])
     key("?")
     shot("02-preview-help.png")
-    key("q")
     key("q")
     n.exec_lua("require('snacks.image.terminal').size = _G.plot_terminal_size")
     assert n.current.buffer.number == panel
@@ -222,24 +240,37 @@ print('plot output preserved')"""
     key("?")
     shot("03-help.png")
     key("q")
-    inputs("r", ["100, 200"])
+    inputs("g", ["100, 200"])
     assert not n.current.buffer.vars.get("plot_snapshot")
     select("t", ["histogram"])
-    key("<CR>")
+    key("?")
     wait(lambda: n.current.buffer.vars.get("plot_snapshot"), 45)
+    assert "PLOT WORKSPACE" in "\n".join(n.current.buffer[:])
+    key("q")
     shot("04-histogram.png")
-    inputs("r", ["300, 200"])
+    retained_image = n.current.buffer.vars["image_snapshot"]["file"]
+    inputs("g", ["300, 200"])
     key("<CR>")
     wait(lambda: "nonempty row range" in "\n".join(n.current.buffer[:]))
     assert not n.current.buffer.vars.get("plot_snapshot")
+    assert n.current.buffer.vars["image_snapshot"]["file"] == retained_image
+    assert "previous chart shown" in "\n".join(n.current.buffer[:])
     shot("05-error.png")
-    inputs("r", ["0, 10000"])
+    inputs("g", ["0, 10000"])
     select("t", ["heatmap"])
-    key("<CR>")
     wait(lambda: n.current.buffer.vars.get("plot_snapshot"), 45)
     n.ui_try_resize(70, 25)
     time.sleep(0.2)
     shot("06-narrow.png", 70, 25)
+    key("?")
+    key("20j")
+    assert n.current.window.cursor[0] > 10
+    key("q")
+    wait(lambda: n.current.buffer.vars.get("image_viewport"))
+    assert (
+        n.funcs.winsaveview()["topline"] == 1 and n.funcs.winsaveview()["leftcol"] == 0
+    )
+    shot("10-narrow-return.png", 70, 25)
     n.ui_try_resize(150, 48)
     key("R")
     key("q")
@@ -269,7 +300,9 @@ print('plot output preserved')"""
     key("p")
     wait(lambda: n.current.buffer.vars.get("plot_schema"))
     select("y", [0, 1, 2, -1])
+    key("s")
     assert any("loss train" in line for line in n.current.buffer[:])
+    key("q")
     key("<CR>")
     wait(lambda: n.current.buffer.vars.get("plot_snapshot"), 45)
     shot("07-labels.png")
@@ -286,6 +319,14 @@ print('plot output preserved')"""
     assert not n.current.buffer.vars.get("plot_snapshot")
     shot("08-deleted-source.png")
     key("q")
+    key("p")
+    wait(lambda: "Variable no longer exists" in "\n".join(n.current.buffer[:]))
+    assert not n.current.buffer.vars.get("image_snapshot")
+    key("s")
+    assert "plot workspace" in "\n".join(n.current.buffer[:])
+    key("q")
+    key("q")
+    assert n.current.buffer.options["filetype"] == "molten-variables"
     print(
         "PASS: real kernel full-source setup, multi-series, range/sampling, preview/zoom/fit, offline browser dispatch, export/no-overwrite, errors, resize, close during refresh, source/history/outputs preserved"
     )

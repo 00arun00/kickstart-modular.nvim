@@ -149,7 +149,7 @@ Slice prompts show the actual tensor expression and valid zero-based ranges:
 for `X` shaped `64 × 1 × 28 × 28`, `t` asks for `X[a, b, :, :]`, with
 `a=0–63` and `b=0–0`. Enter `5, 0` to inspect the sixth item's only channel.
 The table's page counters are one-based positions; `t` and `g` use zero-based indices.
-`R` is labelled **custom view**. `p` opens full-source plot setup; `P` keeps the quick fetched-page plot.
+`R` is labelled **custom view**. `p` opens a full-source chart; `P` keeps the quick fetched-page plot.
 
 | In the explorer | Action |
 | --- | --- |
@@ -166,7 +166,7 @@ The table's page counters are one-based positions; `t` and `g` use zero-based in
 | `]c` / `[c` | Next/previous group of columns, sized to the pane (up to 8) |
 | `g` | Jump to zero-based `row, column` (or just `row`) |
 | `t` | Choose leading tensor/array indices, e.g. `1, 2` for a 4D tensor |
-| `p` / `P` | Full-source plot setup / quick current-page plot |
+| `p` / `P` | Full-source chart / quick current-page plot |
 | `R` | Apply a named custom renderer; blank restores the standard view |
 | `y` | Copy the selected value text |
 | `q` / Esc | Close the explorer or value/plot popup |
@@ -186,13 +186,18 @@ For a typical training session:
 3. Use `h`/`l` to choose `loss`, then `s` to sort. Press `f` and enter `> 0.2`
    to filter it. Other predicates include `contains train`, `== "valid"`, `!=`,
    `>=`, and `<=`; blank clears the filter. These operations affect the view only.
-4. Press `p` to configure a plot from the original variable or selected tensor
-   slice. Choose `t`ype, `x` column, and `y` columns (toggle, then Done).
-   `r` sets a zero-based `[start, stop)` row range; `s` sets the sampling budget.
-   `l` sets title and axis labels; `a` toggles the legend. Enter draws, `v` previews
-   with zoom/pan/fit, `b` opens an interactive local browser chart, and `e` exports
-   PNG, SVG, self-contained HTML, or Vega-Lite JSON. `q` returns from preview to
-   settings. `R` reloads the source schema; `?` explains the controls.
+4. Press `p` to open a chart immediately from the original variable or selected
+   tensor slice. The large preview shares the image viewer's `+`/`-` zoom,
+   `hjkl`/arrow pan, and `0` fit controls. Status and sampling appear at the bottom.
+   Choose `t`ype, `x` column, or `y` columns (toggle, then Done); confirmed changes
+   redraw automatically. Cancelling a selection preserves the current chart.
+   `s` opens settings: `g` row range, `d` sampling budget, `n` histogram bins,
+   `L` title/axis labels, and `a` legend. `?` shows all controls and limits.
+   `q`/Esc closes the overlay first, then the viewer back to the explorer.
+   `r` refreshes the source and chart; `b` opens the interactive browser chart;
+   `e` exports PNG, SVG, self-contained HTML or Vega-Lite JSON.
+   The previous chart remains visible during updates, explicitly marked as such;
+   failed updates retain it with an error and disable export/browser until retry.
    Explorer filtering and sorting do not alter this plot source. Use `P` for a
    quick plot limited to the fetched table page.
 5. Return with `q`, then `u` to your previous view. Open a 4D tensor and press `t`
@@ -233,6 +238,7 @@ from batch index zero. Table pagination does not limit this viewer.
 | `L` | Choose the dimension layout explicitly |
 | `r` | Reload the image from the kernel |
 | `o` | Open the complete PNG externally |
+| `e` | Export the complete PNG without overwriting an existing file |
 | `?` | Toggle persistent help; `q` / Esc returns from help |
 | `q` / Esc | Return to the explorer |
 
@@ -262,7 +268,7 @@ Images start enlarged and centered to fit the viewer. Zoom is labelled relative
 to that fit (`2× fit`, for example), up to 32×. Zooming out continues until the
 image's longest edge is one rendered pixel; there is no percentage-based floor. Nearest-neighbor
 scaling keeps individual pixels crisp. Panning stops at the edges, and the
-header reports visible pixel coordinates with zero-based, inclusive endpoints.
+bottom status strip reports visible pixel coordinates with zero-based, inclusive endpoints.
 Transparent images show a checkerboard. Batch, channel, and contrast changes
 retain zoom and position for comparison; changing the dimension layout resets
 to fit. Resizing preserves relative zoom and clamps the position to the image.
@@ -596,6 +602,6 @@ snapshot, so repeated navigation does not accumulate blur. The redraw rasterizes
 without kernel reads. Browser zoom instead changes chart axes. Ordinary tensor
 image inspection retains nearest-neighbor scaling for individual pixels. Exports preserve snapshots and never overwrite existing files.
 Temporary snapshots are retained for the last eight draws and cleaned on exit;
-export anything you want to keep. Changing settings invalidates the old preview
-until Enter draws again. Source variables, notebook text, execution history and
+export anything you want to keep. Confirmed setting changes redraw automatically; the last good chart remains
+visible and marked as previous until the new chart is ready. Source variables, notebook text, execution history and
 cell outputs are not modified by inspection or rendering.

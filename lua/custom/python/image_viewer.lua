@@ -29,8 +29,9 @@ local function write(s, lines)
   api.nvim_buf_set_lines(s.buf, 0, -1, false, lines)
   api.nvim_buf_clear_namespace(s.buf, highlights, 0, -1)
   for i, line in ipairs(lines) do
-    if i <= 3 then
-      api.nvim_buf_set_extmark(s.buf, highlights, i - 1, 0, { end_col = #line, hl_group = i == 1 and 'Title' or i == 2 and 'Comment' or 'Special' })
+    if line ~= '' then
+      local group = line:find('Failed', 1, true) and 'DiagnosticWarn' or (i == #lines - 3 and 'Title' or i == #lines - 2 and 'Comment' or 'NormalFloat')
+      api.nvim_buf_set_extmark(s.buf, highlights, i - 1, 0, { end_col = #line, hl_group = group })
     end
   end
   vim.bo[s.buf].modifiable = false
@@ -60,9 +61,10 @@ local labels = {
 }
 function M.open(opts)
   if active then close(active) end
+  local return_win = api.nvim_get_current_win()
   local buf = api.nvim_create_buf(false, true)
   local cfg = geometry()
-  cfg.border, cfg.style, cfg.title, cfg.title_pos = 'rounded', 'minimal', ' Image · ' .. opts.name .. ' ', 'center'
+  cfg.border, cfg.style, cfg.title, cfg.title_pos = 'rounded', 'minimal', (opts.managed and ' Plot · ' or ' Image · ') .. opts.name .. ' ', 'center'
   local win = api.nvim_open_win(buf, true, cfg)
   local s = { buf = buf, win = win, serial = 0, options = { normalize = false }, opts = opts, zoom = 1, cx = 0.5, cy = 0.5, view_files = {}, view_serial = 0 }
   active = s
@@ -96,6 +98,20 @@ function M.open(opts)
   end
   local function header(view)
     local data = s.data
+    if opts.chrome then
+      local lines = {}
+      for _ = 1, api.nvim_win_get_height(win) - 4 do
+        lines[#lines + 1] = ''
+      end
+      for _, line in ipairs(opts.chrome(view)) do
+        lines[#lines + 1] = line:gsub('%c', ' ')
+      end
+      write(s, lines)
+      api.nvim_win_set_config(win, { footer = opts.footer() })
+      api.nvim_win_set_cursor(win, { 1, 0 })
+      api.nvim_win_call(win, function() vim.fn.winrestview { topline = 1, leftcol = 0 } end)
+      return
+    end
     if not data then return end
     local channel = data.channel < 0 and (data.channels == 1 and 'Grayscale' or 'Color composite') or ('Channel ' .. data.channel)
     local crop = view.crop
@@ -131,12 +147,24 @@ function M.open(opts)
     for _ = 5, api.nvim_win_get_height(win) do
       lines[#lines + 1] = ''
     end
-    write(s, lines)
+    local bottom = {}
+    for i = 1, api.nvim_win_get_height(win) - 4 do
+      bottom[#bottom + 1] = ''
+    end
+    for i = 1, 4 do
+      bottom[#bottom + 1] = (lines[i] or ''):gsub('%c', ' ')
+    end
+    write(s, bottom)
     api.nvim_win_set_cursor(win, { 1, 0 })
     api.nvim_win_call(win, function() vim.fn.winrestview { topline = 1, leftcol = 0 } end)
   end
   local function help()
     hide_image()
+    if s.overlay then
+      write(s, s.overlay)
+      vim.wo[win].wrap = true
+      return
+    end
     if opts.file then
       write(s, {
         ' PLOT PREVIEW',
@@ -171,6 +199,7 @@ function M.open(opts)
       ' L         Choose dimension layout; resets to fit',
       ' r         Reload snapshot from the kernel',
       ' o         Open the ORIGINAL complete PNG externally',
+      ' e         Export the complete PNG (never overwrites a file)',
       ' ? / q     Return to the image; q again closes the viewer',
       '',
       ' Zoom is relative to fit, not an absolute screen percentage.',
@@ -204,10 +233,10 @@ function M.open(opts)
       s.view_job:kill(15)
       s.view_job = nil
     end
-    api.nvim_win_set_config(
-      win,
-      { footer = s.help and ' ? / q back · j/k scroll ' or (opts.file and ' +/- zoom · 0 fit · hjkl pan · ? help · q back ' or geometry().footer) }
-    )
+    api.nvim_win_set_config(win, {
+      footer = s.help and ' ? / q back · j/k scroll '
+        or (opts.footer and opts.footer() or opts.file and ' +/- zoom · 0 fit · hjkl pan · ? help · q back ' or geometry().footer),
+    })
     if s.help then return help() end
     if not s.file or not s.data then return write(s, s.help_return or { 'Loading image…' }) end
     if api.nvim_win_get_width(win) < 35 or api.nvim_win_get_height(win) < 10 then
@@ -284,7 +313,7 @@ function M.open(opts)
           local enabled, reason = require('custom.python.images').status()
           if not enabled then
             vim.bo[buf].modifiable = true
-            api.nvim_buf_set_lines(buf, 5, 7, false, { ' Inline display unavailable · o opens externally.', ' ' .. (reason:match '^[^:]+' or reason) })
+            api.nvim_buf_set_lines(buf, 0, 2, false, { ' Inline display unavailable · o opens externally.', ' ' .. (reason:match '^[^:]+' or reason) })
             vim.bo[buf].modifiable = false
             return
           end
@@ -292,14 +321,14 @@ function M.open(opts)
             if active ~= s or serial ~= s.view_serial or s.help then return end
             if not require('snacks').image.supports_terminal() then
               vim.bo[buf].modifiable = true
-              api.nvim_buf_set_lines(buf, 5, 7, false, { ' Terminal image support unavailable.', ' o opens the complete image externally.' })
+              api.nvim_buf_set_lines(buf, 0, 2, false, { ' Terminal image support unavailable.', ' o opens the complete image externally.' })
               vim.bo[buf].modifiable = false
               return
             end
             s.placement = require('snacks').image.placement.new(
               buf,
               file,
-              { inline = true, pos = { 5, 1 }, width = columns, height = rows, max_width = columns, max_height = rows }
+              { inline = true, pos = { 1, 1 }, width = columns, height = rows, max_width = columns, max_height = rows }
             )
           end)
         end)
@@ -418,6 +447,16 @@ function M.open(opts)
     end
   end, 'Back / close image viewer')
   map('r', request, 'Reload image')
+  map('e', function()
+    if not s.file then return end
+    local file = s.file
+    vim.ui.input({ prompt = 'Export PNG path: ' }, function(value)
+      if active ~= s or not value or value == '' then return end
+      local path = vim.fn.fnamemodify(vim.fn.expand(value), ':p')
+      local ok, err = vim.uv.fs_copyfile(file, path, { excl = true })
+      vim.notify(ok and ('Exported ' .. path) or ('Export failed: ' .. tostring(err)))
+    end)
+  end, 'Export complete PNG')
   for key, delta in pairs { [']'] = 1, ['['] = -1 } do
     map(key, function()
       if not s.data then return end
@@ -510,9 +549,9 @@ function M.open(opts)
       request()
     end)
   end, 'Jump to batch index')
-  if opts.file then
+  if opts.file or opts.managed then
     for _, key in ipairs { 'c', 'n', 'L', 'g', ']', '[' } do
-      map(key, function() vim.notify 'q returns to plot setup to change the chart' end, 'Change chart in plot setup')
+      map(key, function() vim.notify 'Press ? for plot controls' end, 'Change chart in plot setup')
     end
   end
   api.nvim_create_autocmd('BufWipeout', { buffer = buf, once = true, callback = function() close(s, true) end })
@@ -531,6 +570,31 @@ function M.open(opts)
     vim.defer_fn(poll, 200)
   end
   vim.defer_fn(poll, 200)
-  request()
+  if not opts.managed then request() end
+  return {
+    buf = buf,
+    win = win,
+    update = function(file, svg, name)
+      local overlay = s.overlay
+      opts.file, opts.svg, opts.name = file, svg, name
+      s.zoom, s.cx, s.cy = 1, 0.5, 0.5
+      request()
+      s.overlay, s.help = overlay, overlay ~= nil
+      repaint()
+    end,
+    chrome = function()
+      if active ~= s then return end
+      if not s.help then header(s.viewport or {}) end
+    end,
+    overlay = function(lines)
+      if not lines and not s.help then return end
+      s.overlay, s.help = lines, lines ~= nil
+      repaint()
+    end,
+    close = function()
+      close(s)
+      if api.nvim_win_is_valid(return_win) then api.nvim_set_current_win(return_win) end
+    end,
+  }
 end
 return M

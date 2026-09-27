@@ -157,3 +157,30 @@ identical pixels, without cumulative blur. Existing image UI and viewport tests
 pass. Captures and moving/settled PNGs: `/tmp/hybrid-motion-ui`. Native terminal
 motion smoothness still needs manual confirmation; headless tests establish
 frame production, geometry and lifecycle rather than physical display latency.
+
+## Unified preview-first plot/image flow (2026-09-27)
+
+`p` opens directly into an automatically drawn chart in the same large surface
+as image inspection. Both use bottom metadata, top image placement, zoom/pan/fit,
+refresh, export, help, and close/back conventions. Plot `s` opens the settings
+overlay; `?` opens help. Confirmed settings redraw automatically; multi-column
+and multi-label edits commit only when completed. Advanced bindings avoid pan
+conflicts: `g` range, `d` budget, `L` labels, `n` bins, `a` legend. `r` refreshes
+source/schema and draws. The previous chart remains explicitly marked during
+updates/failures, with stale export/browser blocked. Last-good artifacts are
+protected from temporary-folder eviction. Successful replacement resets fit.
+
+Skeptic iterations fixed scrolled-overlay return positioning, sampling visibility
+on narrow windows, snapshot label consistency, irrelevant inherited image keys,
+and duplicate polling. Final scoped review: 9.3/10, no remaining blocker after
+lifecycle tests passed. Real Neovim/kernel tests cover automatic initial draw,
+automatic confirmed edits, cancelled drafts, help during redraw, retained last
+chart on errors, initial failure recovery, shared image export/no-overwrite,
+resize, queued motion, and notebook/source/history/output preservation. The
+image-viewer suite and Ruff/StyLua/diff checks pass.
+
+Captures: `/tmp/unified-plot-ui`, `/tmp/unified-plot-refine`,
+`/tmp/unified-plot-final`, `/tmp/unified-plot-lifecycle`, and
+`/tmp/unified-image-final`. Headless captures verify chrome and window state;
+the generated chart PNGs verify rendering separately. Native Ghostty/tmux
+placement and interaction remain a user confirmation step.

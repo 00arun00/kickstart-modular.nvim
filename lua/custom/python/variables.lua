@@ -101,7 +101,7 @@ local function render(s, data)
   if not s.view.name then
     actions = 'Enter inspect   i image   f filter   s sort   ' .. actions
   elseif schema.rows then
-    actions = 'i image   p plot setup   ' .. actions
+    actions = 'i image   p plot   ' .. actions
     if not s.view.renderer and (schema.kind == 'dataframe' or schema.kind == 'series') then actions = 'f filter   s sort   ' .. actions end
     if schema.shape and #schema.shape > 2 then actions = 't slice   ' .. actions end
   end
@@ -199,7 +199,7 @@ local function render(s, data)
     add ''
     add('  h/l select column · Enter value text · y copy', 'Comment')
     add('  [p/]p row pages · [c/]c column pages · g jump', 'Comment')
-    local controls = '  i image · p plot setup · R custom view'
+    local controls = '  i image · p plot · R custom view'
     if (data.kind == 'dataframe' or data.kind == 'series') and not s.view.renderer then controls = controls .. ' · f filter · s sort' end
     if data.shape and #data.shape > 2 and (data.kind == 'tensor' or data.kind == 'array') then controls = controls .. ' · t slice' end
     add(controls, 'Comment')
@@ -568,7 +568,7 @@ function M.open(name)
       if value ~= nil and state == s then M.view { renderer = value ~= '' and value or false, row = 0, col = 0, filter = false, sort_col = false } end
     end)
   end, 'Custom view (registered Python renderer)')
-  map('p', M.plot_setup, 'Configure full-source plot')
+  map('p', M.plot_setup, 'Open full-source chart')
   map('P', function()
     if not s.data or not s.data.rows then return M.plot 'line' end
     vim.ui.select({ 'line', 'histogram', 'heatmap' }, {
@@ -636,7 +636,7 @@ function M.open(name)
       'This selects a view; it does not change your tensor. Ranges are not supported.',
       '',
       'p — PLOT SETUP · P — QUICK PAGE PLOT',
-      'p selects axes, range and sampling from the full variable/slice; v previews, b opens browser.',
+      'p opens a full-source chart; t/x/y choose type/axes, s settings, b browser.',
       'P keeps the quick plot limited to this table page (20 rows × 8 columns).',
       'i opens a COMPLETE image instead: ]/[ batch · c channel · n contrast · L layout.',
       '',

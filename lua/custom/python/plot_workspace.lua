@@ -11,30 +11,9 @@ api.nvim_create_autocmd('VimLeavePre', {
     end
   end,
 })
-local function geometry()
-  local w, h = math.max(1, math.min(100, vim.o.columns - 6)), math.max(1, math.min(29, vim.o.lines - 6))
-  return {
-    relative = 'editor',
-    width = w,
-    height = h,
-    row = math.max(0, math.floor((vim.o.lines - h) / 2) - 1),
-    col = math.max(0, math.floor((vim.o.columns - w) / 2)),
-    border = 'rounded',
-    style = 'minimal',
-    title = ' Plot setup ',
-    title_pos = 'center',
-    footer = w < 85 and ' Enter draw · v view · b browser · e export · ? · q '
-      or ' Enter draw · v preview · b browser · e export · ? help · q close ',
-    footer_pos = 'center',
-  }
-end
 function M.open(opts)
   if active and api.nvim_win_is_valid(active.win) then api.nvim_win_close(active.win, true) end
-  local return_win = api.nvim_get_current_win()
-  local buf = api.nvim_create_buf(false, true)
   local s = {
-    buf = buf,
-    win = api.nvim_open_win(buf, true, geometry()),
     serial = 0,
     dirty = true,
     settings = {
@@ -52,10 +31,39 @@ function M.open(opts)
     },
   }
   active = s
-  vim.bo[buf].bufhidden, vim.bo[buf].buftype, vim.bo[buf].filetype = 'wipe', 'nofile', 'molten-plot'
-  vim.wo[s.win].wrap, vim.wo[s.win].list, vim.wo[s.win].cursorline = true, false, false
-  vim.wo[s.win].fillchars = 'eob: '
-  vim.wo[s.win].linebreak = true
+  local surface = require('custom.python.image_viewer').open {
+    managed = true,
+    name = opts.name,
+    python = opts.python,
+    helper = opts.helper,
+    poll = opts.poll,
+    footer = function()
+      return vim.o.columns < 100 and ' +/- zoom · 0 fit · s settings · ? · q '
+        or ' +/- zoom · hjkl pan · 0 fit · t type · x/y axes · s settings · ? help · q '
+    end,
+    chrome = function(view)
+      local shown = s.snapshot and s.snapshot.settings or s.settings
+      local state = s.error and ('Failed · ' .. (s.snapshot and 'previous chart shown · ' or '') .. s.error)
+        or s.message and (s.message .. (s.snapshot and ' · previous chart shown' or ''))
+        or s.dirty and 'Updating…'
+        or 'Ready · r refresh · b browser · e export'
+      local labels = s.snapshot and s.snapshot.labels or {}
+      for _, id in ipairs(s.snapshot and {} or shown.ys) do
+        for _, col in ipairs(s.schema and s.schema.columns or {}) do
+          if col.id == id then labels[#labels + 1] = col.label end
+        end
+      end
+      return {
+        ' ' .. opts.name .. ' · ' .. shown.style .. ' · ' .. table.concat(labels, ', ') .. (view.renderer == 'cached' and ' · moving' or ''),
+        ' ' .. (s.snapshot and s.snapshot.summary or 'Full variable / selected slice · loading chart'),
+        ' ' .. state,
+        '',
+      }
+    end,
+  }
+  local buf = surface.buf
+  s.buf, s.win = buf, surface.win
+  vim.bo[buf].filetype = 'molten-plot'
   local draw, schema, render
   local function column(id)
     if id == -1 then return 'Row position' end
@@ -66,9 +74,7 @@ function M.open(opts)
   end
   local function write(lines)
     lines = vim.tbl_map(function(line) return line:gsub('%c', ' ') end, lines)
-    vim.bo[buf].modifiable = true
-    api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-    vim.bo[buf].modifiable = false
+    surface.overlay(lines)
     api.nvim_buf_clear_namespace(buf, ns, 0, -1)
     for i, line in ipairs(lines) do
       local group = i == 1 and 'Title'
@@ -79,16 +85,21 @@ function M.open(opts)
   end
   render = function()
     if active ~= s then return end
-    api.nvim_win_set_config(s.win, { footer = s.help and ' ? / q back · j/k scroll ' or geometry().footer })
+    vim.b[buf].plot_settings = s.settings
+    if not s.help and not s.settings_open then
+      surface.overlay(nil)
+      surface.chrome()
+      return
+    end
     if s.help then
       return write {
         ' PLOT WORKSPACE',
         '',
         ' t type · x X column · y Y columns (toggle choices, then Done)',
-        ' r row range [start, stop) · s point/cell budget · n histogram bins',
-        ' l title/axis labels · a toggle legend · R reload schema',
-        ' Enter draws a new snapshot using the visible settings.',
-        ' v opens its PNG with zoom/pan/fit · q returns here.',
+        ' g row range [start, stop) · d point/cell budget · n histogram bins',
+        ' L title/axis labels · a legend · r refresh source · s settings',
+        ' Confirming a setting redraws automatically; Enter retries.',
+        ' +/- zoom · hjkl/arrows pan · 0 fit · q closes overlay, then viewer.',
         ' b opens a self-contained interactive HTML chart in your browser.',
         ' e exports PNG, SVG, HTML or JSON (existing files are not overwritten).',
         '',
@@ -103,7 +114,7 @@ function M.open(opts)
         ' Data stays local. HTML embeds its data and JS; no CDN is needed.',
         ' Rendering runs in the editor host. GPU transfers are bounded before copying.',
         '',
-        ' ? / q returns to settings',
+        ' ? / q returns to chart',
       }
     end
     local c = s.settings
@@ -117,13 +128,13 @@ function M.open(opts)
       '  x  X             ' .. ((c.style == 'histogram' or c.style == 'heatmap') and '(not used for this type)' or column(c.x)),
       (c.style == 'heatmap' and '  y  Columns       ' or c.style == 'histogram' and '  y  Series        ' or '  y  Y columns     ')
         .. (#ys > 0 and table.concat(ys, ', ') or 'Choose numeric columns'),
-      '  r  Row range     [' .. c.start .. ', ' .. tostring(c.stop or 'end') .. ')  · stop exclusive',
-      '  s  Budget        '
+      '  g  Row range     [' .. c.start .. ', ' .. tostring(c.stop or 'end') .. ')  · stop exclusive',
+      '  d  Budget        '
         .. (
           c.style == 'histogram' and 'Exact · all selected values (100,000 maximum)' or (c.limit .. (c.style == 'heatmap' and ' cells' or ' rows per series'))
         ),
       '  n  Histogram     ' .. (c.style == 'histogram' and (c.bins .. ' bins') or '(not used for this type)'),
-      '  l  Title         ' .. c.title,
+      '  L  Title         ' .. c.title,
       '     Axis labels   ' .. (c.xlabel == '' and 'automatic' or c.xlabel) .. ' / ' .. (c.ylabel == '' and 'automatic' or c.ylabel),
       '  a  Legend        ' .. (c.legend and 'shown' or 'hidden'),
       '',
@@ -132,14 +143,14 @@ function M.open(opts)
           s.message
           or (
             s.error and 'Correct settings or reload schema with R; Enter retries'
-            or s.dirty and 'Settings ready · Enter to draw'
-            or 'Snapshot ready · v preview · b interactive browser · e export'
+            or s.dirty and 'Updating chart…'
+            or 'Chart ready · q returns to chart · b browser · e export'
           )
         ),
       ' ' .. (s.caption or ''),
       ' ' .. (s.error or ''),
       '',
-      ' Enter draws · R reloads schema · ? explains sampling and controls',
+      ' Changes redraw automatically · q returns to chart · ? help',
     }
     vim.b[buf].plot_settings = c
   end
@@ -153,6 +164,10 @@ function M.open(opts)
     s.caption = nil
     vim.b[buf].plot_snapshot = nil
     render()
+    local serial = s.serial
+    vim.schedule(function()
+      if active == s and serial == s.serial then draw() end
+    end)
   end
   local function query(action, done)
     s.serial = s.serial + 1
@@ -214,6 +229,7 @@ function M.open(opts)
       s.message = data.plot.column_count > 512 and 'Only the first 512 columns are offered; select a narrower variable in Python for others.' or nil
       render()
       vim.b[buf].plot_schema = data.plot
+      draw()
     end)
   end
   draw = function()
@@ -226,7 +242,14 @@ function M.open(opts)
       local folder = vim.fn.tempname() .. '-plot'
       vim.fn.mkdir(folder, 'p', 448)
       folders[#folders + 1] = folder
-      if #folders > 8 then vim.fn.delete(table.remove(folders, 1), 'rf') end
+      if #folders > 8 then
+        for i, old in ipairs(folders) do
+          if not s.files or old ~= vim.fs.dirname(s.files.png) then
+            vim.fn.delete(table.remove(folders, i), 'rf')
+            break
+          end
+        end
+      end
       local input = folder .. '/input.json'
       vim.fn.writefile({ vim.json.encode { data = data.plot, settings = s.settings } }, input)
       s.job = vim.system(
@@ -244,7 +267,22 @@ function M.open(opts)
             s.error = 'Renderer: ' .. (ok and reply.error or ('exit ' .. tostring(result.code) .. ': ' .. (result.stderr or ''):sub(1, 800)))
           else
             s.files, s.dirty, s.error = reply.files, false, nil
-            vim.b[buf].plot_snapshot = { files = reply.files, caption = data.plot.caption, settings = vim.deepcopy(s.settings) }
+            s.snapshot = {
+              files = reply.files,
+              caption = data.plot.caption,
+              labels = data.plot.y_labels,
+              settings = vim.deepcopy(s.settings),
+              summary = string.format(
+                '%s · %d/%d rows · [%d, %d)',
+                data.plot.sampled and 'Sampled: may miss spikes' or 'Complete range',
+                data.plot.emitted_rows,
+                data.plot.range_rows,
+                s.settings.start,
+                s.settings.stop
+              ),
+            }
+            vim.b[buf].plot_snapshot = s.snapshot
+            surface.update(reply.files.png, reply.files.svg, s.settings.title)
           end
           render()
         end)
@@ -253,22 +291,27 @@ function M.open(opts)
   end
   local function map(key, fn, desc) vim.keymap.set('n', key, fn, { buffer = buf, silent = true, desc = desc }) end
   local function close()
-    if s.help then
-      s.help = false
+    if s.help or s.settings_open then
+      s.help, s.settings_open = false, false
       render()
       return
     end
-    api.nvim_win_close(s.win, true)
-    if api.nvim_win_is_valid(return_win) then api.nvim_set_current_win(return_win) end
+    surface.close()
   end
-  map('q', close, 'Back / close plot setup')
-  map('<Esc>', close, 'Back / close plot setup')
+  map('q', close, 'Back / close chart')
+  map('<Esc>', close, 'Back / close chart')
   map('?', function()
     s.help = not s.help
     render()
   end, 'Plot help')
   map('<CR>', draw, 'Draw configured plot')
   map('R', schema, 'Reload source schema')
+  map('r', schema, 'Refresh source and chart')
+  map('s', function()
+    s.settings_open = not s.settings_open
+    s.help = false
+    render()
+  end, 'Plot settings')
   local function input(prompt, default, cb)
     vim.ui.input({ prompt = prompt, default = default }, function(value)
       if active == s and value ~= nil then cb(value) end
@@ -296,6 +339,7 @@ function M.open(opts)
       end
     end)
   end, 'Choose X column')
+  local draft_ys
   local function select_y()
     if not s.schema then return end
     local choices = { -1 }
@@ -304,20 +348,31 @@ function M.open(opts)
     end
     vim.ui.select(choices, {
       prompt = 'Y columns · toggle selections, then Done',
-      format_item = function(v) return v == -1 and 'Done' or ((vim.tbl_contains(s.settings.ys, v) and '[✓] ' or '[ ] ') .. column(v)) end,
+      format_item = function(v) return v == -1 and 'Done' or ((vim.tbl_contains(draft_ys, v) and '[✓] ' or '[ ] ') .. column(v)) end,
     }, function(v)
-      if active ~= s or v == nil or v == -1 then return end
-      if vim.tbl_contains(s.settings.ys, v) then
-        s.settings.ys = vim.tbl_filter(function(id) return id ~= v end, s.settings.ys)
-      else
-        s.settings.ys[#s.settings.ys + 1] = v
+      if active ~= s then return end
+      if v == nil then
+        draft_ys = nil
+        return
       end
-      change()
+      if v == -1 then
+        s.settings.ys = draft_ys
+        change()
+        return
+      end
+      if vim.tbl_contains(draft_ys, v) then
+        draft_ys = vim.tbl_filter(function(id) return id ~= v end, draft_ys)
+      else
+        draft_ys[#draft_ys + 1] = v
+      end
       vim.schedule(select_y)
     end)
   end
-  map('y', select_y, 'Choose Y columns')
-  map('r', function()
+  map('y', function()
+    draft_ys = vim.deepcopy(s.settings.ys)
+    select_y()
+  end, 'Choose Y columns')
+  map('g', function()
     input('Row range: start, stop (zero-based, stop exclusive): ', s.settings.start .. ', ' .. tostring(s.settings.stop or ''), function(v)
       local a, b = v:match '^%s*(%d+)%s*,%s*(%d+)%s*$'
       if not a then return vim.notify('Enter start, stop; e.g. 0, 100', vim.log.levels.WARN) end
@@ -325,9 +380,9 @@ function M.open(opts)
       change()
     end)
   end, 'Select row range')
-  for key, field in pairs { s = 'limit', n = 'bins' } do
+  for key, field in pairs { d = 'limit', n = 'bins' } do
     map(key, function()
-      if field == 'limit' and s.settings.style == 'histogram' then return vim.notify 'Histograms use every selected value; r changes the row range' end
+      if field == 'limit' and s.settings.style == 'histogram' then return vim.notify 'Histograms use every selected value; g changes the row range' end
       if field == 'bins' and s.settings.style ~= 'histogram' then return vim.notify 'Bin count applies to histograms; t changes chart type' end
       input(field == 'limit' and 'Point/cell budget (10–20000): ' or 'Histogram bins (2–200): ', tostring(s.settings[field]), function(v)
         local number = tonumber(v)
@@ -341,15 +396,11 @@ function M.open(opts)
     s.settings.legend = not s.settings.legend
     change()
   end, 'Toggle legend')
-  map('l', function()
+  map('L', function()
     input('Plot title: ', s.settings.title, function(v)
-      s.settings.title = v
-      change()
       input('X label (blank = automatic): ', s.settings.xlabel, function(x)
-        s.settings.xlabel = x
-        change()
         input('Y label (blank = automatic): ', s.settings.ylabel, function(y)
-          s.settings.ylabel = y
+          s.settings.title, s.settings.xlabel, s.settings.ylabel = v, x, y
           change()
         end)
       end)
@@ -357,23 +408,18 @@ function M.open(opts)
   end, 'Set title and axis labels')
   local function ready()
     if s.dirty or not s.files then
-      vim.notify 'Press Enter to draw the current settings first'
+      vim.notify 'Chart is updating or failed; wait or press r to retry'
       return false
     end
     return true
   end
   map('v', function()
-    if ready() then
-      require('custom.python.image_viewer').open {
-        file = s.files.png,
-        svg = s.files.svg,
-        name = s.settings.title,
-        python = opts.python,
-        helper = opts.helper,
-        poll = opts.poll,
-      }
-    end
-  end, 'Preview with zoom/pan/fit')
+    s.help, s.settings_open = false, false
+    render()
+  end, 'Return to chart')
+  map('o', function()
+    if ready() then vim.ui.open(s.files.html) end
+  end, 'Open interactive chart')
   map('b', function()
     if ready() then vim.ui.open(s.files.html) end
   end, 'Open interactive local chart')
@@ -403,18 +449,9 @@ function M.open(opts)
   api.nvim_create_autocmd('VimResized', {
     group = api.nvim_create_augroup('python-plot-resize', { clear = true }),
     callback = function()
-      if active == s and api.nvim_win_is_valid(s.win) then
-        api.nvim_win_set_config(s.win, geometry())
-        render()
-      end
+      if active == s and api.nvim_win_is_valid(s.win) then render() end
     end,
   })
-  local function poll()
-    if active ~= s then return end
-    if opts.poll then opts.poll() end
-    vim.defer_fn(poll, 200)
-  end
-  vim.defer_fn(poll, 200)
   schema()
 end
 return M
