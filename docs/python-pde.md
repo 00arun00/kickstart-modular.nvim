@@ -255,7 +255,8 @@ larger images must be resized in Python. Sparse, quantized, meta, complex, and
 empty tensors are rejected with an explanation.
 
 Images start enlarged and centered to fit the viewer. Zoom is labelled relative
-to that fit (`2× fit`, for example), from 0.25× through 32×. Nearest-neighbor
+to that fit (`2× fit`, for example), up to 32×. Zooming out continues until the
+image's longest edge is one rendered pixel; there is no percentage-based floor. Nearest-neighbor
 scaling keeps individual pixels crisp. Panning stops at the edges, and the
 header reports visible pixel coordinates with zero-based, inclusive endpoints.
 Transparent images show a checkerboard. Batch, channel, and contrast changes

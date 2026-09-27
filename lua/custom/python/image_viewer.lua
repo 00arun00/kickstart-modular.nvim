@@ -129,7 +129,7 @@ function M.open(opts)
       ' IMAGE VIEWER',
       '',
       ' + / =     Zoom in around the viewport center',
-      ' -         Zoom out (0.25× to 32× fit)',
+      ' -         Zoom out down to one visible pixel; + goes up to 32× fit',
       ' 0         Fit and center the complete image',
       ' h j k l   Pan left / down / up / right; arrows also work',
       '           Prefix a count for a larger step, e.g. 3l',
@@ -212,7 +212,7 @@ function M.open(opts)
             return write(s, { ' Could not render viewport: ' .. (ok and view.error or 'local renderer failed'), ' o opens the complete PNG · q closes' })
           end
           hide_image()
-          s.cx, s.cy, s.viewport = view.cx, view.cy, view
+          s.cx, s.cy, s.zoom, s.viewport = view.cx, view.cy, view.zoom, view
           view.file = file
           view.source_file = s.file
           vim.b[buf].image_viewport = view
@@ -376,7 +376,7 @@ function M.open(opts)
   end, 'Toggle image controls')
   local function zoom(factor)
     if not s.viewport or s.help then return end
-    s.zoom = math.max(0.25, math.min(32, s.zoom * factor))
+    s.zoom = math.max(s.viewport.min_zoom, math.min(32, s.zoom * factor))
     repaint()
   end
   map('+', function() zoom(math.sqrt(2)) end, 'Zoom in')

@@ -11,12 +11,13 @@ def render(source, target, options):
     height = max(1, int(options["height"]))
     bound = min(1, 2048 / width, 2048 / height)
     width, height = max(1, int(width * bound)), max(1, int(height * bound))
-    zoom = max(0.25, min(32, float(options.get("zoom", 1))))
     background = options.get("background", "#1e1e2e")
     with Image.open(source) as image:
         image = image.convert("RGBA")
         iw, ih = image.size
         fit = min(width / iw, height / ih)
+        min_zoom = 1 / (fit * max(iw, ih))
+        zoom = max(min_zoom, min(32, float(options.get("zoom", 1))))
         scale = fit * zoom
         # Coordinate system is source pixels, with the viewport centered at cx/cy.
         span_x, span_y = min(iw, width / scale), min(ih, height / scale)
@@ -58,6 +59,7 @@ def render(source, target, options):
         "width": width,
         "height": height,
         "zoom": zoom,
+        "min_zoom": min_zoom,
         "scale": scale,
         "cx": cx / iw,
         "cy": cy / ih,

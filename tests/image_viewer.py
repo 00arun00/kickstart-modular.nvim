@@ -127,6 +127,11 @@ print('image output preserved')"""
     assert fitted["zoom"] == 1 and fitted["scale"] > 1
     (out / "fit-canvas.png").write_bytes(Path(fitted["file"]).read_bytes())
     shot("01-complete.png")
+    key("------")
+    smaller = viewport(fitted["file"])
+    assert smaller["zoom"] < 0.25
+    key("0")
+    fitted = viewport(smaller["file"])
     # Exercise terminal-branch placement and delayed detection without pretending
     # a headless capture proves physical terminal rendering.
     n.exec_lua("""

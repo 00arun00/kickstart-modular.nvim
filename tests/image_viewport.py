@@ -27,6 +27,10 @@ with tempfile.TemporaryDirectory() as folder:
     assert out.getpixel((105, 205)) == image.getpixel((10, 20))
     assert set(out.get_flattened_data()) == set(image.get_flattened_data())
     assert not v["pan_x"] and not v["pan_y"]
+    small = render(source, target, {"width": 280, "height": 280, "zoom": 0.0625})
+    assert small["zoom"] == 0.0625 and max(small["image_rect"][2:]) == 18
+    smallest = render(source, target, {"width": 280, "height": 280, "zoom": 0})
+    assert smallest["zoom"] > 0 and smallest["image_rect"][2:] == [1, 1]
     v = render(source, target, {"width": 280, "height": 280, "zoom": 2})
     assert v["crop"] == [7, 7, 21, 21] and v["cx"] == 0.5 and v["cy"] == 0.5
     assert Image.open(target).getpixel((0, 0)) == image.getpixel((7, 7))
