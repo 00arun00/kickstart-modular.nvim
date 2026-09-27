@@ -219,13 +219,17 @@ from batch index zero. Table pagination does not limit this viewer.
 
 | In the image viewer | Action |
 | --- | --- |
+| `+` / `=` / `-` | Zoom in / out around the viewport center |
+| `0` | Fit and center the complete image |
+| `h` / `j` / `k` / `l`, arrows | Pan; use counts such as `3l` for larger steps |
 | `]` / `[` | Next / previous image in the batch |
+| `g` | Jump directly to a zero-based batch index |
 | `c` | Choose an individual channel or a color composite |
 | `n` | Toggle original display and min/max contrast normalization |
 | `L` | Choose the dimension layout explicitly |
 | `r` | Reload the image from the kernel |
 | `o` | Open the complete PNG externally |
-| `?` | Explain controls and display scaling |
+| `?` | Toggle persistent help; `q` / Esc returns from help |
 | `q` / Esc | Return to the explorer |
 
 Supported layouts are `HW`, `CHW`, `HWC`, grayscale batches `BHW`, and color
@@ -244,17 +248,29 @@ the source tensor/array is never modified, and no training normalization is
 automatically reversed. The viewer produces an 8-bit PNG preview.
 
 One complete image (or selected channel) is copied from the GPU to CPU on request,
-which can synchronize GPU work. Images are limited to four million pixels;
+which can synchronize GPU work. Zoom, pan, and window resizing operate on the
+cached PNG locally; they do not query the kernel or repeat GPU transfers.
+Images are limited to four million pixels;
 larger images must be resized in Python. Sparse, quantized, meta, complex, and
-empty tensors are rejected with an explanation. This version fits the image to
-the viewer; zoom/pan and pixel inspection are not implemented yet.
+empty tensors are rejected with an explanation.
+
+Images start enlarged and centered to fit the viewer. Zoom is labelled relative
+to that fit (`2× fit`, for example), from 0.25× through 32×. Nearest-neighbor
+scaling keeps individual pixels crisp. Panning stops at the edges, and the
+header reports visible pixel coordinates with zero-based, inclusive endpoints.
+Transparent images show a checkerboard. Batch, channel, and contrast changes
+retain zoom and position for comparison; changing the dimension layout resets
+to fit. Resizing preserves relative zoom and clamps the position to the image.
+`o` always opens the complete original PNG preview, regardless of zoom/pan.
+Original tensor-value pixel inspection is not implemented yet.
 
 Inline display uses the existing Snacks image support. The external PNG fallback
 works when terminal image support is unavailable. PNGs are temporary previews;
 only the most recent 16 are retained, and they are removed on normal Neovim exit.
-Native Ghostty/tmux image display could not be visually verified because the
-computer-use tool denied access to Ghostty; pixel output and Neovim controls
-are covered by automated tests.
+The user confirmed baseline inline image display in their terminal. The zoom
+update is checked with pixel-level tests, real Neovim controls, and simulated
+terminal-placement callbacks; direct native screenshots remain unavailable
+because the computer-use tool denied access to Ghostty.
 
 ### Custom renderers
 
@@ -312,6 +328,7 @@ The adapter was exercised with ipykernel 6.30.1 and 7.3.0.
 /path/to/disposable-project/.venv/bin/python tests/variable_values.py
 ~/.local/share/nvim/python/bin/python tests/image_viewer.py /path/to/disposable-project /tmp/image-review
 /path/to/disposable-project/.venv/bin/python tests/image_values.py
+~/.local/share/nvim/python/bin/python tests/image_viewport.py
 ```
 
 The disposable project's `.venv` needs `ipykernel`, `numpy`, `pandas`, and `torch`.

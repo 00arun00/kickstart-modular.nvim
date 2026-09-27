@@ -50,14 +50,25 @@ def image_data():
     return wait(lambda: n.current.buffer.vars.get("image_snapshot"))
 
 
+def viewport(previous=None):
+    return wait(
+        lambda: (
+            v
+            if (v := n.current.buffer.vars.get("image_viewport"))
+            and v["file"] != previous
+            else None
+        )
+    )
+
+
 def key(k):
     n.input(k)
     time.sleep(0.1)
 
 
-def shot(name):
+def shot(name, width=150, height=48):
     n.exec_lua("require('noice').cmd('dismiss'); require('snacks').notifier.hide()")
-    capture(n, out / name, 150, 48)
+    capture(n, out / name, width, height)
 
 
 try:
@@ -112,7 +123,100 @@ print('image output preserved')"""
     assert (first["width"], first["height"], first["batch_count"]) == (28, 28, 64)
     assert Image.open(first["file"]).getpixel((8, 4)) == (255, 255, 255)
     (out / "complete-image.png").write_bytes(Path(first["file"]).read_bytes())
+    fitted = viewport()
+    assert fitted["zoom"] == 1 and fitted["scale"] > 1
+    (out / "fit-canvas.png").write_bytes(Path(fitted["file"]).read_bytes())
     shot("01-complete.png")
+    # Exercise terminal-branch placement and delayed detection without pretending
+    # a headless capture proves physical terminal rendering.
+    n.exec_lua("""
+      _G.image_native = {status=require('custom.python.images').status,
+        detect=require('snacks.image.terminal').detect,
+        supports=require('snacks').image.supports_terminal,
+        placement=require('snacks.image.placement').new}
+      _G.image_detect_callbacks = {}
+      vim.g.image_places, vim.g.image_closes = 0, 0
+      require('custom.python.images').status = function() return true end
+      require('snacks').image.supports_terminal = function() return true end
+      require('snacks.image.terminal').detect = function(cb) table.insert(_G.image_detect_callbacks, cb) end
+      require('snacks.image.placement').new = function(buf, file, opts)
+        vim.g.image_places = vim.g.image_places + 1; vim.g.image_placement_opts = opts
+        return { close = function() vim.g.image_closes = vim.g.image_closes + 1 end }
+      end
+    """)
+    key("+")
+    pending = viewport(fitted["file"])
+    key("?")
+    n.exec_lua("for _, cb in ipairs(_G.image_detect_callbacks) do cb() end")
+    assert n.vars["image_places"] == 0  # late detection cannot draw over help
+    key("q")
+    pending = viewport(pending["file"])
+    n.exec_lua("for _, cb in ipairs(_G.image_detect_callbacks) do cb() end")
+    assert n.vars["image_places"] == 1
+    placement = n.vars["image_placement_opts"]
+    assert (
+        placement["pos"] == [5, 1]
+        and placement["width"] > 100
+        and placement["height"] > 20
+    )
+    key("0")
+    fitted = viewport(pending["file"])
+    n.exec_lua("for _, cb in ipairs(_G.image_detect_callbacks) do cb() end")
+    assert n.vars["image_places"] == 2 and n.vars["image_closes"] >= 1
+    n.exec_lua("""
+      require('custom.python.images').status = _G.image_native.status
+      require('snacks.image.terminal').detect = _G.image_native.detect
+      require('snacks').image.supports_terminal = _G.image_native.supports
+      require('snacks.image.placement').new = _G.image_native.placement
+    """)
+    n.exec_lua(
+        "_G.image_system = vim.system; vim.g.image_kernel_calls = 0; vim.system = function(cmd, ...) if cmd[2]:find('inspect-kernel.py', 1, true) then vim.g.image_kernel_calls = vim.g.image_kernel_calls + 1 end; return _G.image_system(cmd, ...) end"
+    )
+    key("++")
+    zoomed = viewport(fitted["file"])
+    assert abs(zoomed["zoom"] - 2) < 0.001
+    assert zoomed["cx"] == 0.5 and zoomed["cy"] == 0.5
+    (out / "zoom-canvas.png").write_bytes(Path(zoomed["file"]).read_bytes())
+    shot("05-zoom.png")
+    key("3l")
+    panned = viewport(zoomed["file"])
+    assert panned["cx"] > zoomed["cx"]
+    (out / "pan-canvas.png").write_bytes(Path(panned["file"]).read_bytes())
+    for _ in range(18):
+        old = viewport()["file"]
+        key("l" if _ % 2 else "h")
+        viewport(old)
+    assert Path(first["file"]).exists()  # viewport cache must not evict the original
+    n.input("llllllllllllllllhhhhhhhhhhhhhhhh")
+    time.sleep(0.4)
+    edge = viewport()
+    assert 0 <= edge["crop"][0] < edge["crop"][2] <= 28
+    key("0")
+    reset = viewport(edge["file"])
+    assert reset["zoom"] == 1 and reset["cx"] == 0.5
+    key("?")
+    assert "IMAGE VIEWER" in "\n".join(n.current.buffer[:])
+    shot("06-help.png")
+    key("q")
+    viewport(reset["file"])
+    before_resize = viewport()["file"]
+    n.ui_try_resize(70, 25)
+    time.sleep(0.2)
+    viewport(before_resize)
+    shot("07-narrow.png", 70, 25)
+    key("?")
+    key("20j")
+    assert n.current.window.cursor[0] > 15
+    shot("08-help-scroll.png", 70, 25)
+    key("q")
+    n.ui_try_resize(28, 12)
+    time.sleep(0.2)
+    assert "Enlarge window" in "\n".join(n.current.buffer[:])
+    n.ui_try_resize(150, 48)
+    time.sleep(0.2)
+    viewport()
+    assert n.vars["image_kernel_calls"] == 0
+    n.exec_lua("vim.system = _G.image_system")
     key("]")
     second = image_data()
     assert second["batch"] == 1
@@ -198,6 +302,10 @@ print('image output preserved')"""
     assert not n.vars.get("opened_stale_image")
     n.exec_lua("vim.ui.open = _G.image_test_open")
     shot("04-recovery.png")
+    key("?")
+    assert "IMAGE VIEWER" in "\n".join(n.current.buffer[:])
+    key("q")
+    assert "Variable no longer exists" in "\n".join(n.current.buffer[:])
     key("q")
     print(
         "PASS: complete PNG pixels, batch/channel/contrast/layout/PIL controls, close during refresh, no source/namespace/history/output mutation"

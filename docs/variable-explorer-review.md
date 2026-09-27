@@ -51,3 +51,25 @@ path is used, with an external SVG fallback. Live variable editing and arbitrary
 tensor-axis rearrangement are outside this implementation.
 
 See [the workflow guide](python-pde.md#variable-explorer) for controls and examples.
+
+## Image zoom, pan, and fit refinement
+
+After the user confirmed baseline inline image display, the viewer gained a
+centered, enlarged fit; local nearest-neighbor zoom/pan; a persistent help view;
+and direct batch-index navigation. The independent reviewer scored the first
+pass 8.8/10, then 9.2/10 after compact labels, native-placement callback tests,
+color/alpha examples, and no-op boundary handling. No release blockers remained.
+
+`tests/image_viewport.py` verifies actual pixels, center anchoring, pan clamps,
+aspect ratios, transparency, and bounded output. `tests/image_viewer.py` exercises
+the real Neovim controls, rapid input, source-PNG retention, help scrolling/error
+states, tiny windows, and counts kernel requests to establish that viewport
+operations do not query the kernel. Mocked terminal callbacks test stale-placement
+rejection and placement lifecycle; they do not prove physical HiDPI alignment.
+The existing explorer regression suite also passed after its resize handling was
+deferred while the image viewer is focused.
+
+Native rendering of the updated viewport still needs a terminal-side check;
+the available captures show real Neovim UI grids and separately verified PNG
+canvases. Full-data plotting and original tensor-value pixel inspection remain
+separate future work.

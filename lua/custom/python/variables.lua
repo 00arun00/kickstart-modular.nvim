@@ -641,6 +641,10 @@ function M.open(name)
     group = api.nvim_create_augroup('python-variables-resize', { clear = true }),
     callback = function()
       if state ~= s or not api.nvim_win_is_valid(s.win) then return end
+      if vim.bo.filetype == 'molten-image' then
+        s.resize_pending = true
+        return
+      end
       api.nvim_win_call(s.win, function()
         if vim.o.columns < 110 then
           vim.cmd 'wincmd J'
@@ -651,6 +655,15 @@ function M.open(name)
         end
       end)
       fetch(s)
+    end,
+  })
+  api.nvim_create_autocmd('BufEnter', {
+    buffer = buf,
+    callback = function()
+      if state == s and s.resize_pending then
+        s.resize_pending = false
+        api.nvim_exec_autocmds('VimResized', { group = 'python-variables-resize' })
+      end
     end,
   })
   api.nvim_create_autocmd('CursorMoved', {
