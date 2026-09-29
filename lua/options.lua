@@ -24,6 +24,12 @@ vim.schedule(function() vim.o.clipboard = 'unnamedplus' end)
 -- Enable break indent
 vim.o.breakindent = true
 
+-- Build folds from syntax, but keep files expanded until explicitly folded.
+vim.o.foldmethod = 'expr'
+vim.o.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+vim.o.foldlevel = 99
+vim.o.foldlevelstart = 99
+
 -- Enable undo/redo changes even after closing and reopening a file
 vim.o.undofile = true
 
