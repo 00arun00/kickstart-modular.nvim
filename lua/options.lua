@@ -29,6 +29,9 @@ vim.o.foldmethod = 'expr'
 vim.o.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
 vim.o.foldlevel = 99
 vim.o.foldlevelstart = 99
+vim.o.foldtext = '' -- Preserve the first line's indentation and syntax colors.
+vim.o.foldcolumn = 'auto:1'
+vim.opt.fillchars:append { fold = ' ', foldopen = '', foldclose = '', foldsep = ' ', foldinner = ' ' }
 
 -- Enable undo/redo changes even after closing and reopening a file
 vim.o.undofile = true

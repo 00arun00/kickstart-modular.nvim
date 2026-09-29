@@ -13,6 +13,14 @@ return {
         },
         custom_highlights = function(colors)
           return {
+            Folded = { bg = colors.mantle },
+            FoldColumn = { fg = colors.overlay1, bg = colors.base },
+            CursorLineFold = { fg = colors.lavender, bg = colors.base, bold = true },
+            FoldSummary = { fg = colors.subtext0, bg = colors.mantle },
+            DiagnosticError = { fg = colors.red },
+            DiagnosticWarn = { fg = colors.peach },
+            DiagnosticSignError = { fg = colors.red },
+            DiagnosticSignWarn = { fg = colors.peach },
             NeoTreeNormal = { fg = colors.text, bg = colors.mantle },
             NeoTreeNormalNC = { fg = colors.text, bg = colors.mantle },
             NeoTreeRootName = { fg = colors.lavender, bold = true },
