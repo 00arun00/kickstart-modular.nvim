@@ -7,6 +7,9 @@ return {
   -- Enable `lukas-reineke/indent-blankline.nvim`
   -- See `:help ibl`
   main = 'ibl',
+  keys = {
+    { '<leader>ti', '<cmd>IBLToggle<CR>', desc = '[T]oggle [I]ndentation guides' },
+  },
   ---@module 'ibl'
   ---@type ibl.config
   opts = {},
