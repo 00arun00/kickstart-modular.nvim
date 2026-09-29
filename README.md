@@ -4,6 +4,8 @@ See [Python PDE](docs/python-pde.md) for uv environments, Molten notebooks, keyb
 
 See [Breadcrumbs and navigation](docs/navigation.md) for Dropbar, notebook cell titles, and symbol menus.
 
+See [Project explorer](docs/file-explorer.md) for Neo-tree previews, source tabs, file navigation, and when to use Oil or Telescope.
+
 See [Diagnostics and batch-fix workflows](docs/diagnostics-workflows.md) for the installed tooling, quickfix/location lists, Telescope, Ruff, and optional Trouble integration.
 
 # kickstart-modular.nvim
