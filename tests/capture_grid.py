@@ -42,6 +42,9 @@ def capture(n, path, width=150, height=48):
     font = ImageFont.truetype(
         str(Path.home() / "Library/Fonts/FiraCodeNerdFontMono-Regular.ttf"), 16
     )
+    bold_font = ImageFont.truetype(
+        str(Path.home() / "Library/Fonts/FiraCodeNerdFontMono-Bold.ttf"), 16
+    )
     image = Image.new("RGB", (width * 10, height * 22))
     draw = ImageDraw.Draw(image)
     for row in range(height):
@@ -58,5 +61,6 @@ def capture(n, path, width=150, height=48):
                 (col * 10, row * 22, (col + 1) * 10, (row + 1) * 22),
                 fill=f"#{max(bg, 0):06x}",
             )
-            draw.text((col * 10, row * 22), text, font=font, fill=f"#{max(fg, 0):06x}")
+            draw.text((col * 10, row * 22), text, font=bold_font if attr.get('bold') else font,
+                      fill=f"#{max(fg, 0):06x}")
     image.save(path)

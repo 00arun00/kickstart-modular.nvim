@@ -1,5 +1,7 @@
 # Personal Python setup
 
+See [Project home](docs/project-home.md) for the Workspace, Navigator, and Atelier dashboards, Git/PR views, sessions, and theme-aware configuration.
+
 See [Python PDE](docs/python-pde.md) for uv environments, Molten notebooks, keybindings, and verification.
 
 See [Breadcrumbs and navigation](docs/navigation.md) for Dropbar, notebook cell titles, and symbol menus.
