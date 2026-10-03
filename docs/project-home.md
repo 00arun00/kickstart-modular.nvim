@@ -1,23 +1,21 @@
 # Project home
 
-Three separate local plugins are installed by `lua/custom/plugins/project-home.lua`.
-They share a small core for Git, navigation, sessions, and persisted project state.
+The dashboard is provided by `project-home-volt`, backed by `project-home-core`
+for Git, navigation, sessions, and persisted project state. The only additional
+UI dependency is `nvzone/volt`, pinned in the lazy.nvim specification.
 
 | Command | Opens |
 | --- | --- |
-| `:ProjectHome workspace` | Balanced overview, closest to the original approved design |
-| `:ProjectHome navigator` | Navigation rail with files, Git, PRs, and worktrees |
-| `:ProjectHome atelier` | Numbered editorial sections |
-| `:ProjectHomeSelect` | Layout chooser |
-| `:ProjectHome` | Last selected layout |
+| `:ProjectHome` / `:ProjectHomeVolt` / `:ProjectHome volt` | Volt Workspace |
 | `:ProjectHomeActivity` | Show/hide the activity graph for this checkout |
-| `:ProjectHomeSessionSave` | Save the current project's file windows and split geometry |
+| `:ProjectHomeSessionSave` | Save the project's file windows and split geometry |
 
-The last selected layout persists. Workspace is the initial default. To pin the
-startup layout, set `vim.g.project_home_layout = 'navigator'` before plugins load.
-Set `vim.g.project_home_startup = false` to use these commands without automatic
-startup. No colorscheme setting is necessary: every layout follows the active
-Neovim theme, including changes made while the dashboard is open.
+Volt is the startup default. Saved preferences from the retired Workspace,
+Navigator, and Atelier versions do not select those removed renderers. Existing
+recent files, shortcuts, sessions, and activity preferences are retained.
+Set `vim.g.project_home_startup = false` to disable automatic startup.
+The dashboard follows the active Neovim theme, including live theme changes.
+See [Volt Workspace](../plugins/project-home-volt/README.md) for implementation details.
 
 Workspace uses an open, centered layout with two columns, file metadata,
 and a heatmap beside its controls. It adapts spacing to the window height; at
@@ -63,7 +61,7 @@ and horizontal scrolling are available. Backspace or Escape goes back, `H`
 returns Home, and `q` closes Home. Direct keys are shown beside actions:
 `f` find, `/` search, `e` browse, `n` new file, `r` recents, `s` edit shortcuts,
 `g` changes, `c` latest commit, `p` PRs, `w` worktrees, `a` activity scope,
-`h` history, `?` More (Workspace uses `?` for help and `m` for More), and
+`h` history, `?` help, `m` More, and
 `R` refresh. Not every action is shown when its data is absent.
 
 Find/Search use Telescope when installed. Find has a native filename prompt
@@ -73,8 +71,8 @@ opens an unsaved buffer; nested directories are created on the explicit action.
 The file itself is written only when you save it.
 
 Recent files are recorded when project files are opened. Home shows five and
-provides the full recent-file list. Each checkout has its own history. These
-plugins do not import an existing global recent-file list, so the first launch
+provides the full recent-file list. Each checkout has its own history. The
+dashboard does not import an existing global recent-file list, so the first launch
 may have an empty section.
 
 Start Exploring is a stable shortcut list. On first use, existing README,
@@ -120,22 +118,21 @@ restricted to the graph's date window.
 
 ## Individual installation
 
-Each layout is a separate directory and Lua module. To use one independently,
-install the core directory and that layout directory with your plugin manager:
+Install the core and Volt Workspace directories with your plugin manager:
 
 ```lua
 {
-  dir = '/absolute/path/to/project-home-workspace',
-  dependencies = { { dir = '/absolute/path/to/project-home-core' } },
+  dir = '/absolute/path/to/project-home-volt',
+  dependencies = {
+    { dir = '/absolute/path/to/project-home-core' },
+    { 'nvzone/volt', commit = '620de1321f275ec9d80028c68d1b88b409c0c8b1' },
+  },
   config = function()
-    require('project_home_workspace').setup()
-    require('project_home').setup { default = 'workspace', startup = true }
+    require('project_home_volt').setup()
+    require('project_home').setup { default = 'volt', startup = true }
   end,
 }
 ```
-
-For the other plugins, substitute `project-home-navigator` / `project_home_navigator`
-or `project-home-atelier` / `project_home_atelier`. They need no theme dependency.
 
 ## Verification
 
@@ -144,8 +141,8 @@ nvim --headless -u NONE -i NONE -l tests/project_home_providers.lua
 nvim --headless -u NONE -i NONE -l plugins/project-home-core/tests/core.lua
 nvim --headless -u NONE -i NONE -l plugins/project-home-core/tests/failures.lua
 nvim --headless -u NONE -i NONE -l plugins/project-home-core/tests/workspace_ui.lua
-nvim --headless -u NONE -i NONE -l tests/project-home/layouts.lua
-nvim --headless -u NONE -i NONE -l tests/project-home/layout-review.lua
+nvim --headless -u NONE -i NONE -l plugins/project-home-core/tests/workspace_activity.lua
+nvim --headless -u NONE -i NONE -l plugins/project-home-volt/tests/volt.lua
 python tests/project_home.py /tmp/project-home-review
 python tests/project_home_full_config.py
 python tests/project_home_visual.py /tmp/project-home-fidelity

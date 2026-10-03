@@ -2,16 +2,7 @@ local M = {}
 local function clean(s) return tostring(s or ''):gsub('[\r\n\t]', ' ') end
 local ns = vim.api.nvim_create_namespace 'project_home'
 local selection_ns = vim.api.nvim_create_namespace 'project_home_selection'
-local function blend(a, b, amount)
-  if not a or not b then return a end
-  local out = 0
-  for _, shift in ipairs { 16, 8, 0 } do
-    local aa = math.floor(a / 2 ^ shift) % 256
-    local bb = math.floor(b / 2 ^ shift) % 256
-    out = out + math.floor(aa + (bb - aa) * amount + 0.5) * 2 ^ shift
-  end
-  return out
-end
+local colors = require 'project_home.colors'
 function M.highlights()
   for name, target in pairs {
     Normal = 'Normal',
@@ -25,42 +16,12 @@ function M.highlights()
   } do
     vim.api.nvim_set_hl(0, 'ProjectHome' .. name, { default = true, link = target })
   end
-  -- link=false also follows the current window's winhighlight remapping. On a
-  -- Workspace window that would read our own Backdrop (or its cleared state
-  -- during ColorScheme), rather than the newly loaded theme's global Normal.
-  -- Read raw definitions and resolve only explicit global links ourselves.
-  local function hl(name)
-    local seen = {}
-    for _ = 1, 32 do
-      if seen[name] then return {} end
-      seen[name] = true
-      local attrs = vim.api.nvim_get_hl(0, { name = name, link = true })
-      if not attrs.link then return attrs end
-      name = attrs.link
-    end
-    return {}
-  end
-  local normal, border, comment, title, accent, success = hl 'Normal', hl 'FloatBorder', hl 'Comment', hl 'Title', hl 'Special', hl 'DiagnosticOk'
-  local bg = normal.bg or border.bg
-  local fg = normal.fg
-  local color = accent.fg or title.fg or fg
-  local green = success.fg or color
-  local workspace_color = title.fg or hl('Function').fg or color
-  vim.api.nvim_set_hl(0, 'ProjectHomeFile', { fg = fg, bold = true })
-  vim.api.nvim_set_hl(0, 'ProjectHomeWorkspaceText', { fg = fg })
-  vim.api.nvim_set_hl(0, 'ProjectHomeWorkspaceAccent', { fg = workspace_color })
+  local normal = colors.get 'Normal'
+  local accent = colors.get('Title').fg or colors.get('Function').fg or normal.fg
+  vim.api.nvim_set_hl(0, 'ProjectHomeWorkspaceAccent', { fg = accent })
   vim.api.nvim_set_hl(0, 'ProjectHomeCanvas', { fg = normal.fg, bg = normal.bg })
   vim.api.nvim_set_hl(0, 'ProjectHomeBackdrop', { fg = normal.fg, bg = normal.bg })
-  vim.api.nvim_set_hl(0, 'ProjectHomeSurface', { fg = fg, bg = blend(bg, fg, 0.045) })
-  vim.api.nvim_set_hl(0, 'ProjectHomeResume', { fg = workspace_color, bg = blend(bg, workspace_color, 0.13) })
-  vim.api.nvim_set_hl(0, 'ProjectHomeWorkspaceSelected', { bg = blend(bg, workspace_color, 0.14) })
-  vim.api.nvim_set_hl(0, 'ProjectHomeWorkspaceTitle', { fg = workspace_color, bold = true })
-  vim.api.nvim_set_hl(0, 'ProjectHomeWorkspaceHeading', { fg = blend(fg, workspace_color, 0.30), bold = true })
-  vim.api.nvim_set_hl(0, 'ProjectHomeWorkspaceBorder', { fg = blend(bg, comment.fg or border.fg or fg, 0.30) or comment.fg or border.fg })
-  vim.api.nvim_set_hl(0, 'ProjectHomeActivity0', { fg = blend(bg, comment.fg or fg, 0.36) or comment.fg or fg })
-  for level, amount in ipairs { 0.30, 0.50, 0.75, 1 } do
-    vim.api.nvim_set_hl(0, 'ProjectHomeActivity' .. level, { fg = blend(bg, green, amount) or green })
-  end
+  vim.api.nvim_set_hl(0, 'ProjectHomeWorkspaceSelected', { bg = colors.blend(normal.bg, accent, 0.14) })
 end
 function M.valid(ctx) return ctx and vim.api.nvim_buf_is_valid(ctx.buf) and vim.api.nvim_win_is_valid(ctx.win) and vim.api.nvim_win_get_buf(ctx.win) == ctx.buf end
 -- Item coordinates are bytes on their first row. Rectangles on subsequent rows
@@ -123,6 +84,10 @@ function M.update_selection(ctx)
 end
 function M.draw(ctx, page)
   if not M.valid(ctx) then return end
+  if ctx.clear_presentation then
+    ctx.clear_presentation()
+    ctx.clear_presentation = nil
+  end
   local previous_item = item_at_cursor(ctx)
   local navigation = ctx.force_focus or ctx.draw_generation ~= ctx.generation
   if ctx.keyboard_active and page.presentation == 'workspace' and ctx.keyboard_section and previous_item and previous_item.section == ctx.keyboard_section then
@@ -233,6 +198,7 @@ function M.draw(ctx, page)
       vim.keymap.set('n', item.key, function() ctx.dispatch(item.action, item.value) end, { buffer = ctx.buf, silent = true, desc = item.label })
     end
   end
+  if page.paint then ctx.clear_presentation = page.paint(ctx) end
   require('project_home.keyboard').bind(ctx, page)
   M.update_selection(ctx)
 end
@@ -275,6 +241,16 @@ end
 function M.attach(ctx)
   ctx.original_options = ctx.original_options or M.capture_options(ctx.win)
   vim.api.nvim_create_autocmd('BufWinLeave', { buffer = ctx.buf, once = true, callback = function() M.restore_options(ctx) end })
+  vim.api.nvim_create_autocmd('BufWipeout', {
+    buffer = ctx.buf,
+    once = true,
+    callback = function()
+      if ctx.clear_presentation then
+        ctx.clear_presentation()
+        ctx.clear_presentation = nil
+      end
+    end,
+  })
   vim.api.nvim_buf_set_name(ctx.buf, 'project-home://' .. ctx.layout .. '/' .. ctx.buf)
   vim.bo[ctx.buf].buftype = 'nofile'
   vim.bo[ctx.buf].bufhidden = 'wipe'

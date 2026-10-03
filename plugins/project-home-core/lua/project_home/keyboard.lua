@@ -149,7 +149,8 @@ function M.bind(ctx, page)
   for key, section in pairs(jumps) do
     map(key, function()
       local action = ({ recent = 'recents', explore = 'shortcuts', prs = 'prs', git = 'git' })[section]
-      if ctx.keyboard_section == section then
+      -- Empty/loading sections have no cursor target; open their utility directly.
+      if ctx.keyboard_section == section or #entries(ctx, section) == 0 then
         ctx.dispatch(action)
       else
         M.section(ctx, section)
@@ -170,7 +171,8 @@ function M.bind(ctx, page)
     for _, section in ipairs(order) do
       if #entries(ctx, section) > 0 then
         available[#available + 1] = section
-        if ctx.keyboard_section == section then index = #available end
+        -- Empty/loading sections have no cursor target; open their utility directly.
+        if ctx.keyboard_section == section or #entries(ctx, section) == 0 then index = #available end
       end
     end
     if #available > 0 then M.section(ctx, available[(index - 1 + delta) % #available + 1]) end

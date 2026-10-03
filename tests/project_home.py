@@ -80,7 +80,7 @@ vim.opt.swapfile=false
 vim.opt.termguicolors=true
 vim.opt.shortmess:append('I')
 vim.opt.rtp:append(%s)
-for _,name in ipairs({'core','workspace','navigator','atelier'}) do
+for _,name in ipairs({'core','volt'}) do
   vim.opt.rtp:append(%s..'/plugins/project-home-'..name)
 end
 require('project_home.state').configure({directory=%s})
@@ -100,12 +100,14 @@ provider.gh=function(_,args,cb)
   vim.defer_fn(function()if not cancelled then cb(result)end end,35)
   return function()cancelled=true end
 end
-require('project_home').setup({startup=true,remember_layout=false})
-for _,name in ipairs({'workspace','navigator','atelier'}) do require('project_home_'..name).setup() end
+require('project_home').setup({startup=true})
+vim.opt.rtp:append(vim.fn.expand('~/.local/share/nvim/lazy/volt'));require('project_home_volt').setup()
 vim.opt.rtp:append(vim.fn.expand('~/.local/share/nvim/lazy/catppuccin'))
 local ok,theme=pcall(require,'catppuccin')
 if ok then theme.setup({flavour='mocha',compile_path=vim.fn.stdpath('state')..'/project-home-test-cache'});vim.cmd.colorscheme('catppuccin-mocha') end
 ''' % (json.dumps(str(repo)), json.dumps(str(repo)), json.dumps(str(temp / 'state'))))
+
+
 
     def start(args=()):
         n = pynvim.attach('child', argv=['nvim', '--embed', '--headless', '-n', '-i', 'NONE', '-u', str(boot), *map(str, args)])
@@ -144,7 +146,7 @@ if ok then theme.setup({flavour='mocha',compile_path=vim.fn.stdpath('state')..'/
             def lines():
                 return '\n'.join(n.current.buffer[:])
 
-            def home(layout='workspace', root=project):
+            def home(layout='volt', root=project):
                 n.exec_lua("local name,root=...;require('project_home').open(name,{root=root})", layout, str(root))
                 wait(loaded, 'provider load')
 
@@ -158,7 +160,7 @@ if ok then theme.setup({flavour='mocha',compile_path=vim.fn.stdpath('state')..'/
             home()
             check(len(context('ctx.model.recents')) >= 4, 'real project recents persisted')
             check(context('ctx.model.session.count') == 2, 'session separate from recents')
-            for layout in ['workspace', 'navigator', 'atelier']:
+            for layout in ['volt']:
                 home(layout)
                 check(context('ctx.layout') == layout, layout + ' independently selectable')
                 check('Recent files' in lines() or 'RECENT FILES' in lines(), layout + ' recent section')
@@ -168,7 +170,7 @@ if ok then theme.setup({flavour='mocha',compile_path=vim.fn.stdpath('state')..'/
                       layout + ' initially focuses an action')
                 capture(n, output / (layout + '-catppuccin.png'), 120, 52)
                 n.input('g')
-                if layout == 'workspace':
+                if layout == 'volt':
                     wait(lambda: context('ctx.keyboard_section') == 'git', 'g focuses Git section')
                     n.input('<CR>')
                 wait(lambda: context('ctx.pages[#ctx.pages] and ctx.pages[#ctx.pages].live_action') == 'git', 'g opens changes')
@@ -204,10 +206,10 @@ if ok then theme.setup({flavour='mocha',compile_path=vim.fn.stdpath('state')..'/
                 check(str(worktree) in lines(), layout + ' worktree list')
                 capture(n, output / (layout + '-worktrees.png'), 120, 52)
                 action('home')
-                n.input('m' if layout == 'workspace' else '?')
+                n.input('m')
                 wait(lambda: 'Workspace actions' in lines(), '? opens More')
                 check('activity' in lines().lower(), layout + ' activity visibility discoverable')
-                check('layout' in lines().lower(), layout + ' layout selection discoverable')
+                check('choose layout' not in lines().lower(), 'retired layout chooser removed')
                 capture(n, output / (layout + '-more.png'), 120, 52)
                 action('home')
                 action('activity', 'you')
@@ -302,7 +304,7 @@ if ok then theme.setup({flavour='mocha',compile_path=vim.fn.stdpath('state')..'/
             check(Path(context('ctx.model.root')) == worktree.resolve(), 'switch resolves target worktree')
             check(n.buffers[dirty].options['modified'], 'switch preserves dirty buffer')
             check(len(context('ctx.model.git.changes')) == 0, 'target clean state is correct')
-            home('workspace', project)
+            home('volt', project)
             wait(lambda: Path(context('ctx.model.root')) == project.resolve(), 'explicit root switch')
             checks.append('explicit root option changes existing home context')
             action('resume')

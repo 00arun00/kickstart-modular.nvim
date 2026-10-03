@@ -1,10 +1,6 @@
 # Project home core
 
-Shared runtime for three independently selectable local Neovim plugins:
-
-- `project-home-workspace`: balanced project overview.
-- `project-home-navigator`: navigation rail, including secondary views on wide windows.
-- `project-home-atelier`: ordered, numbered sections.
+Runtime for the Volt Workspace dashboard (`project-home-volt`).
 
 Requires Neovim 0.11+ and Git for repository features. GitHub CLI (`gh`) with an
 existing login enables pull requests; no remote configuration or credentials are
@@ -21,8 +17,8 @@ User-defined highlight overrides remain supported.
 
 Data lives under `stdpath('state')/project-home`, keyed by canonical checkout
 path. Preferences, recent files, shortcuts, and saved split trees use JSON;
-project-local session scripts are never sourced. The three layouts share this
-state. All Git and GitHub subprocesses use argument arrays and bounded timeouts.
+project-local session scripts are never sourced. The Volt renderer uses the same persisted
+state as earlier dashboard versions. All Git and GitHub subprocesses use argument arrays and bounded timeouts.
 
 Developer interface:
 

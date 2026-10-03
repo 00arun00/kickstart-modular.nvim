@@ -1,12 +1,13 @@
+vim.opt.rtp:append(vim.fn.expand '~/.local/share/nvim/lazy/volt')
 local root = vim.fn.getcwd()
-for _, plugin in ipairs { 'core', 'workspace' } do
+for _, plugin in ipairs { 'core', 'volt' } do
   vim.opt.rtp:append(root .. '/plugins/project-home-' .. plugin)
 end
-local ui, view = require 'project_home.ui', require 'project_home_workspace.view'
+local ui, view = require 'project_home.ui', require 'project_home_volt.view'
 local ctx = {
   buf = vim.api.nvim_get_current_buf(),
   win = vim.api.nvim_get_current_win(),
-  layout = 'workspace',
+  layout = 'volt',
   generation = 1,
   model = {
     root = root,

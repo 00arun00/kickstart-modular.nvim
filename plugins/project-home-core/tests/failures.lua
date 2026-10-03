@@ -1,9 +1,10 @@
+vim.opt.rtp:append(vim.fn.expand '~/.local/share/nvim/lazy/volt')
 -- nvim --headless -u NONE -l plugins/project-home-core/tests/failures.lua
 local repo = vim.fn.getcwd()
-for _, name in ipairs { 'core', 'workspace' } do
+for _, name in ipairs { 'core', 'volt' } do
   vim.opt.rtp:append(repo .. '/plugins/project-home-' .. name)
 end
-require('project_home_workspace').setup()
+require('project_home_volt').setup()
 local tmp = vim.fn.tempname()
 vim.fn.mkdir(tmp, 'p')
 tmp = vim.uv.fs_realpath(tmp)
@@ -12,10 +13,10 @@ vim.fn.writefile({ 'two' }, tmp .. '/two.lua')
 local state = require 'project_home.state'
 state.configure { directory = tmp .. '/state' }
 local core = require 'project_home'
-core.setup { startup = false, remember_layout = false }
+core.setup { startup = false }
 vim.cmd('cd ' .. vim.fn.fnameescape(tmp))
 state.set(tmp, { recents = 'malformed', shortcuts = 17, session = 'malformed', activity_visible = 'wrong' })
-local ctx = core.open('workspace', { root = tmp, reuse = true })
+local ctx = core.open('volt', { root = tmp, reuse = true })
 assert(vim.wait(5000, function() return ctx.model.prs.status ~= 'loading' end))
 assert(#ctx.model.recents == 0 and ctx.model.session == nil and ctx.model.show_activity == true)
 ctx.dispatch 'resume'

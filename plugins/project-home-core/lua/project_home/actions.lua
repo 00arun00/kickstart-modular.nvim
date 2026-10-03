@@ -311,7 +311,6 @@ function M.dispatch(ctx, action, value)
   elseif action == 'more' then
     ctx.show(ui.page('Workspace actions', root, {
       { label = model.show_activity == false and 'Show activity' or 'Hide activity', action = 'activity_visibility' },
-      { label = 'Choose layout', action = 'layout' },
       { label = 'Find file', action = 'find' },
       { label = 'Search project text', action = 'search' },
       { label = 'Explore files', action = 'browse' },

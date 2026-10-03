@@ -1,6 +1,7 @@
+vim.opt.rtp:append(vim.fn.expand '~/.local/share/nvim/lazy/volt')
 vim.opt.rtp:append(vim.fn.getcwd() .. '/plugins/project-home-core')
-vim.opt.rtp:append(vim.fn.getcwd() .. '/plugins/project-home-workspace')
-local render = require('project_home_workspace.view').render
+vim.opt.rtp:append(vim.fn.getcwd() .. '/plugins/project-home-volt')
+local render = require('project_home_volt.view').render
 local days = {}
 for i = 1, 364 do
   days[i] = { date = '2026-01-01', count = i <= 182 and 3 or 1, mine = i <= 182 and 2 or 0 }
@@ -26,7 +27,7 @@ for _, case in ipairs { { 80, 26, 182, 0 }, { 120, 39, 455, 182 }, { 166, 52, 72
       assert(vim.fn.strdisplaywidth(line) <= case[1], 'content fits width')
     end
     assert(graph_rows == 7, 'scope preserves range and seven complete rows')
-    assert(text:find(tostring(case[2]) .. (case[1] == 80 and 'w' or ' weeks'), 1, true), 'period follows width')
+    assert(text:find(tostring(case[2]) .. (case[1] == 80 and ' weeks' or 'w'), 1, true), 'period follows width')
     assert(text:find(tostring(scope == 'repo' and case[3] or case[4]) .. ' commits', 1, true), 'count sums only visible days')
     local resume, recent
     for _, item in ipairs(page.items) do

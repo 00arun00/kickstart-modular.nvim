@@ -1,4 +1,4 @@
-local M = { renderers = {}, adapters = {}, contexts = {}, options = { default = 'workspace', startup = true } }
+local M = { renderers = {}, contexts = {}, options = { default = 'volt', startup = true } }
 local ui = require 'project_home.ui'
 local state = require 'project_home.state'
 local function root_for(path)
@@ -17,40 +17,32 @@ local function empty_buffer(buf)
     and vim.api.nvim_buf_line_count(buf) == 1
     and (vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1] or '') == ''
 end
-function M.register(name, renderer, adapter)
+function M.register(name, renderer)
   assert(type(name) == 'string' and type(renderer) == 'function', 'register requires a layout name and renderer')
   M.renderers[name] = renderer
-  M.adapters[name] = adapter or {}
 end
 function M.layouts()
   local names = vim.tbl_keys(M.renderers)
   table.sort(names)
   return names
 end
-function M.select()
-  vim.ui.select(M.layouts(), { prompt = 'Project home layout' }, function(name)
-    if name then M.open(name) end
-  end)
-end
 function M.open(layout, opts)
   opts = opts or {}
   local explicit = layout ~= nil
   layout = layout or M.options.default
-  if not explicit and not M.renderers[layout] then
-    layout = M.preferred_layout and M.renderers[M.preferred_layout] and M.preferred_layout or M.renderers.workspace and 'workspace' or M.layouts()[1]
-  end
+  if not explicit and not M.renderers[layout] then layout = M.renderers.volt and 'volt' or M.layouts()[1] end
   if not M.renderers[layout] then
     vim.notify('Project home layout is not registered: ' .. tostring(layout), vim.log.levels.WARN)
     return
   end
   M.options.default = layout
-  if M.options.remember_layout ~= false then state.update('__preferences__', 'layout', layout) end
   local existing = M.contexts[vim.api.nvim_get_current_buf()]
   local initial_root = vim.fs.normalize(
     opts.root or (existing and existing.model.root) or root_for(vim.api.nvim_buf_get_name(0) ~= '' and vim.api.nvim_buf_get_name(0) or vim.fn.getcwd())
   )
   initial_root = vim.uv.fs_realpath(initial_root) or initial_root
   if existing and ui.valid(existing) and existing.model.root == initial_root then
+    if existing.layout ~= layout then existing.keyboard_section = nil end
     existing.layout = layout
     existing.home()
     return existing
@@ -102,14 +94,6 @@ function M.open(layout, opts)
     ctx.model.scope = ctx.scope
     if #ctx.pages > 0 then
       local page = ctx.pages[#ctx.pages]
-      local adapter = M.adapters[ctx.layout]
-      if adapter and adapter.decorate then
-        local ok, result = pcall(adapter.decorate, ctx.model, vim.api.nvim_win_get_width(ctx.win), page)
-        if ok and result then
-          result.textview = page.textview
-          page = result
-        end
-      end
       ui.draw(ctx, page)
       return
     end
@@ -210,15 +194,6 @@ function M.open(layout, opts)
       ctx.model.show_activity = not ctx.model.show_activity
       state.update(ctx.model.root, 'activity_visible', ctx.model.show_activity)
       ctx.home()
-    elseif action == 'layout' then
-      if value and M.renderers[value] then
-        ctx.layout = value
-        M.options.default = value
-        if M.options.remember_layout ~= false then state.update('__preferences__', 'layout', value) end
-        ctx.home()
-      else
-        M.select()
-      end
     elseif action == 'close' then
       ui.restore_options(ctx)
       if ctx.owned_tab and #vim.api.nvim_list_tabpages() > 1 then
@@ -251,12 +226,7 @@ function M.open(layout, opts)
   return ctx
 end
 function M.setup(opts)
-  if opts and type(opts.default) == 'string' then M.preferred_layout = opts.default end
   M.options = vim.tbl_deep_extend('force', M.options, opts or {})
-  if M.options.remember_layout ~= false then
-    local remembered = state.get('__preferences__').layout
-    if type(remembered) == 'string' and remembered ~= '' then M.options.default = remembered end
-  end
   local group = vim.api.nvim_create_augroup('ProjectHomeCore', { clear = true })
   ui.highlights()
   vim.api.nvim_create_autocmd('ColorScheme', {
@@ -281,7 +251,6 @@ function M.setup(opts)
     function(args) M.open(args.args ~= '' and args.args or nil) end,
     { nargs = '?', complete = function() return M.layouts() end, force = true }
   )
-  vim.api.nvim_create_user_command('ProjectHomeSelect', M.select, { force = true })
   vim.api.nvim_create_user_command('ProjectHomeActivity', function()
     local ctx = M.contexts[vim.api.nvim_get_current_buf()]
     if ctx then

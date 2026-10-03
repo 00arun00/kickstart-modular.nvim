@@ -1,9 +1,10 @@
+vim.opt.rtp:append(vim.fn.expand '~/.local/share/nvim/lazy/volt')
 -- Run: nvim --headless -u NONE -l plugins/project-home-core/tests/core.lua
 local repo = vim.fn.getcwd()
-for _, n in ipairs { 'core', 'workspace', 'navigator', 'atelier' } do
+for _, n in ipairs { 'core', 'volt' } do
   vim.opt.rtp:append(repo .. '/plugins/project-home-' .. n)
 end
-for _, n in ipairs { 'workspace', 'navigator', 'atelier' } do
+for _, n in ipairs { 'volt' } do
   require('project_home_' .. n).setup()
 end
 local tmp = vim.fn.tempname()
@@ -17,7 +18,7 @@ core.setup { startup = false }
 vim.cmd('cd ' .. vim.fn.fnameescape(tmp))
 vim.wo.number = true
 vim.wo.statusline = 'ORIGINAL'
-local ctx = core.open('workspace', { reuse = true, root = tmp })
+local ctx = core.open('volt', { reuse = true, root = tmp })
 assert(vim.api.nvim_win_get_cursor(ctx.win)[1] == ctx.items[1].line, 'initial focus is actionable')
 assert(vim.wait(5000, function() return ctx.model.prs.status ~= 'loading' end), 'provider completion')
 for _, name in ipairs(core.layouts()) do
@@ -145,11 +146,11 @@ local ok = require('project_home.sessions').restore(corrupt)
 assert(not ok and #vim.api.nvim_list_tabpages() == before)
 -- Any one layout can be installed, even if a removed layout was remembered.
 local registered = core.renderers
-core.renderers = { atelier = registered.atelier }
+core.renderers = { volt = registered.volt }
 require('project_home.state').update('__preferences__', 'layout', 'navigator')
-core.setup { startup = false, remember_layout = true }
+core.setup { startup = false }
 local fallback = core.open(nil, { root = tmp, reuse = true })
-assert(fallback and fallback.layout == 'atelier', 'standalone layout survives missing remembered layout')
+assert(fallback and fallback.layout == 'volt', 'standalone layout survives missing remembered layout')
 core.renderers = registered
 print 'Core tests passed: layouts, column navigation, stale callbacks, preferences, safe session restoration'
 vim.cmd 'qa!'

@@ -26,14 +26,14 @@ vim.opt.termguicolors=true
 vim.opt.swapfile=false
 vim.opt.shortmess:append('I')
 vim.opt.laststatus=2
-for _,name in ipairs({'core','workspace'}) do vim.opt.rtp:append(%s..'/plugins/project-home-'..name) end
+for _,name in ipairs({'core','volt'}) do vim.opt.rtp:append(%s..'/plugins/project-home-'..name) end
 vim.opt.rtp:append(vim.fn.expand('~/.local/share/nvim/lazy/catppuccin'))
 require('catppuccin').setup({flavour='mocha',compile_path=%s..'/theme'})
 vim.cmd.colorscheme('catppuccin-mocha')
 require('project_home.state').configure({directory=%s..'/state'})
 require('project_home.providers').load=function(_,cb) return function()end end
-require('project_home').setup({startup=false,remember_layout=false})
-require('project_home_workspace').setup()
+require('project_home').setup({startup=false})
+vim.opt.rtp:append(vim.fn.expand('~/.local/share/nvim/lazy/volt'));require('project_home_volt').setup()
 local root=%s
 local paths={'lua/kickstart/plugins/mini.lua','lua/custom/plugins/catppuccin.lua','init.lua','docs/navigation.md','README.md'}
 local recent={};for _,p in ipairs(paths)do recent[#recent+1]={path=root..'/'..p,label=p}end
@@ -64,7 +64,8 @@ _G.visual_model={
         n.ui_attach(166, 50, rgb=True, ext_linegrid=True)
         if full_config:
             n.exec_lua(boot.read_text()[boot.read_text().index('local root='):])
-        n.exec_lua("local c=require('project_home').open('workspace');if c.cancel then c.cancel() end;c.model=vim.deepcopy(visual_model); c.render()")
+        layout = 'volt'
+        n.exec_lua("local c=require('project_home').open(...);if c.cancel then c.cancel() end;c.model=vim.deepcopy(visual_model); c.render()", layout)
         if full_config:
             # Keep startup messages as evidence, then close transient notification
             # overlays so they do not obscure the dashboard being compared.
@@ -79,12 +80,12 @@ _G.visual_model={
             capture(n, output / f'workspace-{width}x{height}.png', width, height)
             data = n.exec_lua("local c=require('project_home').contexts[vim.api.nvim_get_current_buf()];return {lines=vim.api.nvim_buf_get_lines(c.buf,0,-1,false),items=c.items}")
             assert len(data['lines']) <= height - 2, f'{width} columns: home extends below the viewport'
-            recent_row = next(i for i, line in enumerate(data['lines']) if 'RECENT FILES' in line)
-            git_row = next(i for i, line in enumerate(data['lines']) if 'GIT WORKSPACE' in line)
+            recent_row = next(i for i, line in enumerate(data['lines']) if 'Recent files' in line)
+            git_row = next(i for i, line in enumerate(data['lines']) if 'Git workspace' in line)
             assert recent_row == git_row, 'main column headings must align'
             heat_rows = [line for line in data['lines'] if line.count('■') == (52 if width == 166 else 39 if width == 120 else 26)]
             assert len(heat_rows) == 7, 'the entire adaptive graph must remain visible'
-            assert any('View history' in line for line in data['lines']), 'history action remains available'
+            assert any('History' in line for line in data['lines']), 'history action remains available'
             (output / f'workspace-{width}x{height}.json').write_text(json.dumps(data, indent=2))
             results.append({'width': width, 'height': height, 'lines': len(data['lines'])})
         n.ui_try_resize(166, 50)
@@ -98,7 +99,7 @@ _G.visual_model={
         n.command('colorscheme catppuccin-latte')
         n.command('doautocmd VimResized')
         capture(n, output / 'workspace-latte.png', 166, 50)
-        groups = ['Normal', 'NormalFloat', 'ProjectHomeCanvas', 'ProjectHomeBackdrop', 'ProjectHomeSurface', 'ProjectHomeResume']
+        groups = ['Normal', 'NormalFloat', 'ProjectHomeCanvas', 'ProjectHomeBackdrop', 'ProjectHomeWorkspaceSelected', 'ProjectHomeVoltKey']
         (output / 'latte-highlights.json').write_text(json.dumps({g:n.api.get_hl(0, {'name':g,'link':False}) for g in groups}, indent=2))
         assert n.api.get_hl(0, {'name':'ProjectHomeCanvas','link':False}).get('bg') is not None, 'Latte canvas survives theme change'
         n.command('colorscheme catppuccin-mocha')
@@ -108,6 +109,24 @@ _G.visual_model={
           c.model=vim.deepcopy(visual_model);c.model.recents={c.model.recents[1]};c.model.prs.items={}
           c.model.shortcuts[#c.model.shortcuts+1]={path='tests/'};c.render()""")
         capture(n, output / 'workspace-sparse.png', 166, 50)
+        # Reproduce the user's split-screen density: five files, no PRs or shortcuts.
+        n.exec_lua("""local c=require('project_home').contexts[vim.api.nvim_get_current_buf()]
+          c.model=vim.deepcopy(visual_model);c.model.name='cs285_deep_rl_berkley';c.model.branch='chore/ruff-fix'
+          c.model.prs.items={};c.model.shortcuts={};c.model.git.upstream=nil
+          for i,d in ipairs(c.model.activity.days) do d.count=i%61==0 and 1 or 0 end
+          c.model.root=vim.fn.expand('~/code/courses/cs285_deep_rl_berkley')
+          c.model.recents={};for _,name in ipairs({'train.py','scratch.py','model.py','modal_train.py','logging_utils.py'}) do
+            table.insert(c.model.recents,{path=c.model.root..'/hw1/src/hw1_imitation/'..name}) end
+          c.render()""")
+        for width, height in [(90, 50), (166, 50)]:
+            n.ui_try_resize(width, height)
+            n.command('doautocmd VimResized')
+            n.command('normal! gg')
+            capture(n, output / f'workspace-empty-{width}.png', width, height)
+            assert n.current.window.cursor[0] <= height
+            n.command('normal! G$')
+            capture(n, output / f'workspace-footer-{width}.png', width, height)
+            assert n.funcs.winsaveview()['leftcol'] == 0, 'footer navigation must not shift dashboard horizontally'
         (output / 'mocha-highlights.json').write_text(json.dumps({g:n.api.get_hl(0, {'name':g,'link':False}) for g in groups}, indent=2))
         assert n.api.get_hl(0, {'name':'ProjectHomeCanvas','link':False}).get('bg') is not None, 'Mocha canvas survives round-trip theme change'
         print(json.dumps(results))
