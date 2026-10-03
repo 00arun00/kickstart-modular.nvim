@@ -15,7 +15,9 @@ worktrees, and activity. Missing or loading data has an explicit empty state.
 All colors inherit semantic `ProjectHome*` highlight groups from your active
 colorscheme; this package defines no palette.
 
-Use `j`/`k` and Enter to select actions, or displayed shortcut keys. Recent files
+Use `r`/`x`/`p`/`g` to focus a section, then its numbered keys to open entries.
+Tab moves between sections; `j`/`k` and Enter navigate inside one. `?` opens
+contextual keyboard help, and `m` opens More actions. Recent files
 and editable Start Exploring shortcuts are separate. The activity scope toggle
 switches repository commits and your commits over the same history window.
 

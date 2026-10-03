@@ -37,7 +37,7 @@ require('project_home_workspace').setup()
 local root=%s
 local paths={'lua/kickstart/plugins/mini.lua','lua/custom/plugins/catppuccin.lua','init.lua','docs/navigation.md','README.md'}
 local recent={};for _,p in ipairs(paths)do recent[#recent+1]={path=root..'/'..p,label=p}end
-local days={};for i=1,182 do days[i]={date=os.date('%%Y-%%m-%%d',os.time()-(182-i)*86400),count=(i*17%%23)>11 and i%%9 or 0,mine=i%%5==0 and 2 or 0}end
+local days={};for i=1,364 do days[i]={date=os.date('%%Y-%%m-%%d',os.time()-(364-i)*86400),count=(i*17%%23)>11 and i%%9 or 0,mine=i%%5==0 and 2 or 0}end
 _G.visual_model={
  root=root,name='nvim',branch='feature/dashboard',session={count=4},recents=recent,
  shortcuts={{path='README.md'},{path='init.lua'},{path='lua/'},{path='docs/'}},show_activity=true,scope='repo',
@@ -82,12 +82,19 @@ _G.visual_model={
             recent_row = next(i for i, line in enumerate(data['lines']) if 'RECENT FILES' in line)
             git_row = next(i for i, line in enumerate(data['lines']) if 'GIT WORKSPACE' in line)
             assert recent_row == git_row, 'main column headings must align'
-            heat_rows = [line for line in data['lines'] if line.count('■') == 26]
-            assert len(heat_rows) == 7, 'the entire 26-week graph must remain visible'
+            heat_rows = [line for line in data['lines'] if line.count('■') == (52 if width == 166 else 39 if width == 120 else 26)]
+            assert len(heat_rows) == 7, 'the entire adaptive graph must remain visible'
             assert any('View history' in line for line in data['lines']), 'history action remains available'
             (output / f'workspace-{width}x{height}.json').write_text(json.dumps(data, indent=2))
             results.append({'width': width, 'height': height, 'lines': len(data['lines'])})
         n.ui_try_resize(166, 50)
+        n.command('doautocmd VimResized')
+        n.exec_lua("vim.fn.maparg('r','n',false,true).callback()")
+        capture(n, output / 'workspace-keyboard.png', 166, 50)
+        n.exec_lua("vim.fn.maparg('?','n',false,true).callback()")
+        capture(n, output / 'workspace-help.png', 166, 50)
+        n.exec_lua("vim.fn.maparg('<Esc>','n',false,true).callback()")
+        n.exec_lua("vim.fn.maparg('<Esc>','n',false,true).callback()")
         n.command('colorscheme catppuccin-latte')
         n.command('doautocmd VimResized')
         capture(n, output / 'workspace-latte.png', 166, 50)

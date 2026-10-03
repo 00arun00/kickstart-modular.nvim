@@ -19,10 +19,34 @@ Set `vim.g.project_home_startup = false` to use these commands without automatic
 startup. No colorscheme setting is necessary: every layout follows the active
 Neovim theme, including changes made while the dashboard is open.
 
-Workspace uses a centered canvas with two columns, a Resume card, file metadata,
+Workspace uses an open, centered layout with two columns, file metadata,
 and a heatmap beside its controls. It adapts spacing to the window height; at
 80 columns it retains the two-column overview, while smaller windows stack.
-Canvas surfaces and activity intensities are derived from the active theme.
+The background matches the editor, without an enclosing panel or chrome bars.
+A three-row NVIM block wordmark uses the theme accent above the project name
+and path. Short or narrow windows retain the compact text header; the wordmark
+uses existing header space and adds no scrolling.
+Project titles, section headings, filenames, and metadata use theme-derived
+color and weight for hierarchy; terminal Neovim uses one fixed font size.
+Selection surfaces and activity intensities are derived from the active theme.
+When a saved session exists, `u Resume` appears first in the action bar. Recent
+Files contains only files. The activity graph expands from 26 to 39 to 52 weeks
+as available width increases; its count covers exactly the displayed period.
+Switching Repository/Yours preserves that period.
+
+Workspace keyboard navigation:
+
+- `r`, `x`, `p`, and `g` focus Recent Files, Start Exploring, Pull Requests, and
+  Git Workspace. Press the same key again for the full list or section action.
+- `1–9` opens a numbered entry in the focused section. `j`/`k` moves only within
+  that section; Enter opens the selection. Headings and metadata are skipped.
+- Tab / Shift-Tab moves between sections; Escape leaves the focused section.
+- `?` opens contextual keyboard help. Escape, `q`, or `?` closes the popup and
+  restores focus. `m` opens More actions.
+- Find, search, browse, new file, and Resume retain their immediate shortcuts.
+
+The footer follows the focused section, and background updates preserve the
+selected item. Child pages retain their normal Backspace/Escape navigation.
 
 Starting `nvim` without files or `nvim .` opens Home. Explicit file arguments,
 stdin, and requested sessions keep their normal behavior. Opening Home from an
@@ -33,13 +57,13 @@ apply when leaving Neovim.
 
 ## Navigation and views
 
-Use `j`/`k` or arrows to move between actions, including actions in the second
+Outside Workspace's section navigation, use `j`/`k` or arrows to move between actions, including actions in the second
 column; Enter opens the selection. On diff/commit text views, normal movement
 and horizontal scrolling are available. Backspace or Escape goes back, `H`
 returns Home, and `q` closes Home. Direct keys are shown beside actions:
 `f` find, `/` search, `e` browse, `n` new file, `r` recents, `s` edit shortcuts,
 `g` changes, `c` latest commit, `p` PRs, `w` worktrees, `a` activity scope,
-`h` history, `?` More (including layout selection and activity visibility), and
+`h` history, `?` More (Workspace uses `?` for help and `m` for More), and
 `R` refresh. Not every action is shown when its data is absent.
 
 Find/Search use Telescope when installed. Find has a native filename prompt
@@ -85,7 +109,7 @@ first. Home shows three; View all shows the returned list. A PR opens its
 overview, checks, changed-file diff, and browser link. Check-log links appear
 when GitHub returns a URL. This is GitHub integration, not a generic Git-host API.
 
-Activity covers the last 182 days of commits reachable from local refs, including
+Workspace activity covers up to the last 364 days of commits reachable from local refs, including
 locally available remote-tracking refs, with duplicate commits counted once.
 Repository shows all authors. Yours matches configured `git user.email` against
 commit author email (with Git mailmap handling); it is not GitHub's account-wide

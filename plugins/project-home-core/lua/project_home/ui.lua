@@ -41,7 +41,6 @@ function M.highlights()
     return {}
   end
   local normal, border, comment, title, accent, success = hl 'Normal', hl 'FloatBorder', hl 'Comment', hl 'Title', hl 'Special', hl 'DiagnosticOk'
-  local float = hl 'NormalFloat'
   local bg = normal.bg or border.bg
   local fg = normal.fg
   local color = accent.fg or title.fg or fg
@@ -51,12 +50,12 @@ function M.highlights()
   vim.api.nvim_set_hl(0, 'ProjectHomeWorkspaceText', { fg = fg })
   vim.api.nvim_set_hl(0, 'ProjectHomeWorkspaceAccent', { fg = workspace_color })
   vim.api.nvim_set_hl(0, 'ProjectHomeCanvas', { fg = normal.fg, bg = normal.bg })
-  vim.api.nvim_set_hl(0, 'ProjectHomeBackdrop', { fg = normal.fg, bg = float.bg or blend(bg, fg, 0.04) })
+  vim.api.nvim_set_hl(0, 'ProjectHomeBackdrop', { fg = normal.fg, bg = normal.bg })
   vim.api.nvim_set_hl(0, 'ProjectHomeSurface', { fg = fg, bg = blend(bg, fg, 0.045) })
   vim.api.nvim_set_hl(0, 'ProjectHomeResume', { fg = workspace_color, bg = blend(bg, workspace_color, 0.13) })
   vim.api.nvim_set_hl(0, 'ProjectHomeWorkspaceSelected', { bg = blend(bg, workspace_color, 0.14) })
-  vim.api.nvim_set_hl(0, 'ProjectHomeWorkspaceTitle', { fg = fg, bold = true })
-  vim.api.nvim_set_hl(0, 'ProjectHomeWorkspaceHeading', { fg = comment.fg or fg })
+  vim.api.nvim_set_hl(0, 'ProjectHomeWorkspaceTitle', { fg = workspace_color, bold = true })
+  vim.api.nvim_set_hl(0, 'ProjectHomeWorkspaceHeading', { fg = blend(fg, workspace_color, 0.30), bold = true })
   vim.api.nvim_set_hl(0, 'ProjectHomeWorkspaceBorder', { fg = blend(bg, comment.fg or border.fg or fg, 0.30) or comment.fg or border.fg })
   vim.api.nvim_set_hl(0, 'ProjectHomeActivity0', { fg = blend(bg, comment.fg or fg, 0.36) or comment.fg or fg })
   for level, amount in ipairs { 0.30, 0.50, 0.75, 1 } do
@@ -103,6 +102,7 @@ local function item_at_cursor(ctx)
 end
 function M.update_selection(ctx)
   if not M.valid(ctx) then return end
+  require('project_home.keyboard').refresh(ctx)
   vim.api.nvim_buf_clear_namespace(ctx.buf, selection_ns, 0, -1)
   if not ctx.bounded_selection then return end
   local item = item_at_cursor(ctx)
@@ -123,15 +123,11 @@ function M.update_selection(ctx)
 end
 function M.draw(ctx, page)
   if not M.valid(ctx) then return end
-  local previous_cursor = vim.api.nvim_win_get_cursor(ctx.win)
-  local previous_item
-  for _, item in ipairs(ctx.items or {}) do
-    if item.line == previous_cursor[1] and (item.col or 0) == previous_cursor[2] then
-      previous_item = item
-      break
-    end
-  end
+  local previous_item = item_at_cursor(ctx)
   local navigation = ctx.force_focus or ctx.draw_generation ~= ctx.generation
+  if ctx.keyboard_active and page.presentation == 'workspace' and ctx.keyboard_section and previous_item and previous_item.section == ctx.keyboard_section then
+    navigation = false
+  end
   ctx.force_focus = nil
   ctx.draw_generation = ctx.generation
   local name = 'project-home://' .. ctx.layout .. '/' .. ctx.buf
@@ -191,9 +187,17 @@ function M.draw(ctx, page)
       focus = focus or ctx.items[1]
     elseif previous_item then
       for _, item in ipairs(ctx.items) do
-        if item.action == previous_item.action and vim.deep_equal(item.value, previous_item.value) then
+        if item.action == previous_item.action and item.section == previous_item.section and vim.deep_equal(item.value, previous_item.value) then
           focus = item
           break
+        end
+      end
+      if not focus and ctx.keyboard_section then
+        for _, item in ipairs(ctx.items) do
+          if item.section == ctx.keyboard_section then
+            focus = item
+            break
+          end
         end
       end
       focus = focus or ctx.items[1]
@@ -206,7 +210,7 @@ function M.draw(ctx, page)
     local position = saved.position
     if saved.action then
       for _, item in ipairs(ctx.items) do
-        if item.action == saved.action and vim.deep_equal(item.value, saved.value) then
+        if item.action == saved.action and item.section == saved.section and vim.deep_equal(item.value, saved.value) then
           position = { item.line, item.col or 0 }
           break
         end
@@ -229,6 +233,7 @@ function M.draw(ctx, page)
       vim.keymap.set('n', item.key, function() ctx.dispatch(item.action, item.value) end, { buffer = ctx.buf, silent = true, desc = item.label })
     end
   end
+  require('project_home.keyboard').bind(ctx, page)
   M.update_selection(ctx)
 end
 function M.page(title, subtitle, entries, live_action)
@@ -283,6 +288,7 @@ function M.attach(ctx)
   vim.api.nvim_create_autocmd('CursorMoved', { buffer = ctx.buf, callback = function() M.update_selection(ctx) end })
   local function move(delta)
     if not M.valid(ctx) then return end
+    if require('project_home.keyboard').move(ctx, delta) then return end
     if ctx.textview or #ctx.items == 0 then
       vim.cmd('normal! ' .. tostring(vim.v.count1) .. (delta > 0 and 'j' or 'k'))
       return
@@ -322,7 +328,20 @@ function M.attach(ctx)
   map('<CR>', activate)
   map('<2-LeftMouse>', activate)
   map('<BS>', function() ctx.dispatch 'back' end)
-  map('<Esc>', function() ctx.dispatch 'back' end)
+  map('<Esc>', function()
+    if ctx.keyboard_active and ctx.keyboard_section then
+      ctx.keyboard_section = nil
+      for _, item in ipairs(ctx.items) do
+        if item.section == 'actions' then
+          vim.api.nvim_win_set_cursor(ctx.win, { item.line, item.col or 0 })
+          break
+        end
+      end
+      M.update_selection(ctx)
+    else
+      ctx.dispatch 'back'
+    end
+  end)
   map('H', function() ctx.dispatch 'home' end)
   map('q', function() ctx.dispatch 'close' end)
 end

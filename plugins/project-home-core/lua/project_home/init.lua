@@ -127,6 +127,7 @@ function M.open(layout, opts)
       if item.line == position[1] and (item.col or 0) == position[2] then
         focus.action = item.action
         focus.value = item.value
+        focus.section = item.section
         break
       end
     end
@@ -195,7 +196,9 @@ function M.open(layout, opts)
     if value == vim.NIL then value = nil end
     if not ui.valid(ctx) then return end
     ctx.generation = ctx.generation + 1
-    if action == 'home' then
+    if action == 'keyboard_help' then
+      require('project_home.keyboard').help(ctx)
+    elseif action == 'home' then
       ctx.home()
     elseif action == 'back' then
       table.remove(ctx.pages)

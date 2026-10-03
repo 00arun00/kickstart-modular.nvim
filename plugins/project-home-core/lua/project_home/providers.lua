@@ -231,12 +231,14 @@ function M.load(cwd, callback)
     -- Resolve identity first; missing identity must not masquerade as zero activity.
     git({ 'config', '--get', 'user.email' }, function(email)
       model.activity.identity = email and trim(email) ~= '' and trim(email) or nil
-      git({ 'log', '--all', '--since=183.days', '-z', '--format=%H%x00%cs%x00%aE' }, function(out, activity_err)
+      git({ 'log', '--all', '--since=365.days', '-z', '--format=%H%x00%cs%x00%aE' }, function(out, activity_err)
         local now = os.time()
         local index, seen = {}, {}
-        for offset = 181, 0, -1 do
+        model.activity.year_days = {}
+        for offset = 363, 0, -1 do
           local day = { date = os.date('%Y-%m-%d', now - offset * 86400), count = 0, mine = 0 }
-          model.activity.days[#model.activity.days + 1] = day
+          model.activity.year_days[#model.activity.year_days + 1] = day
+          if offset < 182 then model.activity.days[#model.activity.days + 1] = day end
           index[day.date] = day
         end
         local parts = fields(out)
@@ -246,10 +248,11 @@ function M.load(cwd, callback)
             seen[hash] = true
             local day = index[date]
             day.count = day.count + 1
-            model.activity.total = model.activity.total + 1
+            local recent = date >= model.activity.days[1].date
+            if recent then model.activity.total = model.activity.total + 1 end
             if model.activity.identity and author:lower() == model.activity.identity:lower() then
               day.mine = day.mine + 1
-              model.activity.mine_total = model.activity.mine_total + 1
+              if recent then model.activity.mine_total = model.activity.mine_total + 1 end
             end
           end
         end

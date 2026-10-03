@@ -22,6 +22,13 @@ changes. The complete populated overview fits the usable viewport at all three
 sizes. Reference-fidelity review now uses concrete structural checks rather
 than numerical scores. See `tests/project_home_visual.py` to reproduce it.
 
+The accepted version was checkpointed in `1c895f0`. A subsequent refinement
+removes the contrasting outer background and chrome bars, widens the content
+limit from 124 to 144 columns, and removes redundant header labels. Designer
+review prompted softer section accents beneath the stronger project title.
+The same wide, narrow, sparse, and light-theme captures verify the open layout;
+font hierarchy uses weight and semantic color within Neovim's fixed-size grid.
+
 ## Initial implementation review
 
 The product manager reviewed workflow contracts and reliability. The designer

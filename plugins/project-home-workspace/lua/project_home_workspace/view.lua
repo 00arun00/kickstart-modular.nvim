@@ -1,6 +1,13 @@
 -- Workspace follows the approved two-column composition rather than a text dump.
 local L = require 'project_home.layout'
 local M = {}
+-- Five-pixel letterforms packed into three terminal rows; colors follow the theme.
+local wordmark = {
+  '█▄  █  █   █  ▀▀█▀▀  █▄ ▄█',
+  '█ ▀▄█  ▀▄ ▄▀    █    █ ▀ █',
+  '▀   ▀    ▀    ▀▀▀▀▀  ▀   ▀',
+}
+
 local function block(width)
   local b = { width = width, rows = {} }
   function b:row(n)
@@ -14,7 +21,7 @@ local function block(width)
       self:row(n)
       return
     end
-    local part = { col = col, text = text, group = group or 'ProjectHomeWorkspaceText', action = action, value = value, key = key }
+    local part = { col = col, text = text, group = group or 'ProjectHomeWorkspaceText', action = action, value = value, key = key, section = self.section }
     table.insert(self:row(n).parts, part)
     return part
   end
@@ -30,6 +37,7 @@ local function block(width)
       for _, p in ipairs(row.parts) do
         local copied = self:put(line + n - 1, col + p.col, p.text, p.group, p.action, p.value, p.key, other.width - p.col)
         if copied then
+          copied.section = p.section
           copied.span = p.span
           copied.end_line = p.end_line and line + p.end_line - 1 or nil
         end
@@ -70,20 +78,9 @@ local function shortcuts_description(relative, width)
 end
 local function left_column(model, width, compact)
   local b = block(width)
+  b.section = 'recent'
   b:put(1, 0, 'RECENT FILES', 'ProjectHomeWorkspaceHeading', 'recents', nil, 'r')
-  local session = model.session or model.resume
-  if session and model.has_session ~= false then
-    for row = 2, 4 do
-      b:bg(row, 0, width, 'ProjectHomeResume')
-      b:put(row, 0, '│', 'ProjectHomeWorkspaceAccent')
-    end
-    b:put(3, 2, '> Resume workspace', 'ProjectHomeWorkspaceAccent', 'resume', nil, nil, width)
-    if width >= 49 then b:put(3, width - 22, 'saved splits + cursors', 'ProjectHomeMuted') end
-  else
-    b:bg(3, 0, width, 'ProjectHomeSurface')
-    b:put(3, 2, 'No saved workspace yet', 'ProjectHomeMuted')
-  end
-  local recents, line = model.recents or {}, 6
+  local recents, line = model.recents or {}, 3
   if #recents == 0 then
     b:put(line, 1, 'No files opened in this project yet', 'ProjectHomeMuted')
     line = line + 2
@@ -101,7 +98,8 @@ local function left_column(model, width, compact)
       line = line + 2
     end
   end
-  local exploreline = line + (compact and 0 or 1)
+  b.section = 'explore'
+  local exploreline = line + 1
   b:pair(exploreline, 'START EXPLORING', 'Edit shortcuts', 'ProjectHomeWorkspaceHeading', 'ProjectHomeMuted', 'shortcuts', nil, 's')
   line = exploreline + (compact and 1 or 2)
   local shortcuts = model.shortcuts or {}
@@ -125,6 +123,7 @@ local function left_column(model, width, compact)
 end
 local function right_column(model, width, compact)
   local b, git = block(width), model.git or {}
+  b.section = 'git'
   b:put(1, 0, 'GIT WORKSPACE', 'ProjectHomeWorkspaceHeading')
   if git.loading then
     b:put(3, 0, 'Loading local Git…', 'ProjectHomeMuted')
@@ -157,6 +156,7 @@ local function right_column(model, width, compact)
     b:put(6, 0, 'No commits yet', 'ProjectHomeMuted')
   end
   b:rule(compact and 8 or 9)
+  b.section = 'prs'
   local prs = (model.prs or {}).items or model.prs or {}
   b:pair(compact and 9 or 11, 'PULL REQUESTS', 'View all · ' .. #prs, 'ProjectHomeWorkspaceHeading', 'ProjectHomeMuted', 'prs', nil, 'p')
   local statuses = {}
@@ -190,6 +190,7 @@ local function right_column(model, width, compact)
       line = line + 3
     end
   end
+  b.section = 'git'
   if model.worktrees_error then
     b:put(line, 0, 'Worktrees unavailable →', 'ProjectHomeWarning', 'worktrees', nil, 'w')
   else
@@ -203,13 +204,17 @@ local function right_column(model, width, compact)
 end
 local function activity(model, width)
   local b, data = block(width), model.activity or {}
+  b.section = 'activity'
   local scope = model.scope or 'repo'
-  local graphwidth = 52
   local split = width >= 70
+  local available = split and width - 32 or width
+  local weeks = available >= 104 and 52 or available >= 78 and 39 or 26
+  local graphwidth = weeks * 2
   local graphcol = split and width - graphwidth or 0
   local graphline = split and 1 or 10
   b:put(1, 0, width < 87 and 'ACTIVITY' or 'REPOSITORY ACTIVITY', 'ProjectHomeWorkspaceHeading')
-  b:put(3, 0, width < 87 and 'All branches · 26w' or 'All branches · last 26 weeks', 'ProjectHomeMuted')
+  local period = graphcol < 34 and ('All branches · %dw'):format(weeks) or ('All branches · last %d weeks'):format(weeks)
+  b:put(3, 0, period, 'ProjectHomeMuted')
   b:bg(5, 0, 12, scope == 'repo' and 'ProjectHomeResume' or 'ProjectHomeSurface')
   b:bg(5, 12, 8, scope == 'you' and 'ProjectHomeResume' or 'ProjectHomeSurface')
   b:put(5, 1, 'Repository', scope == 'repo' and 'ProjectHomeWorkspaceAccent' or 'ProjectHomeMuted', 'activity', 'repo', scope == 'you' and 'a' or nil)
@@ -217,7 +222,12 @@ local function activity(model, width)
   local unavailable = data.status == 'unavailable'
   local missing = scope == 'you' and (not data.identity or data.identity == '')
   local loading = data.status == 'loading'
-  local total = scope == 'you' and (data.mine_total or 0) or (data.total or 0)
+  local days = data.year_days or data.days or {}
+  local start = math.max(0, #days - weeks * 7)
+  local total = 0
+  for index = start + 1, #days do
+    total = total + (scope == 'you' and (days[index].mine or 0) or (days[index].count or 0))
+  end
   local meta = loading and 'Loading activity…'
     or unavailable and 'Activity unavailable'
     or missing and 'Set git user.email for your activity'
@@ -229,9 +239,6 @@ local function activity(model, width)
       b:put(graphline, 0, 'Widen window for activity graph', 'ProjectHomeMuted')
       return b
     end
-    local days = data.days or {}
-    local weeks = math.min(26, math.ceil(#days / 7))
-    local start = math.max(0, #days - weeks * 7)
     local month_names = { 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec' }
     local previous = ''
     for week = 1, weeks do
@@ -248,7 +255,7 @@ local function activity(model, width)
         b:put(graphline + day, graphcol + (week - 1) * 2, '■', 'ProjectHomeActivity' .. level)
       end
     end
-    local legendcol = graphcol + 29
+    local legendcol = graphcol + graphwidth - 23
     b:put(graphline + 8, legendcol, 'Less', 'ProjectHomeMuted')
     for level = 0, 4 do
       b:put(graphline + 8, legendcol + 5 + level * 2, '■', 'ProjectHomeActivity' .. level)
@@ -258,7 +265,7 @@ local function activity(model, width)
   return b
 end
 local function finish(b, margin, top)
-  local result = { lines = {}, highlights = {}, items = {}, presentation = 'workspace', cursorline = false }
+  local result = { lines = {}, highlights = {}, items = {}, presentation = 'workspace', cursorline = false, sections = {} }
   for _ = 1, top do
     result.lines[#result.lines + 1] = ''
   end
@@ -300,6 +307,7 @@ local function finish(b, margin, top)
       if part.key and part.text:sub(1, #part.key) == part.key then
         result.highlights[#result.highlights + 1] = { line = line, start_col = col, end_col = col + #part.key, group = 'ProjectHomeWorkspaceAccent' }
       end
+      if part.group == 'ProjectHomeWorkspaceHeading' and part.section then result.sections[part.section] = { line = line, col = col, label = part.text } end
       if part.action then
         local item = {
           line = line,
@@ -308,6 +316,7 @@ local function finish(b, margin, top)
           end_line = part.end_line and top + part.end_line or nil,
           label = part.text,
           action = part.action,
+          section = part.section,
           value = part.value,
           key = part.key,
         }
@@ -320,35 +329,41 @@ local function finish(b, margin, top)
 end
 function M.render(model, width, height)
   width, height = width or 120, height or 50
-  local canvas = math.min(124, math.max(30, width - 8))
+  local canvas = math.min(144, math.max(30, width - 8))
   local margin = math.max(0, math.floor((width - canvas) / 2))
   local compact = height < 47
   local top = compact and 1 or height >= 64 and 4 or 2
   local b = block(canvas)
   local title = model.name or model.title or 'Project'
-  b:bg(1, -2, canvas + 4, 'ProjectHomeSurface')
-  b:put(1, 2, 'WORKSPACE / NEOVIM', 'ProjectHomeWorkspaceAccent')
-  b:put(1, canvas - 14, 'Project home', 'ProjectHomeMuted')
-  b:pair(3, title, model.branch or '', 'ProjectHomeWorkspaceTitle', 'ProjectHomeWorkspaceAccent')
+  local hero = not compact and canvas >= 70
+  if hero then
+    for row, text in ipairs(wordmark) do
+      b:put(row, 0, text, 'ProjectHomeWorkspaceAccent')
+    end
+  end
+  b:pair(hero and 4 or 2, title, model.branch or '', 'ProjectHomeWorkspaceTitle', 'ProjectHomeWorkspaceAccent')
   local path = model.root or ''
   local home = vim.env.HOME or ''
   if home ~= '' and path:sub(1, #home + 1) == home .. '/' then path = '~' .. path:sub(#home + 1) end
   local git = model.git or {}
   local context = 'Current worktree'
   if git.upstream then context = context .. (' · ↑%s ↓%s'):format(git.ahead or 0, git.behind or 0) end
-  b:pair(4, path, context, 'ProjectHomeMuted', 'ProjectHomeMuted')
+  b:pair(hero and 5 or 3, path, context, 'ProjectHomeMuted', 'ProjectHomeMuted')
   b:rule(compact and 5 or 6)
+  b.section = 'actions'
   local actions = { { 'f Find file', 'find', 'f' }, { '/ Search text', 'search', '/' }, { 'e Browse', 'browse', 'e' }, { 'n New file', 'new', 'n' } }
+  local session = model.session or model.resume
+  if session and model.has_session ~= false then table.insert(actions, 1, { 'u Resume', 'resume', 'u' }) end
   local col, actionline = 0, compact and 6 or 7
   for _, a in ipairs(actions) do
-    if col + #a[1] > canvas - 9 then
+    if col + L.width(a[1]) > canvas - 9 then
       col = 0
       actionline = actionline + 1
     end
     b:put(actionline, col, a[1], 'ProjectHomeWorkspaceText', a[2], nil, a[3])
-    col = col + #a[1] + 3
+    col = col + L.width(a[1]) + 3
   end
-  b:put(compact and 6 or 7, canvas - 6, '? More', 'ProjectHomeMuted', 'more', nil, '?')
+  b:put(compact and 6 or 7, canvas - 6, '? Help', 'ProjectHomeMuted', 'keyboard_help', nil, '?')
   b:rule(actionline + 1)
   local bodyline = actionline + (compact and 2 or 3)
   local bodyend
@@ -377,9 +392,11 @@ function M.render(model, width, height)
     b:merge(section, bodyend + 3, 0)
     bodyend = bodyend + 3 + section:height()
   end
-  b:bg(bodyend + 1, -2, canvas + 4, 'ProjectHomeSurface')
-  b:put(bodyend + 1, 2, 'Project-local files · repository-wide activity', 'ProjectHomeMuted', nil, nil, nil, canvas - 38)
-  b:put(bodyend + 1, canvas - 30, 'R refresh · ? all actions', 'ProjectHomeMuted', 'refresh', nil, 'R')
-  return finish(b, margin, top)
+  b.section = nil
+  b:put(bodyend + 1, 0, 'Project-local files · repository-wide activity', 'ProjectHomeMuted', nil, nil, nil, canvas - 38)
+  b:put(bodyend + 1, canvas - 30, 'R refresh · ? help', 'ProjectHomeMuted', 'refresh', nil, 'R')
+  local page = finish(b, margin, top)
+  page.keyboard_footer = #page.lines
+  return page
 end
 return M

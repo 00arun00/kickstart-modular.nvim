@@ -168,6 +168,9 @@ if ok then theme.setup({flavour='mocha',compile_path=vim.fn.stdpath('state')..'/
                       layout + ' initially focuses an action')
                 capture(n, output / (layout + '-catppuccin.png'), 120, 52)
                 n.input('g')
+                if layout == 'workspace':
+                    wait(lambda: context('ctx.keyboard_section') == 'git', 'g focuses Git section')
+                    n.input('<CR>')
                 wait(lambda: context('ctx.pages[#ctx.pages] and ctx.pages[#ctx.pages].live_action') == 'git', 'g opens changes')
                 check('init.lua' in lines(), layout + ' actual working changes')
                 capture(n, output / (layout + '-changes.png'), 120, 52)
@@ -201,7 +204,7 @@ if ok then theme.setup({flavour='mocha',compile_path=vim.fn.stdpath('state')..'/
                 check(str(worktree) in lines(), layout + ' worktree list')
                 capture(n, output / (layout + '-worktrees.png'), 120, 52)
                 action('home')
-                n.input('?')
+                n.input('m' if layout == 'workspace' else '?')
                 wait(lambda: 'Workspace actions' in lines(), '? opens More')
                 check('activity' in lines().lower(), layout + ' activity visibility discoverable')
                 check('layout' in lines().lower(), layout + ' layout selection discoverable')
