@@ -1,6 +1,6 @@
 local M = {}
 local api = vim.api
-local root = vim.fs.dirname(vim.fs.dirname(vim.fs.dirname(vim.fs.dirname(debug.getinfo(1, 'S').source:sub(2)))))
+local paths = require 'custom.python.paths'
 local state
 local ns = api.nvim_create_namespace 'python-variables'
 local selection_ns = api.nvim_create_namespace 'python-variable-selection'
@@ -306,7 +306,7 @@ local function fetch(s, action, plot)
   render(s, s.data or { entries = {}, total = 0 })
   vim.b[s.buf].variable_snapshot = nil
   s.job = vim.system(
-    { require('custom.python.host').executable 'python', root .. '/scripts/inspect-kernel.py', conn.path, conn.generation, vim.json.encode(request) },
+    { require('custom.python.host').executable 'python', paths.helper 'inspect-kernel.py', conn.path, conn.generation, vim.json.encode(request) },
     { text = true, timeout = 6500 },
     vim.schedule_wrap(function(result)
       if state ~= s or s.serial ~= serial or not api.nvim_buf_is_valid(s.buf) then return end
@@ -422,7 +422,7 @@ function M.image()
     name = name,
     path = path,
     python = require('custom.python.host').executable 'python',
-    helper = root .. '/scripts/inspect-kernel.py',
+    helper = paths.helper 'inspect-kernel.py',
     connection = function() return connection(s.source, s.kernel) end,
     poll = function()
       if api.nvim_buf_is_valid(s.source) then pcall(api.nvim_buf_call, s.source, function() vim.fn.MoltenTick(0) end) end
@@ -444,7 +444,7 @@ function M.plot_setup()
     path = path,
     slice = s.view.slice,
     python = require('custom.python.host').executable 'python',
-    helper = root .. '/scripts/inspect-kernel.py',
+    helper = paths.helper 'inspect-kernel.py',
     connection = function() return connection(s.source, s.kernel) end,
     poll = function()
       if api.nvim_buf_is_valid(s.source) then pcall(api.nvim_buf_call, s.source, function() vim.fn.MoltenTick(0) end) end
