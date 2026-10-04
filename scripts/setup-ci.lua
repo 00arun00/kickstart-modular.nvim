@@ -13,6 +13,8 @@ local function setup()
   require 'lazy-plugins'
   require('lazy').restore { wait = true, show = false }
   assert(not require('lazy.manage.checker').has_errors(), 'Lazy plugin installation failed')
+  io.stdout:write('Checking plugin revisions\n')
+  io.stdout:flush()
 
   for name, plugin in pairs(require('lazy.core.config').plugins) do
     if plugin.url and lock[name] then
@@ -50,7 +52,9 @@ end
 
 local ok, err = xpcall(setup, debug.traceback)
 if not ok then
-  vim.api.nvim_err_writeln(err)
+  -- UI notification plugins can capture Neovim messages during headless setup.
+  io.stderr:write(err .. '\n')
+  io.stderr:flush()
   vim.cmd 'cquit 1'
 end
 vim.cmd 'qa!'
