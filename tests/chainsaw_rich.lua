@@ -4,7 +4,7 @@ vim.opt.rtp:append(vim.fn.stdpath 'data' .. '/lazy/nvim-chainsaw')
 vim.opt.rtp:append(vim.fn.stdpath 'data' .. '/site')
 local spec = require('custom.plugins.chainsaw')[1]
 spec.config(nil, spec.opts)
-local rich = require 'custom.chainsaw-rich'
+local rich = require 'custom.chainsaw.rich'
 local marker = require('custom.chainsaw').marker
 local dir = vim.fn.tempname()
 vim.fn.mkdir(dir, 'p')

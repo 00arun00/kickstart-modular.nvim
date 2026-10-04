@@ -23,7 +23,7 @@ return {
       { '<leader>la', function() require('chainsaw').assertLog() end, mode = { 'n', 'x' }, desc = 'Log: assertion' },
       { '<leader>lt', function() require('chainsaw').timeLog() end, desc = 'Log: start/stop timer' },
       { '<leader>ls', function() require('chainsaw').stacktraceLog() end, desc = 'Log: stack trace' },
-      { '<leader>lb', function() require('custom.chainsaw-dap').toggle_breakpoint() end, desc = 'Log: debugger breakpoint' },
+      { '<leader>lb', function() require('custom.chainsaw.dap').toggle_breakpoint() end, desc = 'Log: debugger breakpoint' },
       { '<leader>le', function() require('chainsaw').emojiLog() end, desc = 'Log: execution breadcrumb' },
       { '<leader>lm', function() require('chainsaw').messageLog() end, desc = 'Log: message' },
       { '<leader>lx', function() require('chainsaw').removeLogs() end, mode = { 'n', 'x' }, desc = 'Log: remove marked lines' },

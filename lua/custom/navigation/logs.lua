@@ -262,7 +262,7 @@ function M.remove()
   for _, range in ipairs(ranges) do
     if ft == 'python' then
       for row = range[1] + 1, range[2] do
-        local original = require('custom.chainsaw-assert').original(lines[row])
+        local original = require('custom.chainsaw.assertions').original(lines[row])
         if original then range[3] = { original } end
       end
     end

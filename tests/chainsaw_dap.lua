@@ -1,6 +1,6 @@
 -- Run: nvim --headless -n -u NONE -i NONE -l tests/chainsaw_dap.lua
 vim.opt.rtp:prepend(vim.fn.getcwd())
-local panel = require 'custom.chainsaw-dap'
+local panel = require 'custom.chainsaw.dap'
 local function listeners()
   return setmetatable({}, {
     __index = function(t, key)

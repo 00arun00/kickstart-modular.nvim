@@ -181,7 +181,7 @@ function M.setup(options)
     local config = require('chainsaw.config.config').config
     local source, include
     if not err and M.rich then
-      source, include = require('custom.chainsaw-rich').render(ft, action, expr, observed, config.marker, replacement)
+      source, include = require('custom.chainsaw.rich').render(ft, action, expr, observed, config.marker, replacement)
     end
     if not err and not source then
       source, err = M.render(ft, action, expr, specific, config.marker)
@@ -192,11 +192,11 @@ function M.setup(options)
     end
     local result
     if replacement then
-      result = require('custom.chainsaw-assert').replace(source, replacement)
+      result = require('custom.chainsaw.assertions').replace(source, replacement)
     else
-      result = require('custom.chainsaw-insert').insert(source, ft)
+      result = require('custom.chainsaw.insertion').insert(source, ft)
     end
-    if result and include then require('custom.chainsaw-rich').ensure_include(include) end
+    if result and include then require('custom.chainsaw.rich').ensure_include(include) end
     return result
   end
   inserter.insert = insert
@@ -209,7 +209,7 @@ function M.setup(options)
   commands.emojiLog = function() return insert('emojiLog', 'checkpoint │ ' .. next_checkpoint()) end
   commands.assertLog = function()
     if not M.rich then return insert 'assertLog' end
-    local replacement = require('custom.chainsaw-assert').existing()
+    local replacement = require('custom.chainsaw.assertions').existing()
     local expr, err
     if replacement then
       expr = replacement.condition
