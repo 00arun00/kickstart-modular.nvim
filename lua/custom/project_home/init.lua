@@ -287,19 +287,9 @@ function M.setup(opts)
     for _, arg in ipairs(vim.v.argv) do
       if arg == '-' or arg == '-S' or arg:match '^%-S.' then return end
     end
-    local argc = vim.fn.argc()
-    local startup_path = argc == 1 and vim.fn.argv(0) or nil
-    -- Oil renames the argument buffer during startup, which also rewrites argv().
-    if startup_path then startup_path = startup_path:gsub('^oil://', '') end
-    local directory = startup_path and vim.fn.isdirectory(startup_path) == 1
-    if argc > 0 and not directory then return end
-    local buf = vim.api.nvim_get_current_buf()
-    if not directory and not empty_buffer(buf) then return end
-    if directory and vim.bo[buf].modified then return end
-    if directory and vim.bo[buf].buftype == '' and vim.api.nvim_buf_get_name(buf) ~= '' and vim.fn.filereadable(vim.api.nvim_buf_get_name(buf)) == 1 then
-      return
-    end
-    M.open(nil, { root = directory and vim.fs.normalize(vim.fn.fnamemodify(startup_path, ':p')) or vim.fn.getcwd(), reuse = true })
+    -- Explicit paths belong to the directory/file handler (Oil in this config).
+    if vim.fn.argc() > 0 or not empty_buffer(vim.api.nvim_get_current_buf()) then return end
+    M.open(nil, { root = vim.fn.getcwd(), reuse = true })
   end
   if vim.v.vim_did_enter == 1 then
     vim.schedule(startup)

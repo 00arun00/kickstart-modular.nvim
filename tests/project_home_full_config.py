@@ -29,11 +29,11 @@ with tempfile.TemporaryDirectory(prefix='project-home-full-') as temp:
     os.environ['XDG_STATE_HOME'] = str(root / 'state')
     os.environ['XDG_CACHE_HOME'] = str(root / 'cache')
     os.chdir(root)
-    for args in [[], [str(root)], [str(root / 'sample.txt')]]:
+    for args in [[], ['.'], [str(root)], [str(root / 'sample.txt')]]:
         installer_guard = "lua vim.api.nvim_create_autocmd('VimEnter',{once=true,callback=function() local m=package.loaded['mason-tool-installer']; if m then m.setup({run_on_start=false}) end end})"
         n = pynvim.attach('child', argv=['nvim', '--embed', '--headless', '-n', '-i', 'NONE', '--cmd', installer_guard, *args])
         try:
-            expected = 'text' if args == [str(root / 'sample.txt')] else 'projecthome'
+            expected = 'projecthome' if not args else 'text' if args == [str(root / 'sample.txt')] else 'oil'
             wait(lambda: n.current.buffer.options['filetype'] == expected,
                  f'{args}: expected {expected}, current argv may be rewritten by Oil')
             # Allow deferred plugin events to finish before checking stability.
