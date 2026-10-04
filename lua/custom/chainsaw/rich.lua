@@ -1,8 +1,8 @@
 -- Temporary statements reference these local helpers; target projects need no
 -- package installation. C++ alone requires a marked header include.
 local M = {}
-local root = vim.fs.dirname(vim.fs.dirname(vim.fs.dirname(debug.getinfo(1, 'S').source:sub(2))))
-M.directory = root .. '/debug'
+local directory = vim.fs.dirname(debug.getinfo(1, 'S').source:sub(2))
+M.directory = vim.fs.joinpath(directory, 'helpers')
 
 function M.render(ft, action, expression, observed, marker, existing_assertion)
   local q = function(value) return require('custom.chainsaw').quote(ft, value) end

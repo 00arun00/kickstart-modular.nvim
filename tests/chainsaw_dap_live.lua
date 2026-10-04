@@ -2,7 +2,7 @@
 vim.opt.rtp:prepend(vim.fn.getcwd())
 vim.opt.rtp:append(vim.fn.stdpath 'data' .. '/lazy/nvim-dap')
 local dap = require 'dap'
-local panel = require 'custom.chainsaw-dap'
+local panel = require 'custom.chainsaw.dap'
 panel.setup(dap)
 local dir = vim.fn.tempname()
 vim.fn.mkdir(dir, 'p')

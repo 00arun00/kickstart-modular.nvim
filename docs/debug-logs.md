@@ -57,7 +57,7 @@ restarts at A. The shortcut, `:Chainsaw emojiLog`, and dot-repeat use the same r
 
 1. **Native formats:** shared marker and labels, separate string/representation
    actions, notes, checkpoints, timers, types, and conservative cleanup.
-2. **Rich diagnostics:** local helpers in `debug/` provide object formatting,
+2. **Rich diagnostics:** local helpers in `lua/custom/chainsaw/helpers/` provide object formatting,
    assertion panels, Lua/C++ representations, and stack output.
 3. **Debugger panel:** a language-independent nvim-dap listener shows the actual
    stopped frame, source context and reason; dismisses on continue/exit; discards
@@ -89,13 +89,16 @@ a session. The pause panel has a `q` mapping and does not steal editor focus.
 
 ## Helpers, assertions, and temporary source
 
-Rich diagnostics reference the absolute path of this config's `debug/` helpers.
+Rich diagnostics reference the absolute path of this config's `lua/custom/chainsaw/helpers/` helpers.
 There is no package installation in a project. Python loads the helper with
 `runpy`, Lua uses `dofile`, and Rust includes a scoped helper module. C++ adds one
 marked header include at the top of the buffer. These temporary statements are
 local-machine diagnostics: remove them before sharing code or running it on a
 machine without those helpers. Helper-loading/formatting overhead is real; avoid
 placing diagnostics inside the section whose uninstrumented timing you need.
+
+The plugin specification lives in `lua/custom/plugins/chainsaw.lua`; its Lua
+implementation lives in `lua/custom/chainsaw/`.
 
 An assertion evaluates the condition once. The optional observed expression is
 evaluated only on failure, also once. Supply a dict/table/tuple or any supported
