@@ -3,7 +3,7 @@ local ns = vim.api.nvim_create_namespace 'project_home_keyboard'
 local order = { 'actions', 'recent', 'git', 'prs', 'activity' }
 local names = { actions = 'Actions', recent = 'Recent files', git = 'Git workspace', prs = 'Pull requests', activity = 'Activity' }
 local jumps = { r = 'recent', g = 'git', p = 'prs' }
-local utility = { recents = true, shortcuts = true, prs = true, keyboard_help = true }
+local utility = { recents = true, prs = true, keyboard_help = true }
 local function entries(ctx, section)
   local result = {}
   if not section then return result end
@@ -95,7 +95,7 @@ function M.help(ctx)
     'f Find   / Search   e Browse   n New',
     'u Resume (if saved)  w Worktrees',
     'a Toggle activity scope   h History',
-    's Edit shortcuts    R Refresh',
+    'R Refresh',
     'm More actions      q Close dashboard',
     '',
   }

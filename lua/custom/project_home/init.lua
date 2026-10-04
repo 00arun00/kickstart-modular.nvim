@@ -79,7 +79,6 @@ function M.open(layout, opts)
       worktrees = {},
       activity = { days = {}, status = 'loading' },
       recents = {},
-      shortcuts = {},
     },
   }
   M.contexts[buf] = ctx
@@ -150,7 +149,6 @@ function M.open(layout, opts)
     ctx.cancel = require('custom.project_home.providers').load(initial_root, function(model)
       if not ui.valid(ctx) or ctx.load_generation ~= load_generation then return end
       model.title = model.name or vim.fs.basename(model.root)
-      model.shortcuts = require('custom.project_home.shortcuts').get(model.root)
       local stored = state.get(model.root)
       model.recents = {}
       for _, path in ipairs(type(stored.recents) == 'table' and stored.recents or {}) do

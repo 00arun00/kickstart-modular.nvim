@@ -8,7 +8,6 @@ local model = {
   branch = 'main',
   git = { available = false },
   recents = { '日本語.lua', 'test.lua' },
-  shortcuts = { 'README.md', 'lua/' },
   activity = { status = 'loading' },
 }
 for _, width in ipairs { 24, 40, 60, 80, 120, 166 } do

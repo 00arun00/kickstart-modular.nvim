@@ -12,7 +12,7 @@ UI dependency is `nvzone/volt`, pinned in the lazy.nvim specification.
 
 Volt is the startup default. Saved preferences from the retired Workspace,
 Navigator, and Atelier versions do not select those removed renderers. Existing
-recent files, shortcuts, sessions, and activity preferences are retained.
+recent files, sessions, and activity preferences are retained.
 Set `vim.g.project_home_startup = false` to disable automatic startup.
 The dashboard follows the active Neovim theme, including live theme changes.
 See [Volt Workspace](project-home-volt.md) for implementation details.
@@ -60,7 +60,7 @@ Outside Workspace's section navigation, use `j`/`k` or arrows to move between ac
 column; Enter opens the selection. On diff/commit text views, normal movement
 and horizontal scrolling are available. Backspace or Escape goes back, `H`
 returns Home, and `q` closes Home. Direct keys are shown beside actions:
-`f` find, `/` search, `e` browse, `n` new file, `r` recents, `s` edit shortcuts,
+`f` find, `/` search, `e` browse, `n` new file, `r` recents,
 `g` changes, `c` latest commit, `p` PRs, `w` worktrees, `a` activity scope,
 `h` history, `?` help, `m` More, and
 `R` refresh. Not every action is shown when its data is absent.
@@ -75,11 +75,6 @@ Recent files are recorded when project files are opened. Home shows up to nine a
 provides the full recent-file list. Each checkout has its own history. The
 dashboard does not import an existing global recent-file list, so the first launch
 may have an empty section.
-
-Project shortcuts remain available through More actions → Edit shortcuts (`m`).
-They are no longer displayed as a dashboard section. Existing saved shortcuts
-are retained, and the editor supports adding, removing, reordering, and restoring
-suggestions. Paths must remain inside the project.
 
 Resume restores saved file windows, cursor positions, and proportional splits in
 a new tab. Sessions are saved when opening Home from files, leaving a tab, or

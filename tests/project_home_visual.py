@@ -40,7 +40,7 @@ local recent={};for _,p in ipairs(paths)do recent[#recent+1]={path=root..'/'..p,
 local days={};for i=1,364 do days[i]={date=os.date('%%Y-%%m-%%d',os.time()-(364-i)*86400),count=(i*17%%23)>11 and i%%9 or 0,mine=i%%5==0 and 2 or 0}end
 _G.visual_model={
  root=root,name='nvim',branch='feature/dashboard',session={count=4},recents=recent,
- shortcuts={{path='README.md'},{path='init.lua'},{path='lua/'},{path='docs/'}},show_activity=true,scope='repo',
+ show_activity=true,scope='repo',
  git={available=true,loading=false,upstream='origin/feature/dashboard',ahead=2,behind=0,
   changes={{path='a'},{path='b'},{path='c'},{path='d'}},modified=3,staged=1,unstaged=2,untracked=1,
   latest={hash='a81f3c2abcdef',subject='Add project entry points',date=os.date('%%Y-%%m-%%dT12:00:00+00:00')}},
@@ -115,12 +115,12 @@ _G.visual_model={
         capture(n, output / 'workspace-no-activity.png', 166, 50)
         n.exec_lua("""local c=require('custom.project_home').contexts[vim.api.nvim_get_current_buf()]
           c.model=vim.deepcopy(visual_model);c.model.recents={c.model.recents[1]};c.model.prs.items={}
-          c.model.shortcuts[#c.model.shortcuts+1]={path='tests/'};c.render()""")
+          c.render()""")
         capture(n, output / 'workspace-sparse.png', 166, 50)
-        # Reproduce the user's split-screen density: five files, no PRs or shortcuts.
+        # Reproduce the user's split-screen density: five files, no PRs.
         n.exec_lua("""local c=require('custom.project_home').contexts[vim.api.nvim_get_current_buf()]
           c.model=vim.deepcopy(visual_model);c.model.name='cs285_deep_rl_berkley';c.model.branch='chore/ruff-fix'
-          c.model.prs.items={};c.model.shortcuts={};c.model.git.upstream=nil
+          c.model.prs.items={};c.model.git.upstream=nil
           for i,d in ipairs(c.model.activity.days) do d.count=i%61==0 and 1 or 0 end
           c.model.root=vim.fn.expand('~/code/courses/cs285_deep_rl_berkley')
           c.model.recents={};for _,name in ipairs({'train.py','scratch.py','model.py','modal_train.py','logging_utils.py'}) do

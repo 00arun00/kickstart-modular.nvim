@@ -10,7 +10,6 @@ local model = {
   name = 'test',
   session = {},
   recents = {},
-  shortcuts = {},
   git = { available = false },
   activity = { status = 'ready', identity = 'me', year_days = days },
 }

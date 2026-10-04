@@ -16,7 +16,7 @@ backgrounds and selection. ColorScheme events refresh visible dashboards.
 User-defined highlight overrides remain supported.
 
 Data lives under `stdpath('state')/project-home`, keyed by canonical checkout
-path. Preferences, recent files, shortcuts, and saved split trees use JSON;
+path. Preferences, recent files, and saved split trees use JSON;
 project-local session scripts are never sourced. The Volt renderer uses the same persisted
 state as earlier dashboard versions. All Git and GitHub subprocesses use argument arrays and bounded timeouts.
 
