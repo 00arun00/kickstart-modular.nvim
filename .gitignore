@@ -18,3 +18,10 @@
 
 # Python integration test bytecode
 __pycache__/
+
+# Local test dependencies and reports
+/.test-deps/
+/.test-venv/
+/.test-kernel/
+/.test-results/
+/.pytest_cache/
