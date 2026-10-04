@@ -1,11 +1,14 @@
 """Exercise breadcrumb sources, notebook menus, fuzzy search, and split isolation."""
 
+import faulthandler
 import tempfile
 import time
 from pathlib import Path
 
 import nbformat
 import pynvim
+
+faulthandler.dump_traceback_later(60)
 
 with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
     root = Path(directory).resolve()
@@ -30,6 +33,10 @@ with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
         n.ui_attach(140, 55, rgb=True)
 
         def wait(check):
+            print(
+                f"Waiting for Dropbar condition at line {check.__code__.co_firstlineno}",
+                flush=True,
+            )
             until = time.monotonic() + 10
             while time.monotonic() < until:
                 if check():
