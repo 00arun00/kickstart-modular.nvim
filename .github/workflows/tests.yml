@@ -72,6 +72,19 @@ jobs:
       - name: Set up kernel environment
         if: matrix.suite == 'kernel'
         run: make test-setup-kernel
+      - name: Install ImageMagick 7 for rendering tests
+        if: matrix.suite == 'kernel'
+        run: |
+          mkdir -p "$RUNNER_TEMP/imagemagick" "$RUNNER_TEMP/test-bin"
+          cd "$RUNNER_TEMP/imagemagick"
+          curl --fail --location --retry 3 https://github.com/ImageMagick/ImageMagick/releases/download/7.1.2-32/ImageMagick-7.1.2-32-gcc-x86_64.AppImage -o imagemagick.AppImage
+          echo 'd456cab221b5fc1c396768a026d0a33ee8665f7119c7fea7151b960c69058b21  imagemagick.AppImage' | sha256sum --check
+          chmod +x imagemagick.AppImage
+          ./imagemagick.AppImage --appimage-extract > /dev/null
+          printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "$RUNNER_TEMP/imagemagick/squashfs-root/AppRun" > "$RUNNER_TEMP/test-bin/magick"
+          chmod +x "$RUNNER_TEMP/test-bin/magick"
+          "$RUNNER_TEMP/test-bin/magick" -version
+          echo "$RUNNER_TEMP/test-bin" >> "$GITHUB_PATH"
       - name: Set up editor from lockfile
         run: |
           mkdir -p ~/.config .test-results
