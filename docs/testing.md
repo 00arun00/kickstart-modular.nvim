@@ -19,7 +19,7 @@ Setup creates `.test-venv/` with hash-locked test dependencies and downloads
 mini.nvim into `.test-deps/`, using the exact revision in `lazy-lock.json`.
 It does not modify the editor's Python environment or install a Git hook.
 The fast suite has an empty Neovim data directory: it works without your
-installed plugins. CI runs this same suite on Linux.
+installed plugins. Pre-commit runs this same suite.
 
 To run the fast suite before each commit, install pre-commit separately, then:
 
@@ -64,9 +64,8 @@ Integration tests intentionally use the locally installed Neovim plugins,
 parsers, remote-plugin registration, Mason tools, and editor Python host.
 Prepare those with the normal config setup (`scripts/setup-python.sh`, Lazy,
 `:UpdateRemotePlugins`, Mason, and Treesitter). Existing legacy tests assume
-plugins under `~/.local/share/nvim`; portable installation of this complete
-integration environment is not implemented yet. Unlike the fast suite, these
-runs may trigger normal editor dependency installation if that setup is incomplete.
+plugins under `~/.local/share/nvim`. Unlike the fast suite, these runs may trigger
+normal editor dependency installation if that setup is incomplete.
 
 Chainsaw integration also needs Python 3, Rust/rustfmt, Clang++, LuaJIT, rg,
 and Ruff; its assertion test expects Mason's Ruff installation. Kernel tests
@@ -78,6 +77,7 @@ make test-kernel
 ```
 
 This creates `.test-kernel/` with locked dependencies (including PyTorch).
+Linux x86-64 uses a separate CPU-only lockfile to avoid CUDA downloads.
 Each kernel case gets a disposable project outside the checkout referencing
 that environment as `.venv`. Projects are removed when their case finishes,
 so Neotest and pytest cannot accidentally discover this repo instead. Renderer
@@ -113,4 +113,24 @@ uv pip compile tests/requirements.in --universal --python-version 3.12 --generat
 uv pip compile tests/kernel-requirements.in --universal --python-version 3.12 --generate-hashes -o tests/kernel-requirements.txt
 make test-setup
 make test-setup-kernel
+```
+
+## Continuous integration
+
+Every push and pull request runs three Linux jobs: fast, integration, and kernel.
+The heavier jobs install the editor Python host, plugins from `lazy-lock.json`,
+Tree-sitter CLI/parsers, pinned Mason tools from `scripts/ci-tools.json`, and
+remote-plugin registration on a clean runner. The kernel job also installs the
+scientific project environment. uv downloads are cached; editor setup is rebuilt
+so missing setup steps cannot be hidden by an existing plugin cache.
+
+`scripts/setup-ci.lua` is only for disposable CI installations and requires
+`CI=true`; do not run it against your personal editor data. Setup and test failures
+fail the job, and each suite uploads separate logs/artifacts even on failure.
+The pre-commit hook remains fast. Terminal/browser checks remain manual.
+
+Update the Linux CPU lock with:
+
+```sh
+uv pip compile tests/kernel-requirements.in --python-version 3.12 --python-platform x86_64-unknown-linux-gnu --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match --generate-hashes --emit-index-url -o tests/kernel-requirements-linux.txt
 ```

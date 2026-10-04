@@ -3,6 +3,7 @@
 import argparse
 import json
 import shutil
+import platform
 import subprocess
 from pathlib import Path
 
@@ -22,6 +23,8 @@ def main():
             parser.error(f"{tool} is required on PATH")
     env = ROOT / (".test-kernel" if args.kernel else ".test-venv")
     requirements = "kernel-requirements.txt" if args.kernel else "requirements.txt"
+    if args.kernel and platform.system() == "Linux" and platform.machine() == "x86_64":
+        requirements = "kernel-requirements-linux.txt"
     run("uv", "venv", "--python", "3.12", "--allow-existing", str(env))
     run(
         "uv",
