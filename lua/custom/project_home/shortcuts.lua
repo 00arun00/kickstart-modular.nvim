@@ -1,5 +1,5 @@
 local M = {}
-local state = function() return require 'project_home.state' end
+local state = function() return require 'custom.project_home.state' end
 local function suggestions(root)
   local out = {}
   for _, p in ipairs { 'README.md', 'init.lua', 'package.json', 'pyproject.toml', 'Cargo.toml', 'go.mod', 'src/', 'lua/', 'tests/', 'docs/' } do

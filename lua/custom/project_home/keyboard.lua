@@ -19,7 +19,7 @@ local function entries(ctx, section)
 end
 local function focus(ctx, item)
   if item then vim.api.nvim_win_set_cursor(ctx.win, { item.line, item.col or 0 }) end
-  require('project_home.ui').update_selection(ctx)
+  require('custom.project_home.ui').update_selection(ctx)
 end
 function M.section(ctx, section)
   ctx.keyboard_section = section
@@ -70,7 +70,7 @@ function M.refresh(ctx)
     local line = vim.api.nvim_buf_get_lines(ctx.buf, footer - 1, footer, false)[1] or ''
     local margin = #(line:match '^%s*' or '')
     local available = vim.api.nvim_win_get_width(ctx.win) - margin - 1
-    hint = require('project_home.layout').clip(hint, available)
+    hint = require('custom.project_home.layout').clip(hint, available)
     vim.api.nvim_buf_set_extmark(ctx.buf, ns, footer - 1, margin, {
       virt_text = { { hint .. string.rep(' ', math.max(0, #line - margin - vim.fn.strdisplaywidth(hint))), 'ProjectHomeMuted' } },
       virt_text_pos = 'overlay',
@@ -106,7 +106,7 @@ function M.help(ctx)
   local wrapped = {}
   for _, line in ipairs(lines) do
     while vim.fn.strdisplaywidth(line) > width do
-      local chunk = require('project_home.layout').clip(line, width - 1):gsub('…$', '')
+      local chunk = require('custom.project_home.layout').clip(line, width - 1):gsub('…$', '')
       if chunk == '' then chunk = vim.fn.strcharpart(line, 0, 1) end
       wrapped[#wrapped + 1] = chunk
       line = line:sub(#chunk + 1)

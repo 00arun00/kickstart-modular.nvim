@@ -1,5 +1,5 @@
 local M = {}
-local colors = require 'project_home.colors'
+local colors = require 'custom.project_home.colors'
 local get, blend = colors.get, colors.blend
 function M.apply()
   local normal, comment = get 'Normal', get 'Comment'

@@ -1,16 +1,14 @@
 vim.opt.rtp:append(vim.fn.expand '~/.local/share/nvim/lazy/volt')
--- nvim --headless -u NONE -i NONE -l plugins/project-home-core/tests/workspace_ui.lua
+-- nvim --headless -u NONE -i NONE -l tests/project_home_workspace_ui.lua
 local repo = vim.fn.getcwd()
-for _, plugin in ipairs { 'core', 'volt' } do
-  vim.opt.rtp:append(repo .. '/plugins/project-home-' .. plugin)
-end
+vim.opt.rtp:prepend(repo)
 local temp = vim.fn.tempname()
 vim.fn.mkdir(temp, 'p')
 vim.cmd('cd ' .. vim.fn.fnameescape(temp))
-local core, ui = require 'project_home', require 'project_home.ui'
-require('project_home.state').configure { directory = temp .. '/state' }
+local core, ui = require 'custom.project_home', require 'custom.project_home.ui'
+require('custom.project_home.state').configure { directory = temp .. '/state' }
 core.register('fixture', function() return { lines = { 'ready' }, items = {} } end)
-require('project_home_volt').setup()
+require('custom.project_home.volt').setup()
 core.setup { startup = false }
 vim.wo.cursorline = false
 vim.wo.winhighlight = 'EndOfBuffer:Comment'

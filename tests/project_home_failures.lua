@@ -1,18 +1,16 @@
 vim.opt.rtp:append(vim.fn.expand '~/.local/share/nvim/lazy/volt')
--- nvim --headless -u NONE -l plugins/project-home-core/tests/failures.lua
+-- nvim --headless -u NONE -l tests/project_home_failures.lua
 local repo = vim.fn.getcwd()
-for _, name in ipairs { 'core', 'volt' } do
-  vim.opt.rtp:append(repo .. '/plugins/project-home-' .. name)
-end
-require('project_home_volt').setup()
+vim.opt.rtp:prepend(repo)
+require('custom.project_home.volt').setup()
 local tmp = vim.fn.tempname()
 vim.fn.mkdir(tmp, 'p')
 tmp = vim.uv.fs_realpath(tmp)
 vim.fn.writefile({ 'one' }, tmp .. '/one.lua')
 vim.fn.writefile({ 'two' }, tmp .. '/two.lua')
-local state = require 'project_home.state'
+local state = require 'custom.project_home.state'
 state.configure { directory = tmp .. '/state' }
-local core = require 'project_home'
+local core = require 'custom.project_home'
 core.setup { startup = false }
 vim.cmd('cd ' .. vim.fn.fnameescape(tmp))
 state.set(tmp, { recents = 'malformed', shortcuts = 17, session = 'malformed', activity_visible = 'wrong' })
@@ -36,10 +34,10 @@ assert(ctx.model.session == nil)
 local oldselect = vim.ui.select
 local menu
 vim.ui.select = function(items, _, cb) menu = items end
-require('project_home.shortcuts').edit(tmp, function() end)
+require('custom.project_home.shortcuts').edit(tmp, function() end)
 assert(menu[1].label == '1. one.lua' and menu[2].label == '2. missing.lua · missing')
 vim.ui.select = oldselect
-local sessions = require 'project_home.sessions'
+local sessions = require 'custom.project_home.sessions'
 local bad = { root = tmp, tree = { kind = 'leaf', path = tmp .. '/missing' }, saved_at = 'bad' }
 local before = #vim.api.nvim_list_tabpages()
 assert(not sessions.restore(bad))

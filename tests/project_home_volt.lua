@@ -1,9 +1,7 @@
 local root = vim.fn.getcwd()
 vim.opt.rtp:append(vim.fn.expand '~/.local/share/nvim/lazy/volt')
-for _, name in ipairs { 'core', 'volt' } do
-  vim.opt.rtp:append(root .. '/plugins/project-home-' .. name)
-end
-local view, ui = require 'project_home_volt.view', require 'project_home.ui'
+vim.opt.rtp:prepend(root)
+local view, ui = require 'custom.project_home.volt.view', require 'custom.project_home.ui'
 local model = {
   name = 'sample',
   root = root,
@@ -26,7 +24,7 @@ for _, width in ipairs { 24, 40, 60, 80, 120, 166 } do
   end
 end
 -- Run the same keyboard contract against the actual Volt painter.
-dofile(root .. '/plugins/project-home-core/tests/keyboard.lua')
+dofile(root .. '/tests/project_home_keyboard.lua')
 local namespace = vim.api.nvim_get_namespaces().project_home_volt
 local buf, win = vim.api.nvim_get_current_buf(), vim.api.nvim_get_current_win()
 assert(not require('volt.state')[buf], 'child without painter cleared Volt state')

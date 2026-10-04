@@ -1,6 +1,6 @@
 # Project home
 
-The dashboard is provided by `project-home-volt`, backed by `project-home-core`
+The dashboard is provided by `custom.project_home.volt`, backed by `custom.project_home`
 for Git, navigation, sessions, and persisted project state. The only additional
 UI dependency is `nvzone/volt`, pinned in the lazy.nvim specification.
 
@@ -15,7 +15,7 @@ Navigator, and Atelier versions do not select those removed renderers. Existing
 recent files, shortcuts, sessions, and activity preferences are retained.
 Set `vim.g.project_home_startup = false` to disable automatic startup.
 The dashboard follows the active Neovim theme, including live theme changes.
-See [Volt Workspace](../plugins/project-home-volt/README.md) for implementation details.
+See [Volt Workspace](project-home-volt.md) for implementation details.
 
 Workspace uses an open, centered layout with two columns, file metadata,
 and a heatmap beside its controls. It adapts spacing to the window height; at
@@ -116,20 +116,21 @@ automatically. The graph uses commit dates. Missing identity is shown explicitly
 History returns the latest 100 commits for the selected author scope; it is not
 restricted to the graph's date window.
 
-## Individual installation
+## Configuration layout
 
-Install the core and Volt Workspace directories with your plugin manager:
+The core lives in `lua/custom/project_home/`, with its Volt renderer in the
+`volt/` subdirectory. Both load from this configuration's normal runtimepath.
+`lua/custom/plugins/project-home.lua` installs the pinned rendering dependency
+and initializes the custom modules:
 
 ```lua
 {
-  dir = '/absolute/path/to/project-home-volt',
-  dependencies = {
-    { dir = '/absolute/path/to/project-home-core' },
-    { 'nvzone/volt', commit = '620de1321f275ec9d80028c68d1b88b409c0c8b1' },
-  },
+  'nvzone/volt',
+  commit = '620de1321f275ec9d80028c68d1b88b409c0c8b1',
+  lazy = false,
   config = function()
-    require('project_home_volt').setup()
-    require('project_home').setup { default = 'volt', startup = true }
+    require('custom.project_home.volt').setup()
+    require('custom.project_home').setup { default = 'volt', startup = vim.g.project_home_startup ~= false }
   end,
 }
 ```
@@ -138,11 +139,12 @@ Install the core and Volt Workspace directories with your plugin manager:
 
 ```sh
 nvim --headless -u NONE -i NONE -l tests/project_home_providers.lua
-nvim --headless -u NONE -i NONE -l plugins/project-home-core/tests/core.lua
-nvim --headless -u NONE -i NONE -l plugins/project-home-core/tests/failures.lua
-nvim --headless -u NONE -i NONE -l plugins/project-home-core/tests/workspace_ui.lua
-nvim --headless -u NONE -i NONE -l plugins/project-home-core/tests/workspace_activity.lua
-nvim --headless -u NONE -i NONE -l plugins/project-home-volt/tests/volt.lua
+nvim --headless -u NONE -i NONE -l tests/project_home_core.lua
+nvim --headless -u NONE -i NONE -l tests/project_home_failures.lua
+nvim --headless -u NONE -i NONE -l tests/project_home_keyboard.lua
+nvim --headless -u NONE -i NONE -l tests/project_home_workspace_ui.lua
+nvim --headless -u NONE -i NONE -l tests/project_home_workspace_activity.lua
+nvim --headless -u NONE -i NONE -l tests/project_home_volt.lua
 python tests/project_home.py /tmp/project-home-review
 python tests/project_home_full_config.py
 python tests/project_home_visual.py /tmp/project-home-fidelity

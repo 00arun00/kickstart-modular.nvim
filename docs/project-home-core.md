@@ -1,13 +1,13 @@
 # Project home core
 
-Runtime for the Volt Workspace dashboard (`project-home-volt`).
+Runtime for the Volt Workspace dashboard, implemented in `lua/custom/project_home/`.
 
 Requires Neovim 0.11+ and Git for repository features. GitHub CLI (`gh`) with an
 existing login enables pull requests; no remote configuration or credentials are
 changed. GitHub Enterprise works when supported by your configured `gh` client.
 Other hosts and unavailable authentication leave local features available.
 
-For installation and behavior, see [the configuration guide](../../docs/project-home.md).
+For configuration and behavior, see [the configuration guide](project-home.md).
 
 The core never sets a colorscheme. `ProjectHome*` highlight groups inherit the
 active theme's `Normal`, `Title`, `Comment`, `Special`, `Visual`, `DiagnosticWarn`,
@@ -23,7 +23,7 @@ state as earlier dashboard versions. All Git and GitHub subprocesses use argumen
 Developer interface:
 
 ```lua
-require('project_home').register('custom', function(model, width)
+require('custom.project_home').register('custom', function(model, width)
   return {
     lines = { 'Find a file' },
     highlights = { { line = 1, start_col = 0, group = 'ProjectHomeAccent' } },

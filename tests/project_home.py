@@ -80,12 +80,9 @@ vim.opt.swapfile=false
 vim.opt.termguicolors=true
 vim.opt.shortmess:append('I')
 vim.opt.rtp:append(%s)
-for _,name in ipairs({'core','volt'}) do
-  vim.opt.rtp:append(%s..'/plugins/project-home-'..name)
-end
-require('project_home.state').configure({directory=%s})
+require('custom.project_home.state').configure({directory=%s})
 -- The actual CLI argv and Git operations are separately provider-tested.
-local provider=require('project_home.providers')
+local provider=require('custom.project_home.providers')
 provider.gh=function(_,args,cb)
   local result
   if args[1]=='api' then result='owner'
@@ -100,12 +97,12 @@ provider.gh=function(_,args,cb)
   vim.defer_fn(function()if not cancelled then cb(result)end end,35)
   return function()cancelled=true end
 end
-require('project_home').setup({startup=true})
-vim.opt.rtp:append(vim.fn.expand('~/.local/share/nvim/lazy/volt'));require('project_home_volt').setup()
+require('custom.project_home').setup({startup=true})
+vim.opt.rtp:append(vim.fn.expand('~/.local/share/nvim/lazy/volt'));require('custom.project_home.volt').setup()
 vim.opt.rtp:append(vim.fn.expand('~/.local/share/nvim/lazy/catppuccin'))
 local ok,theme=pcall(require,'catppuccin')
 if ok then theme.setup({flavour='mocha',compile_path=vim.fn.stdpath('state')..'/project-home-test-cache'});vim.cmd.colorscheme('catppuccin-mocha') end
-''' % (json.dumps(str(repo)), json.dumps(str(repo)), json.dumps(str(temp / 'state'))))
+''' % (json.dumps(str(repo)), json.dumps(str(temp / 'state'))))
 
 
 
@@ -135,19 +132,19 @@ if ok then theme.setup({flavour='mocha',compile_path=vim.fn.stdpath('state')..'/
             check(n.eval('g:colors_name') == 'catppuccin-mocha', 'Catppuccin actually loaded')
 
             def context(expr='ctx.model'):
-                return n.exec_lua("local ctx=require('project_home').contexts[vim.api.nvim_get_current_buf()];return ctx and (" + expr + ')')
+                return n.exec_lua("local ctx=require('custom.project_home').contexts[vim.api.nvim_get_current_buf()];return ctx and (" + expr + ')')
 
             def loaded():
                 return context("not ctx.model.git.loading and ctx.model.prs.status~='loading' and ctx.model.activity.status~='loading'")
 
             def action(name, value=None):
-                n.exec_lua("local a,v=...;local c=require('project_home').contexts[vim.api.nvim_get_current_buf()];assert(c,'not home');c.dispatch(a,v)", name, value)
+                n.exec_lua("local a,v=...;local c=require('custom.project_home').contexts[vim.api.nvim_get_current_buf()];assert(c,'not home');c.dispatch(a,v)", name, value)
 
             def lines():
                 return '\n'.join(n.current.buffer[:])
 
             def home(layout='volt', root=project):
-                n.exec_lua("local name,root=...;require('project_home').open(name,{root=root})", layout, str(root))
+                n.exec_lua("local name,root=...;require('custom.project_home').open(name,{root=root})", layout, str(root))
                 wait(loaded, 'provider load')
 
             wait(loaded, 'initial provider load')
@@ -236,7 +233,7 @@ if ok then theme.setup({flavour='mocha',compile_path=vim.fn.stdpath('state')..'/
                       n.api.get_hl(0, {'name': 'Comment', 'link': False}), layout + ' light theme follows semantic colors')
                 capture(n, output / (layout + '-light.png'), 120, 52)
                 n.command('colorscheme catppuccin-mocha')
-                n.exec_lua("""local c=require('project_home').contexts[vim.api.nvim_get_current_buf()]
+                n.exec_lua("""local c=require('custom.project_home').contexts[vim.api.nvim_get_current_buf()]
                   _G.ph_model=vim.deepcopy(c.model)
                   c.model.git.error='Permission denied fixture'; c.model.git.loading=false
                   c.model.prs.status='unavailable'; c.model.prs.error='Offline fixture'
@@ -244,11 +241,11 @@ if ok then theme.setup({flavour='mocha',compile_path=vim.fn.stdpath('state')..'/
                 check('Git status unavailable' in lines() and 'Activity unavailable' in lines(),
                       layout + ' failed providers remain distinct from clean or zero')
                 capture(n, output / (layout + '-unavailable.png'), 120, 52)
-                n.exec_lua("""local c=require('project_home').contexts[vim.api.nvim_get_current_buf()]
+                n.exec_lua("""local c=require('custom.project_home').contexts[vim.api.nvim_get_current_buf()]
                   c.model=vim.deepcopy(ph_model); c.model.activity.identity=nil; c.scope='you'; c.home()""")
                 check('user.email' in lines(), layout + ' missing identity has an explanation')
                 capture(n, output / (layout + '-no-identity.png'), 120, 52)
-                n.exec_lua("local c=require('project_home').contexts[vim.api.nvim_get_current_buf()]; c.model=ph_model; c.home()")
+                n.exec_lua("local c=require('custom.project_home').contexts[vim.api.nvim_get_current_buf()]; c.model=ph_model; c.home()")
             # Back navigation retains the correct PR-specific checks.
             home()
             action('pr', 42)
