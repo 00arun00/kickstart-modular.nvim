@@ -123,7 +123,8 @@ Tree-sitter CLI/parsers, pinned Mason tools from `scripts/ci-tools.json`, and
 remote-plugin registration on a clean runner. Screenshot tests use Nerd Fonts
 v3.4.0 via `NVIM_TEST_FONT_DIR` (locally this defaults to `~/Library/Fonts`).
 Each test gets a private Jupyter runtime directory. The kernel job also installs the
-scientific project environment. uv downloads are cached; editor setup is rebuilt
+scientific project environment and a checksum-verified ImageMagick 7 binary.
+uv downloads are cached; editor setup is rebuilt
 so missing setup steps cannot be hidden by an existing plugin cache.
 
 `scripts/setup-ci.lua` is only for disposable CI installations and requires

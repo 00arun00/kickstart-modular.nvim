@@ -203,8 +203,12 @@ print('plot output preserved')"""
     assert settled["crop"] == zoomed["crop"] and settled["width"] == zoomed["width"]
     # Held navigation must produce frames before release, not cancel every job.
     moving_frames = set()
-    for i in range(30):
+    # Keep sending input until two frames arrive; renderer startup varies on CI.
+    deadline = time.monotonic() + 10
+    i = 0
+    while len(moving_frames) < 2 and time.monotonic() < deadline:
         n.input("l" if i % 2 else "h")
+        i += 1
         time.sleep(0.04)
         v = n.current.buffer.vars.get("image_viewport")
         if v and v["renderer"] == "cached":
