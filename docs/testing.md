@@ -120,7 +120,9 @@ make test-setup-kernel
 Every push and pull request runs three Linux jobs: fast, integration, and kernel.
 The heavier jobs install the editor Python host, plugins from `lazy-lock.json`,
 Tree-sitter CLI/parsers, pinned Mason tools from `scripts/ci-tools.json`, and
-remote-plugin registration on a clean runner. The kernel job also installs the
+remote-plugin registration on a clean runner. Screenshot tests use Nerd Fonts
+v3.4.0 via `NVIM_TEST_FONT_DIR` (locally this defaults to `~/Library/Fonts`).
+Each test gets a private Jupyter runtime directory. The kernel job also installs the
 scientific project environment. uv downloads are cached; editor setup is rebuilt
 so missing setup steps cannot be hidden by an existing plugin cache.
 

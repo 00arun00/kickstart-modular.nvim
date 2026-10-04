@@ -60,6 +60,11 @@ jobs:
           sudo apt-get install -y clang luajit ripgrep
           rustup component add rustfmt
           npm install --global tree-sitter-cli@0.26.8
+      - name: Install screenshot fonts
+        run: |
+          curl --fail --location --retry 3 https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/FiraCode.zip -o "$RUNNER_TEMP/fonts.zip"
+          unzip -q "$RUNNER_TEMP/fonts.zip" -d "$RUNNER_TEMP/test-fonts"
+          echo "NVIM_TEST_FONT_DIR=$RUNNER_TEMP/test-fonts" >> "$GITHUB_ENV"
       - name: Set up Python environments
         run: |
           make test-setup
