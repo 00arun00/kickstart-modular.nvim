@@ -1,0 +1,263 @@
+{
+  "cases": [
+    {
+      "file": "tests/chainsaw.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 60
+    },
+    {
+      "file": "tests/chainsaw_assertions.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 60
+    },
+    {
+      "file": "tests/chainsaw_checkpoints.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 60
+    },
+    {
+      "file": "tests/chainsaw_cleanup.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 60
+    },
+    {
+      "file": "tests/chainsaw_dap.lua",
+      "language": "lua",
+      "suite": "fast",
+      "timeout": 60
+    },
+    {
+      "file": "tests/chainsaw_dap_live.lua",
+      "language": "lua",
+      "suite": "kernel",
+      "timeout": 60
+    },
+    {
+      "file": "tests/chainsaw_insertion.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 60
+    },
+    {
+      "file": "tests/chainsaw_languages.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 60
+    },
+    {
+      "file": "tests/chainsaw_rich.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 60
+    },
+    {
+      "file": "tests/folds.lua",
+      "language": "lua",
+      "suite": "fast",
+      "timeout": 60
+    },
+    {
+      "file": "tests/project_home_core.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 60
+    },
+    {
+      "file": "tests/project_home_failures.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 60
+    },
+    {
+      "file": "tests/project_home_keyboard.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 60
+    },
+    {
+      "file": "tests/project_home_providers.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 60
+    },
+    {
+      "file": "tests/project_home_volt.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 60
+    },
+    {
+      "file": "tests/project_home_workspace_activity.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 60
+    },
+    {
+      "file": "tests/project_home_workspace_ui.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 60
+    },
+    {
+      "file": "tests/snacks_canvas.lua",
+      "language": "lua",
+      "suite": "fast",
+      "timeout": 60
+    },
+    {
+      "file": "tests/venv.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 60
+    },
+    {
+      "file": "tests/autopairs.py",
+      "language": "python",
+      "suite": "integration",
+      "timeout": 90
+    },
+    {
+      "file": "tests/cells_ui.py",
+      "language": "python",
+      "suite": "integration",
+      "timeout": 90
+    },
+    {
+      "file": "tests/dropbar.py",
+      "language": "python",
+      "suite": "integration",
+      "timeout": 90
+    },
+    {
+      "file": "tests/image_values.py",
+      "language": "python",
+      "suite": "kernel",
+      "timeout": 240
+    },
+    {
+      "file": "tests/image_viewer.py",
+      "language": "python",
+      "suite": "kernel",
+      "timeout": 240
+    },
+    {
+      "file": "tests/image_viewport.py",
+      "language": "python",
+      "suite": "fast",
+      "timeout": 90
+    },
+    {
+      "file": "tests/notebook.py",
+      "language": "python",
+      "suite": "kernel",
+      "timeout": 240
+    },
+    {
+      "file": "tests/notebook_markdown.py",
+      "language": "python",
+      "suite": "integration",
+      "timeout": 90
+    },
+    {
+      "file": "tests/notebook_titles.py",
+      "language": "python",
+      "suite": "integration",
+      "timeout": 90
+    },
+    {
+      "file": "tests/output.py",
+      "language": "python",
+      "suite": "kernel",
+      "timeout": 240
+    },
+    {
+      "file": "tests/plot_renderer.py",
+      "language": "python",
+      "suite": "kernel",
+      "timeout": 240
+    },
+    {
+      "file": "tests/plot_values.py",
+      "language": "python",
+      "suite": "kernel",
+      "timeout": 240
+    },
+    {
+      "file": "tests/plot_viewport.py",
+      "language": "python",
+      "suite": "fast",
+      "timeout": 90
+    },
+    {
+      "file": "tests/plot_workspace.py",
+      "language": "python",
+      "suite": "kernel",
+      "timeout": 240
+    },
+    {
+      "file": "tests/plots.py",
+      "language": "python",
+      "suite": "kernel",
+      "timeout": 240
+    },
+    {
+      "file": "tests/project_home.py",
+      "language": "python",
+      "suite": "integration",
+      "timeout": 90
+    },
+    {
+      "file": "tests/project_home_full_config.py",
+      "language": "python",
+      "suite": "integration",
+      "timeout": 90
+    },
+    {
+      "file": "tests/project_home_visual.py",
+      "language": "python",
+      "suite": "integration",
+      "timeout": 90
+    },
+    {
+      "file": "tests/python_indent.py",
+      "language": "python",
+      "suite": "integration",
+      "timeout": 90
+    },
+    {
+      "file": "tests/python_tools.py",
+      "language": "python",
+      "suite": "kernel",
+      "timeout": 240
+    },
+    {
+      "file": "tests/variable_values.py",
+      "language": "python",
+      "suite": "kernel",
+      "timeout": 240
+    },
+    {
+      "file": "tests/variables.py",
+      "language": "python",
+      "suite": "kernel",
+      "timeout": 240
+    },
+    {
+      "file": "tests/variables_workspace.py",
+      "language": "python",
+      "suite": "kernel",
+      "timeout": 240
+    }
+  ],
+  "manual": {
+    "capture_grid.py": "Shared screenshot utility, not a test.",
+    "capture_cells.py": "Manual notebook screenshot tool.",
+    "snacks_plots.py": "PTY/Ghostty graphics validation; run after plots.py in a disposable project.",
+    "notebook_markdown_media.py": "PTY media validation requiring ImageMagick, tectonic, and mmdc.",
+    "plot_browser.cjs": "Browser validation requiring separately installed Playwright/Chromium and a generated plot HTML."
+  }
+}

@@ -1,5 +1,7 @@
 # Personal Python setup
 
+See [Testing](docs/testing.md) for Lua/Python test commands, setup, and pre-commit checks.
+
 See [Project home](docs/project-home.md) for the Workspace, Navigator, and Atelier dashboards, Git/PR views, sessions, and theme-aware configuration.
 
 See [Python PDE](docs/python-pde.md) for uv environments, Molten notebooks, keybindings, and verification.

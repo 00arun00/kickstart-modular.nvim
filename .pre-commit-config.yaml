@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: nvim-tests
+        name: Neovim fast tests (Lua and Python)
+        entry: make test
+        language: system
+        pass_filenames: false
+        always_run: true

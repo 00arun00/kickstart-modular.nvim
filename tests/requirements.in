@@ -1,0 +1,3 @@
+# Test runner and host-side helpers. Kernel packages are separate.
+pytest>=8,<10
+-r ../scripts/python-requirements.in
