@@ -50,6 +50,7 @@ return {
         },
       }
       require('dapui').setup()
+      require('custom.chainsaw-dap').setup(dap)
       dap.listeners.after.event_initialized['python-ui'] = function() require('dapui').open() end
       dap.listeners.before.event_terminated['python-ui'] = function() require('dapui').close() end
       dap.listeners.before.event_exited['python-ui'] = function() require('dapui').close() end
