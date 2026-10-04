@@ -2,7 +2,7 @@ local M = {}
 local function clean(s) return tostring(s or ''):gsub('[\r\n\t]', ' ') end
 local ns = vim.api.nvim_create_namespace 'project_home'
 local selection_ns = vim.api.nvim_create_namespace 'project_home_selection'
-local colors = require 'project_home.colors'
+local colors = require 'custom.project_home.colors'
 function M.highlights()
   for name, target in pairs {
     Normal = 'Normal',
@@ -63,7 +63,7 @@ local function item_at_cursor(ctx)
 end
 function M.update_selection(ctx)
   if not M.valid(ctx) then return end
-  require('project_home.keyboard').refresh(ctx)
+  require('custom.project_home.keyboard').refresh(ctx)
   vim.api.nvim_buf_clear_namespace(ctx.buf, selection_ns, 0, -1)
   if not ctx.bounded_selection then return end
   local item = item_at_cursor(ctx)
@@ -199,7 +199,7 @@ function M.draw(ctx, page)
     end
   end
   if page.paint then ctx.clear_presentation = page.paint(ctx) end
-  require('project_home.keyboard').bind(ctx, page)
+  require('custom.project_home.keyboard').bind(ctx, page)
   M.update_selection(ctx)
 end
 function M.page(title, subtitle, entries, live_action)
@@ -264,7 +264,7 @@ function M.attach(ctx)
   vim.api.nvim_create_autocmd('CursorMoved', { buffer = ctx.buf, callback = function() M.update_selection(ctx) end })
   local function move(delta)
     if not M.valid(ctx) then return end
-    if require('project_home.keyboard').move(ctx, delta) then return end
+    if require('custom.project_home.keyboard').move(ctx, delta) then return end
     if ctx.textview or #ctx.items == 0 then
       vim.cmd('normal! ' .. tostring(vim.v.count1) .. (delta > 0 and 'j' or 'k'))
       return

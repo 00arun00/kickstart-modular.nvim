@@ -4,14 +4,15 @@ The Workspace dashboard built with `nvzone/volt`. Open with
 `:ProjectHome`, `:ProjectHomeVolt`, or `:ProjectHome volt`.
 This is the sole dashboard installed by this configuration.
 
-Requires Neovim 0.11+, the sibling `project-home-core`, and `nvzone/volt` on
-runtimepath. This config installs these through `custom/plugins/project-home-volt.lua`.
+Requires Neovim 0.11+, the `custom.project_home` core, and `nvzone/volt` on
+runtimepath. The renderer lives in `lua/custom/project_home/volt/`; the spec in
+`lua/custom/plugins/project-home.lua` installs Volt and initializes the dashboard.
 Volt is pinned to the revision used for validation. No other layout plugin is required.
 
 ```lua
-require('project_home').setup { startup = false }
-require('project_home_volt').setup()
-require('project_home_volt').open()
+require('custom.project_home').setup { startup = false }
+require('custom.project_home.volt').setup()
+require('custom.project_home.volt').open()
 ```
 
 The home uses Volt grids, separators, styled chunks, and its extmark renderer.
@@ -35,7 +36,7 @@ Volt namespaces/state are cleared when switching pages/layouts or wiping Home.
 Validation (using Python with pynvim and Pillow):
 
 ```sh
-nvim --headless -u NONE -i NONE -l plugins/project-home-volt/tests/volt.lua
+nvim --headless -u NONE -i NONE -l tests/project_home_volt.lua
 python tests/project_home.py /tmp/home-volt --volt
 python tests/project_home_visual.py /tmp/home-volt-visual --volt --full-config
 ```

@@ -1,7 +1,6 @@
 vim.opt.rtp:append(vim.fn.expand '~/.local/share/nvim/lazy/volt')
-vim.opt.rtp:append(vim.fn.getcwd() .. '/plugins/project-home-core')
-vim.opt.rtp:append(vim.fn.getcwd() .. '/plugins/project-home-volt')
-local render = require('project_home_volt.view').render
+vim.opt.rtp:prepend(vim.fn.getcwd())
+local render = require('custom.project_home.volt.view').render
 local days = {}
 for i = 1, 364 do
   days[i] = { date = '2026-01-01', count = i <= 182 and 3 or 1, mine = i <= 182 and 2 or 0 }

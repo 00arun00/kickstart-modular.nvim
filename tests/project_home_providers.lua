@@ -1,8 +1,8 @@
 -- Run: nvim --headless -u NONE -i NONE -l tests/project_home_providers.lua
 local cwd = vim.fn.getcwd()
-vim.opt.rtp:append(cwd .. '/plugins/project-home-core')
-local p = require 'project_home.providers'
-local state = require 'project_home.state'
+vim.opt.rtp:prepend(cwd)
+local p = require 'custom.project_home.providers'
+local state = require 'custom.project_home.state'
 local root = vim.fn.tempname()
 vim.fn.mkdir(root, 'p')
 local function git(...)

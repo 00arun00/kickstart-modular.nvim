@@ -1,6 +1,6 @@
 local M = {}
-local ui = require 'project_home.ui'
-local function provider() return require 'project_home.providers' end
+local ui = require 'custom.project_home.ui'
+local function provider() return require 'custom.project_home.providers' end
 local function notify(err) vim.notify(tostring(err), vim.log.levels.WARN, { title = 'Project home' }) end
 local function absolute(ctx, path)
   if not path or path == '' then return ctx.model.root end
@@ -138,10 +138,10 @@ function M.dispatch(ctx, action, value)
     if #rows == 0 then rows = { { label = 'No files opened in this project yet.', detail = 'Use Find file or Start exploring to begin.' } } end
     ctx.show(ui.page('Recent files', root, rows))
   elseif action == 'shortcuts' or action == 'explore' then
-    require('project_home.shortcuts').edit(root, ctx.guard(ctx.refresh))
+    require('custom.project_home.shortcuts').edit(root, ctx.guard(ctx.refresh))
   elseif action == 'resume' then
-    local session = require('project_home.state').get(root).session
-    local info, err = require('project_home.sessions').inspect(session, false, root)
+    local session = require('custom.project_home.state').get(root).session
+    local info, err = require('custom.project_home.sessions').inspect(session, false, root)
     if not info then
       ctx.show(ui.page('Resume workspace', err, { { label = 'Open files, then save with :ProjectHomeSessionSave', action = 'home' } }))
       return
@@ -153,8 +153,10 @@ function M.dispatch(ctx, action, value)
     end
     ctx.show(ui.page('Resume workspace', os.date('%b %d · %H:%M', info.saved_at), rows))
   elseif action == 'restore' then
-    local ok, err =
-      require('project_home.sessions').restore(require('project_home.state').get(root).session, { window_options = ctx.original_options, root = root })
+    local ok, err = require('custom.project_home.sessions').restore(
+      require('custom.project_home.state').get(root).session,
+      { window_options = ctx.original_options, root = root }
+    )
     if not ok then notify(err) end
   elseif action == 'git' then
     if model.git.error then
@@ -303,10 +305,10 @@ function M.dispatch(ctx, action, value)
       pcall(function() vim.wo[key] = option end)
     end
     vim.cmd('tcd ' .. vim.fn.fnameescape(value))
-    require('project_home').open(ctx.layout, { root = value, reuse = true })
+    require('custom.project_home').open(ctx.layout, { root = value, reuse = true })
   elseif action == 'activity' then
     ctx.scope = value == 'you' and 'you' or 'repo'
-    require('project_home.state').update(root, 'scope', ctx.scope)
+    require('custom.project_home.state').update(root, 'scope', ctx.scope)
     ctx.home()
   elseif action == 'more' then
     ctx.show(ui.page('Workspace actions', root, {

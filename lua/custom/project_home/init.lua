@@ -1,12 +1,12 @@
 local M = { renderers = {}, contexts = {}, options = { default = 'volt', startup = true } }
-local ui = require 'project_home.ui'
-local state = require 'project_home.state'
+local ui = require 'custom.project_home.ui'
+local state = require 'custom.project_home.state'
 local function root_for(path)
   path = path or vim.fn.getcwd()
   return vim.fs.root(path, { '.git' }) or vim.fn.getcwd()
 end
 local function save_session(root)
-  local session = require('project_home.sessions').capture(root)
+  local session = require('custom.project_home.sessions').capture(root)
   if session then return state.update(root, 'session', session) end
   return false, 'Open a project file before saving a workspace.'
 end
@@ -147,10 +147,10 @@ function M.open(layout, opts)
     if ctx.cancel then ctx.cancel() end
     local load_generation = (ctx.load_generation or 0) + 1
     ctx.load_generation = load_generation
-    ctx.cancel = require('project_home.providers').load(initial_root, function(model)
+    ctx.cancel = require('custom.project_home.providers').load(initial_root, function(model)
       if not ui.valid(ctx) or ctx.load_generation ~= load_generation then return end
       model.title = model.name or vim.fs.basename(model.root)
-      model.shortcuts = require('project_home.shortcuts').get(model.root)
+      model.shortcuts = require('custom.project_home.shortcuts').get(model.root)
       local stored = state.get(model.root)
       model.recents = {}
       for _, path in ipairs(type(stored.recents) == 'table' and stored.recents or {}) do
@@ -159,7 +159,7 @@ function M.open(layout, opts)
             { path = path, label = path:sub(1, #model.root + 1) == model.root .. '/' and path:sub(#model.root + 2) or vim.fs.basename(path) }
         end
       end
-      model.session = require('project_home.sessions').inspect(stored.session, false, model.root) and stored.session or nil
+      model.session = require('custom.project_home.sessions').inspect(stored.session, false, model.root) and stored.session or nil
       if ctx.scope_root ~= model.root then
         ctx.scope = stored.scope == 'you' and 'you' or 'repo'
         ctx.scope_root = model.root
@@ -170,7 +170,7 @@ function M.open(layout, opts)
       local page = ctx.pages[#ctx.pages]
       if page and page.live_action then
         ctx.updating_live = true
-        require('project_home.actions').dispatch(ctx, page.live_action)
+        require('custom.project_home.actions').dispatch(ctx, page.live_action)
         ctx.updating_live = false
       end
       ctx.render()
@@ -181,7 +181,7 @@ function M.open(layout, opts)
     if not ui.valid(ctx) then return end
     ctx.generation = ctx.generation + 1
     if action == 'keyboard_help' then
-      require('project_home.keyboard').help(ctx)
+      require('custom.project_home.keyboard').help(ctx)
     elseif action == 'home' then
       ctx.home()
     elseif action == 'back' then
@@ -207,7 +207,7 @@ function M.open(layout, opts)
       end
       ui.restore_options(ctx)
     else
-      local ok, err = pcall(require('project_home.actions').dispatch, ctx, action, value)
+      local ok, err = pcall(require('custom.project_home.actions').dispatch, ctx, action, value)
       if not ok then vim.notify('Project home: ' .. tostring(err), vim.log.levels.ERROR) end
     end
   end

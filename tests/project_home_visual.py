@@ -26,14 +26,14 @@ vim.opt.termguicolors=true
 vim.opt.swapfile=false
 vim.opt.shortmess:append('I')
 vim.opt.laststatus=2
-for _,name in ipairs({'core','volt'}) do vim.opt.rtp:append(%s..'/plugins/project-home-'..name) end
+vim.opt.rtp:prepend(%s)
 vim.opt.rtp:append(vim.fn.expand('~/.local/share/nvim/lazy/catppuccin'))
 require('catppuccin').setup({flavour='mocha',compile_path=%s..'/theme'})
 vim.cmd.colorscheme('catppuccin-mocha')
-require('project_home.state').configure({directory=%s..'/state'})
-require('project_home.providers').load=function(_,cb) return function()end end
-require('project_home').setup({startup=false})
-vim.opt.rtp:append(vim.fn.expand('~/.local/share/nvim/lazy/volt'));require('project_home_volt').setup()
+require('custom.project_home.state').configure({directory=%s..'/state'})
+require('custom.project_home.providers').load=function(_,cb) return function()end end
+require('custom.project_home').setup({startup=false})
+vim.opt.rtp:append(vim.fn.expand('~/.local/share/nvim/lazy/volt'));require('custom.project_home.volt').setup()
 local root=%s
 local paths={'lua/kickstart/plugins/mini.lua','lua/custom/plugins/catppuccin.lua','init.lua','docs/navigation.md','README.md'}
 local recent={};for _,p in ipairs(paths)do recent[#recent+1]={path=root..'/'..p,label=p}end
@@ -65,7 +65,7 @@ _G.visual_model={
         if full_config:
             n.exec_lua(boot.read_text()[boot.read_text().index('local root='):])
         layout = 'volt'
-        n.exec_lua("local c=require('project_home').open(...);if c.cancel then c.cancel() end;c.model=vim.deepcopy(visual_model); c.render()", layout)
+        n.exec_lua("local c=require('custom.project_home').open(...);if c.cancel then c.cancel() end;c.model=vim.deepcopy(visual_model); c.render()", layout)
         if full_config:
             # Keep startup messages as evidence, then close transient notification
             # overlays so they do not obscure the dashboard being compared.
@@ -78,7 +78,7 @@ _G.visual_model={
             n.command('doautocmd VimResized')
             n.command('normal! gg')
             capture(n, output / f'workspace-{width}x{height}.png', width, height)
-            data = n.exec_lua("local c=require('project_home').contexts[vim.api.nvim_get_current_buf()];return {lines=vim.api.nvim_buf_get_lines(c.buf,0,-1,false),items=c.items}")
+            data = n.exec_lua("local c=require('custom.project_home').contexts[vim.api.nvim_get_current_buf()];return {lines=vim.api.nvim_buf_get_lines(c.buf,0,-1,false),items=c.items}")
             assert len(data['lines']) <= height - 2, f'{width} columns: home extends below the viewport'
             recent_row = next(i for i, line in enumerate(data['lines']) if 'Recent files' in line)
             git_row = next(i for i, line in enumerate(data['lines']) if 'Git workspace' in line)
@@ -103,14 +103,14 @@ _G.visual_model={
         (output / 'latte-highlights.json').write_text(json.dumps({g:n.api.get_hl(0, {'name':g,'link':False}) for g in groups}, indent=2))
         assert n.api.get_hl(0, {'name':'ProjectHomeCanvas','link':False}).get('bg') is not None, 'Latte canvas survives theme change'
         n.command('colorscheme catppuccin-mocha')
-        n.exec_lua("local c=require('project_home').contexts[vim.api.nvim_get_current_buf()];c.model.show_activity=false;c.render()")
+        n.exec_lua("local c=require('custom.project_home').contexts[vim.api.nvim_get_current_buf()];c.model.show_activity=false;c.render()")
         capture(n, output / 'workspace-no-activity.png', 166, 50)
-        n.exec_lua("""local c=require('project_home').contexts[vim.api.nvim_get_current_buf()]
+        n.exec_lua("""local c=require('custom.project_home').contexts[vim.api.nvim_get_current_buf()]
           c.model=vim.deepcopy(visual_model);c.model.recents={c.model.recents[1]};c.model.prs.items={}
           c.model.shortcuts[#c.model.shortcuts+1]={path='tests/'};c.render()""")
         capture(n, output / 'workspace-sparse.png', 166, 50)
         # Reproduce the user's split-screen density: five files, no PRs or shortcuts.
-        n.exec_lua("""local c=require('project_home').contexts[vim.api.nvim_get_current_buf()]
+        n.exec_lua("""local c=require('custom.project_home').contexts[vim.api.nvim_get_current_buf()]
           c.model=vim.deepcopy(visual_model);c.model.name='cs285_deep_rl_berkley';c.model.branch='chore/ruff-fix'
           c.model.prs.items={};c.model.shortcuts={};c.model.git.upstream=nil
           for i,d in ipairs(c.model.activity.days) do d.count=i%61==0 and 1 or 0 end

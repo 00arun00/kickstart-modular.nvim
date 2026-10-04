@@ -41,11 +41,11 @@ with tempfile.TemporaryDirectory(prefix='project-home-full-') as temp:
             assert n.current.buffer.options['filetype'] == expected
             assert n.eval('g:colors_name') == 'catppuccin-mocha'
             if expected == 'projecthome':
-                n.exec_lua("require('project_home').contexts[vim.api.nvim_get_current_buf()].dispatch('browse')")
+                n.exec_lua("require('custom.project_home').contexts[vim.api.nvim_get_current_buf()].dispatch('browse')")
                 wait(lambda: n.current.buffer.options['filetype'] == 'oil', 'Browse opens Oil')
                 n.command('ProjectHomeVolt')
                 wait(lambda: n.current.buffer.options['filetype'] == 'projecthome', 'Home returns from Oil')
-                n.exec_lua("require('project_home').contexts[vim.api.nvim_get_current_buf()].dispatch('find')")
+                n.exec_lua("require('custom.project_home').contexts[vim.api.nvim_get_current_buf()].dispatch('find')")
                 wait(lambda: any(b.options['filetype'] == 'TelescopePrompt' for b in n.buffers), 'Find opens Telescope')
             assert not n.command_output('messages').strip(), n.command_output('messages')
             print('PASS full config:', args or ['no arguments'], flush=True)

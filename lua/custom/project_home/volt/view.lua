@@ -1,5 +1,5 @@
 local M = {}
-local L = require 'project_home.layout'
+local L = require 'custom.project_home.layout'
 local U = require 'volt.ui'
 local function c(text, group, action, value, key, section)
   return { tostring(text or ''), 'ProjectHomeVolt' .. (group or 'Text'), action and { action = action, value = value, key = key, section = section } or nil }
@@ -250,7 +250,7 @@ local function activity(model, width)
   return U.grid_row { left, { {} }, graph }
 end
 function M.render(model, width, height)
-  require('project_home_volt.theme').apply()
+  require('custom.project_home.volt.theme').apply()
   width, height = width or 120, height or 50
   local canvas = math.min(144, math.max(20, width - 8))
   if width < 28 then canvas = math.max(1, width - 2) end
@@ -319,6 +319,6 @@ function M.render(model, width, height)
       return line
     end, section.lines)
   end
-  return require('project_home_volt.renderer').page(sections, width)
+  return require('custom.project_home.volt.renderer').page(sections, width)
 end
 return M

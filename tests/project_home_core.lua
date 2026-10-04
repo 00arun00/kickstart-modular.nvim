@@ -1,19 +1,15 @@
 vim.opt.rtp:append(vim.fn.expand '~/.local/share/nvim/lazy/volt')
--- Run: nvim --headless -u NONE -l plugins/project-home-core/tests/core.lua
+-- Run: nvim --headless -u NONE -l tests/project_home_core.lua
 local repo = vim.fn.getcwd()
-for _, n in ipairs { 'core', 'volt' } do
-  vim.opt.rtp:append(repo .. '/plugins/project-home-' .. n)
-end
-for _, n in ipairs { 'volt' } do
-  require('project_home_' .. n).setup()
-end
+vim.opt.rtp:prepend(repo)
+require('custom.project_home.volt').setup()
 local tmp = vim.fn.tempname()
 vim.fn.mkdir(tmp, 'p')
 tmp = vim.uv.fs_realpath(tmp)
 vim.fn.writefile({ 'one', 'two' }, tmp .. '/one.lua')
 vim.fn.writefile({ 'alpha', 'beta' }, tmp .. '/two.lua')
-require('project_home.state').configure { directory = tmp .. '/state' }
-local core = require 'project_home'
+require('custom.project_home.state').configure { directory = tmp .. '/state' }
+local core = require 'custom.project_home'
 core.setup { startup = false }
 vim.cmd('cd ' .. vim.fn.fnameescape(tmp))
 vim.wo.number = true
@@ -28,7 +24,7 @@ for _, name in ipairs(core.layouts()) do
   assert(vim.api.nvim_buf_line_count(ctx.buf) > 8, name .. ' renders')
 end
 -- Every column is independently selectable by cursor position and Enter.
-local ui = require 'project_home.ui'
+local ui = require 'custom.project_home.ui'
 local original = ctx.dispatch
 local invoked
 ctx.dispatch = function(a) invoked = a end
@@ -59,11 +55,11 @@ late()
 assert(not fired, 'stale callback dropped')
 ctx.dispatch 'home'
 ctx.dispatch('activity', 'you')
-assert(require('project_home.state').get(ctx.model.root).scope == 'you')
+assert(require('custom.project_home.state').get(ctx.model.root).scope == 'you')
 ctx.dispatch 'activity_visibility'
-assert(require('project_home.state').get(ctx.model.root).activity_visible == false)
+assert(require('custom.project_home.state').get(ctx.model.root).activity_visible == false)
 -- A list opened before provider completion must update in place.
-local providers = require 'project_home.providers'
+local providers = require 'custom.project_home.providers'
 local original_load = providers.load
 local deliver
 providers.load = function(_, cb)
@@ -126,12 +122,12 @@ vim.cmd.vsplit(tmp .. '/two.lua')
 vim.api.nvim_win_set_cursor(0, { 2, 1 })
 local first = vim.api.nvim_tabpage_list_wins(0)[1]
 vim.api.nvim_win_set_width(first, 17)
-local session = require('project_home.sessions').capture(tmp)
+local session = require('custom.project_home.sessions').capture(tmp)
 assert(session.count == 2)
 local dirty = vim.api.nvim_get_current_buf()
 vim.api.nvim_buf_set_lines(dirty, 0, 1, false, { 'unsaved' })
 local oldtabs = #vim.api.nvim_list_tabpages()
-assert(require('project_home.sessions').restore(session, { window_options = { number = true, statusline = 'ORIGINAL' } }))
+assert(require('custom.project_home.sessions').restore(session, { window_options = { number = true, statusline = 'ORIGINAL' } }))
 for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
   assert(vim.wo[win].number and vim.wo[win].statusline == 'ORIGINAL', 'restored windows use editor options')
 end
@@ -142,12 +138,12 @@ assert(math.abs(vim.api.nvim_win_get_width(restoredfirst) - 17) <= 2, 'split pro
 local corrupt = vim.deepcopy(session)
 corrupt.tree = { kind = 'leaf', path = tmp .. '/missing' }
 local before = #vim.api.nvim_list_tabpages()
-local ok = require('project_home.sessions').restore(corrupt)
+local ok = require('custom.project_home.sessions').restore(corrupt)
 assert(not ok and #vim.api.nvim_list_tabpages() == before)
 -- Any one layout can be installed, even if a removed layout was remembered.
 local registered = core.renderers
 core.renderers = { volt = registered.volt }
-require('project_home.state').update('__preferences__', 'layout', 'navigator')
+require('custom.project_home.state').update('__preferences__', 'layout', 'navigator')
 core.setup { startup = false }
 local fallback = core.open(nil, { root = tmp, reuse = true })
 assert(fallback and fallback.layout == 'volt', 'standalone layout survives missing remembered layout')
