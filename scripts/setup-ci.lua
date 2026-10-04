@@ -4,11 +4,14 @@ local function setup()
   vim.opt.rtp:prepend(vim.fn.getcwd())
   require('custom.python.host').setup()
   require 'lazy-bootstrap'
+  local lock = vim.json.decode(table.concat(vim.fn.readfile 'lazy-lock.json', '\n'))
+  local lazy_dir = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
+  local checkout = vim.system({ 'git', '-C', lazy_dir, 'checkout', '--detach', lock['lazy.nvim'].commit }, { text = true }):wait()
+  assert(checkout.code == 0, checkout.stderr)
   require 'lazy-plugins'
   require('lazy').restore { wait = true, show = false }
   assert(not require('lazy.manage.checker').has_errors(), 'Lazy plugin installation failed')
 
-  local lock = vim.json.decode(table.concat(vim.fn.readfile 'lazy-lock.json', '\n'))
   for name, plugin in pairs(require('lazy.core.config').plugins) do
     if plugin.url and lock[name] then
       local result = vim.system({ 'git', '-C', plugin.dir, 'rev-parse', 'HEAD' }, { text = true }):wait()
