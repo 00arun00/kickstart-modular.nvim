@@ -47,8 +47,9 @@ Workspace keyboard navigation:
 The footer follows the focused section, and background updates preserve the
 selected item. Child pages retain their normal Backspace/Escape navigation.
 
-Starting `nvim` without files or `nvim .` opens Home. Explicit file arguments,
-stdin, and requested sessions keep their normal behavior. Opening Home from an
+Starting `nvim` without arguments opens Home. `nvim .` and explicit directory
+paths open Oil. Explicit file arguments, stdin, and requested sessions keep
+their normal behavior. Opening Home from an
 editing window preserves it in its tab. Worktree selection opens another tab
 with a tab-local working directory; it does not checkout, reset, stash, or
 modify Git state. Modified buffers remain in memory. Quit/save prompts still

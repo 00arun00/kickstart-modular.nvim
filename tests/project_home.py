@@ -113,12 +113,15 @@ if ok then theme.setup({flavour='mocha',compile_path=vim.fn.stdpath('state')..'/
     oldcwd = Path.cwd()
     os.chdir(project)
     try:
-        for args, expected in [((), 'projecthome'), ((project,), 'projecthome'), ((project / 'init.lua',), 'lua')]:
+        for args, expected in [((), 'projecthome'), ((project,), 'directory'), ((project / 'init.lua',), 'lua')]:
             n = start(args)
             try:
                 wait(lambda: n.eval('v:vim_did_enter') == 1, 'VimEnter')
                 if expected == 'projecthome':
                     wait(lambda: n.current.buffer.options['filetype'] == expected, 'startup dashboard')
+                elif expected == 'directory':
+                    time.sleep(.3)
+                    check(n.current.buffer.options['filetype'] != 'projecthome', 'directory launch not intercepted')
                 else:
                     check(Path(n.current.buffer.name) == project / 'init.lua', 'explicit file startup preserved')
                     check(n.current.buffer.options['filetype'] != 'projecthome', 'file launch not intercepted')
