@@ -88,6 +88,14 @@ _G.visual_model={
             assert any('History' in line for line in data['lines']), 'history action remains available'
             (output / f'workspace-{width}x{height}.json').write_text(json.dumps(data, indent=2))
             results.append({'width': width, 'height': height, 'lines': len(data['lines'])})
+        for width, height in [(90, 40), (60, 34)]:
+            n.ui_try_resize(width, height)
+            n.command('doautocmd VimResized')
+            n.command('normal! gg')
+            capture(n, output / f'workspace-resize-{width}.png', width, height)
+            data = n.exec_lua("local c=require('custom.project_home').contexts[vim.api.nvim_get_current_buf()];return vim.api.nvim_buf_get_lines(c.buf,0,-1,false)")
+            assert len(data) <= height - 2
+            assert any('█' in line for line in data)
         n.ui_try_resize(166, 50)
         n.command('doautocmd VimResized')
         n.exec_lua("vim.fn.maparg('r','n',false,true).callback()")
@@ -127,6 +135,15 @@ _G.visual_model={
             n.command('normal! G$')
             capture(n, output / f'workspace-footer-{width}.png', width, height)
             assert n.funcs.winsaveview()['leftcol'] == 0, 'footer navigation must not shift dashboard horizontally'
+        n.exec_lua("""local c=require('custom.project_home').contexts[vim.api.nvim_get_current_buf()]
+          for _,name in ipairs({'keymaps.lua','init.lua','options.lua','terminal.lua','README.md','session.lua'}) do
+            table.insert(c.model.recents,{path=c.model.root..'/lua/custom/'..name}) end
+          c.render()""")
+        for width, height in [(90, 40), (166, 50)]:
+            n.ui_try_resize(width, height)
+            n.command('doautocmd VimResized')
+            n.command('normal! gg')
+            capture(n, output / f'workspace-recents-{width}.png', width, height)
         (output / 'mocha-highlights.json').write_text(json.dumps({g:n.api.get_hl(0, {'name':g,'link':False}) for g in groups}, indent=2))
         assert n.api.get_hl(0, {'name':'ProjectHomeCanvas','link':False}).get('bg') is not None, 'Mocha canvas survives round-trip theme change'
         print(json.dumps(results))

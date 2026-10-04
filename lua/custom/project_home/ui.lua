@@ -160,8 +160,11 @@ function M.draw(ctx, page)
       if not focus and ctx.keyboard_section then
         for _, item in ipairs(ctx.items) do
           if item.section == ctx.keyboard_section then
-            focus = item
-            break
+            focus = focus or item
+            if item.action == 'file' or item.action == 'pr' then
+              focus = item
+              break
+            end
           end
         end
       end
@@ -233,7 +236,19 @@ function M.restore_options(ctx)
 end
 function M.capture_options(win)
   local options = {}
-  for _, k in ipairs { 'number', 'relativenumber', 'signcolumn', 'foldcolumn', 'wrap', 'cursorline', 'list', 'spell', 'fillchars', 'statusline', 'winhighlight' } do
+  for _, k in ipairs {
+    'number',
+    'relativenumber',
+    'signcolumn',
+    'foldcolumn',
+    'wrap',
+    'cursorline',
+    'list',
+    'spell',
+    'fillchars',
+    'statusline',
+    'winhighlight',
+  } do
     options[k] = vim.wo[win][k]
   end
   return options
@@ -257,7 +272,16 @@ function M.attach(ctx)
   vim.bo[ctx.buf].swapfile = false
   vim.bo[ctx.buf].filetype = 'projecthome'
   vim.bo[ctx.buf].modifiable = false
-  for k, v in pairs { number = false, relativenumber = false, signcolumn = 'no', foldcolumn = '0', wrap = false, cursorline = true, list = false, spell = false } do
+  for k, v in pairs {
+    number = false,
+    relativenumber = false,
+    signcolumn = 'no',
+    foldcolumn = '0',
+    wrap = false,
+    cursorline = true,
+    list = false,
+    spell = false,
+  } do
     vim.wo[ctx.win][k] = v
   end
   vim.api.nvim_win_call(ctx.win, function() vim.opt_local.fillchars:append { eob = ' ' } end)

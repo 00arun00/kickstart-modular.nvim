@@ -42,7 +42,7 @@ local function file_info(file, root)
   local directory = path:sub(-1) == '/' or vim.fn.isdirectory(root .. '/' .. path) == 1
   return leaf .. (directory and '/' or ''), parent and parent .. '/' or 'Project root', path, relative
 end
-local function files(model, width)
+local function files(model, width, limit)
   local rows = { title('r', 'Recent files', 'recent', width, { action('All recent →', 'recents', nil, 'recent', nil, 'Muted') }), {} }
   local recents = model.recents or {}
   if #recents == 0 then
@@ -50,44 +50,11 @@ local function files(model, width)
     rows[#rows + 1] = { pad(2), action('Find your first file →', 'find', nil, 'recent', nil, 'Accent') }
   else
     for i, file in ipairs(recents) do
-      if i > 5 then break end
+      if i > (limit or 5) then break end
       local leaf, parent, path = file_info(file, model.root)
       rows[#rows + 1] = { pad(2), action(fill(leaf, width - 2), 'file', nil, 'recent', path, 'Title') }
       rows[#rows + 1] = { pad(2), c(L.clip(parent, width - 2), 'Muted') }
     end
-  end
-  rows[#rows + 1] = {}
-  rows[#rows + 1] =
-    title('x', 'Start Exploring', 'explore', width, #(model.shortcuts or {}) > 0 and { action('Edit →', 'shortcuts', nil, 'explore', nil, 'Muted') } or {})
-  rows[#rows + 1] = {}
-  local entries = model.shortcuts or {}
-  if #entries == 0 then rows[#rows + 1] = { pad(2), action('Add a project shortcut →', 'shortcuts', nil, 'explore', nil, 'Accent') } end
-  local cell = math.floor((width - 3) / 2)
-  for i = 1, math.min(5, #entries), 2 do
-    local columns = {}
-    for j = i, math.min(i + 1, #entries) do
-      local leaf, _, path, rel = file_info(entries[j], model.root)
-      local low = rel:lower():gsub('/$', '')
-      local description = low:find('readme', 1, true) and 'Project guide'
-        or low == 'init.lua' and 'Config entry'
-        or low == 'lua' and 'Modules'
-        or low:match '^docs?' and 'Documentation'
-        or low:find('test', 1, true) and 'Tests & checks'
-        or 'Project shortcut'
-      columns[#columns + 1] = {
-        w = cell,
-        pad = j == i and 3 or 0,
-        lines = {
-          fit({ pad(2), action(fill(leaf, cell - 2), 'file', nil, 'explore', path, 'Title') }, cell),
-          fit({
-            pad(2),
-            c(cell < 17 and (description == 'Project guide' and 'Guide' or description == 'Documentation' and 'Docs' or description) or description, 'Muted'),
-          }, cell),
-        },
-      }
-    end
-    vim.list_extend(rows, U.grid_col(columns))
-    if i + 2 <= #entries then rows[#rows + 1] = {} end
   end
   return vim.tbl_map(function(row) return fit(row, width) end, rows)
 end
@@ -156,7 +123,7 @@ local function repository(model, width)
   )
   return vim.tbl_map(function(row) return fit(row, width) end, rows)
 end
-local function activity(model, width)
+local function activity(model, width, compact)
   local data, scope = model.activity or {}, model.scope or 'repo'
   local weeks = width >= 136 and 52 or width >= 110 and 39 or 26
   local graphwidth = weeks * 2 + 3
@@ -192,6 +159,12 @@ local function activity(model, width)
   end
   left[#left + 1] = {}
   left[#left + 1] = { action(bad and 'Retry →' or 'h History →', bad and 'refresh' or 'history', 'h', 'activity') }
+  if compact then
+    return {
+      pair(left[1], { left[3][1], c(' · ' .. weeks .. 'w', 'Muted') }, width),
+      fit({ repo, c ' ', yours, c '  ', action(bad and 'Retry →' or 'h History →', bad and 'refresh' or 'history', 'h', 'activity') }, width),
+    }
+  end
   local graph = {}
   if bad or missing or data.status == 'loading' then
     graph = {
@@ -255,7 +228,7 @@ function M.render(model, width, height)
   local canvas = math.min(144, math.max(20, width - 8))
   if width < 28 then canvas = math.max(1, width - 2) end
   local margin = math.max(0, math.floor((width - canvas) / 2))
-  local tall = height >= 47 and canvas >= 70
+  local tall = height >= 28 and canvas >= 26
   local header = { {} }
   if tall then
     for _, line in ipairs {
@@ -266,7 +239,11 @@ function M.render(model, width, height)
       header[#header + 1] = { c(line, 'Accent') }
     end
   end
-  header[#header + 1] = pair({ c(model.name or model.title or 'Project', 'Title') }, { c(model.branch or 'No branch', 'Accent') }, canvas)
+  header[#header + 1] = pair(
+    { c((tall and '' or 'NVIM / ') .. (model.name or model.title or 'Project'), 'Title') },
+    { c(model.branch or 'No branch', 'Accent') },
+    canvas
+  )
   local path = model.root or ''
   local home = vim.env.HOME or ''
   if home ~= '' and path:sub(1, #home + 1) == home .. '/' then path = '~' .. path:sub(#home + 1) end
@@ -294,24 +271,63 @@ function M.render(model, width, height)
   toolbar[#toolbar + 1] = row
   toolbar[#toolbar + 1] = U.separator('─', canvas, 'ProjectHomeVoltRule')
   toolbar[#toolbar + 1] = {}
+  local columns = canvas >= 72
+  local left = columns and math.floor((canvas - 7) / 2) or canvas
+  local right = columns and canvas - left - 7 or canvas
+  local git_rows = repository(model, right)
+  local function activity_section(compact)
+    return model.show_activity ~= false and U.grid_row { { {}, U.separator('─', canvas, 'ProjectHomeVoltRule'), {} }, activity(model, canvas, compact) } or {}
+  end
+  local activity_rows = activity_section(false)
+  local function budget() return height - #header - #toolbar - #activity_rows - 3 end
+  local function required() return #git_rows + (columns and 0 or 5) end
+  -- Preserve the hero and section access before spending rows on optional detail.
+  if required() > budget() then
+    git_rows = vim.tbl_filter(function(row)
+      return #row > 0 and vim.trim(table.concat(vim.tbl_map(function(chunk) return chunk[1] end, row))) ~= ''
+    end, git_rows)
+  end
+  if required() > budget() then activity_rows = activity_section(true) end
+  if required() > budget() then
+    local prs = (model.prs or {}).items or {}
+    local attention = 0
+    for _, pr in ipairs(prs) do
+      local status = L.pr_status(pr):lower()
+      if status:find('fail', 1, true) or status:find('changes requested', 1, true) then attention = attention + 1 end
+    end
+    git_rows = {
+      title('g', 'Git workspace', 'git', right),
+      { action('g Working changes →', 'git', nil, 'git') },
+      { action('h Commit history →', 'history', 'h', 'git') },
+      title('p', 'Pull requests', 'prs', right, { action('Browse →', 'prs', nil, 'prs', nil, 'Muted') }),
+      {
+        c(
+          (model.prs or {}).status == 'loading' and 'Loading pull requests…'
+            or (model.prs or {}).status == 'unavailable' and 'Remote status unavailable'
+            or attention > 0 and (#prs .. ' open · ' .. attention .. ' needs attention')
+            or #prs .. ' open pull requests',
+          attention > 0 and 'Warn' or 'Muted'
+        ),
+      },
+      { action('w Worktrees →', 'worktrees', 'w', 'git') },
+    }
+  end
+  local recent_budget = budget() - (columns and 0 or #git_rows + 1)
+  local limit = math.max(1, math.min(columns and 9 or 5, math.floor((recent_budget - 2) / 2)))
+  local recent_rows = files(model, left, limit)
   local body
-  if canvas >= 72 then
-    local left = math.floor((canvas - 7) / 2)
-    local a, b = files(model, left), repository(model, canvas - left - 7)
+  if columns then
     local divider = {}
-    for _ = 1, math.max(#a, #b) do
+    for _ = 1, math.max(#recent_rows, #git_rows) do
       divider[#divider + 1] = { c('│', 'Rule') }
     end
-    body = U.grid_col { { lines = a, w = left, pad = 3 }, { lines = divider, w = 1, pad = 3 }, { lines = b, w = canvas - left - 7 } }
+    body = U.grid_col { { lines = recent_rows, w = left, pad = 3 }, { lines = divider, w = 1, pad = 3 }, { lines = git_rows, w = right } }
   else
-    body = U.grid_row { files(model, canvas), { {}, U.separator('─', canvas, 'ProjectHomeVoltRule'), {} }, repository(model, canvas) }
+    body = U.grid_row { recent_rows, { U.separator('─', canvas, 'ProjectHomeVoltRule') }, git_rows }
   end
   local sections = { { name = 'header', lines = header }, { name = 'actions', lines = toolbar }, { name = 'workspace', lines = body } }
-  if model.show_activity ~= false then
-    sections[#sections + 1] =
-      { name = 'activity', lines = U.grid_row { { {}, U.separator('─', canvas, 'ProjectHomeVoltRule'), {} }, activity(model, canvas) } }
-  end
-  sections[#sections + 1] = { name = 'footer', lines = { {}, { c('r recent · x explore · p PRs · g Git · Tab sections · ? help', 'Muted') } } }
+  if model.show_activity ~= false then sections[#sections + 1] = { name = 'activity', lines = activity_rows } end
+  sections[#sections + 1] = { name = 'footer', lines = { {}, { c('r recent · p PRs · g Git · Tab sections · ? help', 'Muted') } } }
   for _, section in ipairs(sections) do
     section.lines = vim.tbl_map(function(r)
       local line = { pad(margin) }
