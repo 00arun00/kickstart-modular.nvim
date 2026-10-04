@@ -11,9 +11,11 @@ local function setup()
   local checkout = vim.system({ 'git', '-C', lazy_dir, 'checkout', '--detach', lock['lazy.nvim'].commit }, { text = true }):wait()
   assert(checkout.code == 0, checkout.stderr)
   require 'lazy-plugins'
+  -- Keep provisioning messages in the CI log, outside notification UIs.
+  if package.loaded.noice then require('noice').disable() end
   require('lazy').restore { wait = true, show = false }
   assert(not require('lazy.manage.checker').has_errors(), 'Lazy plugin installation failed')
-  io.stdout:write('Checking plugin revisions\n')
+  io.stdout:write 'Checking plugin revisions\n'
   io.stdout:flush()
 
   for name, plugin in pairs(require('lazy.core.config').plugins) do
@@ -27,7 +29,12 @@ local function setup()
     { 'bash', 'c', 'cpp', 'diff', 'html', 'latex', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'python', 'query', 'regex', 'rust', 'vim', 'vimdoc', 'yaml' }
   require('nvim-treesitter').install(parsers):wait(300000)
   for _, parser in ipairs(parsers) do
-    assert(vim.treesitter.language.add(parser), 'Parser installation failed: ' .. parser)
+    local loaded, reason = vim.treesitter.language.add(parser)
+    if not loaded then
+      require('nvim-treesitter.log').show()
+      io.stderr:write(vim.api.nvim_exec2('messages', { output = true }).output .. '\n')
+      error('Parser installation failed: ' .. parser .. ': ' .. tostring(reason))
+    end
   end
 
   require('lazy').load { plugins = { 'mason.nvim', 'mason-lspconfig.nvim', 'mason-tool-installer.nvim' } }
