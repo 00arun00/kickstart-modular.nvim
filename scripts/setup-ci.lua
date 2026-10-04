@@ -3,6 +3,9 @@ local function setup()
   assert(vim.env.CI == 'true', 'This setup is only for disposable CI runners')
   -- -u NONE disables plugin loading; Lazy deliberately skips setup otherwise.
   vim.opt.loadplugins = true
+  -- Lazy rebuilds runtimepath from existing directories while loading plugins.
+  -- Keep the parser destination present before the first plugin installation.
+  vim.fn.mkdir(vim.fn.stdpath 'data' .. '/site', 'p')
   vim.opt.rtp:prepend(vim.fn.getcwd())
   require('custom.python.host').setup()
   require 'lazy-bootstrap'
