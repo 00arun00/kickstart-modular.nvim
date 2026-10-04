@@ -2,8 +2,8 @@
 
 import argparse
 import json
-import shutil
 import platform
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -31,6 +31,12 @@ def main():
         "pip",
         "sync",
         "--require-hashes",
+        # Match resolution across PyPI and the CPU wheel index; hashes remain required.
+        *(
+            ["--index-strategy", "unsafe-best-match"]
+            if requirements == "kernel-requirements-linux.txt"
+            else []
+        ),
         "--python",
         str(env / "bin/python"),
         str(ROOT / "tests" / requirements),
