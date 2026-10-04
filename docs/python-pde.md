@@ -4,6 +4,11 @@ The editor uses basedpyright for types/completion, Ruff for linting and formatti
 Jupytext for notebook editing, and Molten for Jupyter execution. NotebookNavigator
 adds `# %%` cell movement and execution in both `.py` and `.ipynb` buffers.
 
+Lua integration modules live in `lua/custom/python/`; their Python runtime
+helpers live alongside them in `lua/custom/python/helpers/`. The Lua callers use
+`custom.python.paths` to find helpers independently of the current project.
+Environment setup and its pinned requirements remain in `scripts/`.
+
 ## Setup
 
 From this config directory, run `bash scripts/setup-python.sh` (requires `uv`).
@@ -312,7 +317,8 @@ results; reopen the pane from a different notebook to inspect its kernel.
 
 ### Implementation and compatibility
 
-`custom/python/variables.lua` manages the pane and calls `scripts/inspect-kernel.py`
+`lua/custom/python/variables.lua` manages the pane and calls
+`lua/custom/python/helpers/inspect-kernel.py`
 using the existing editor Python host. That client loads `inspect-namespace.py`
 inside the exact project kernel using a silent, history-free expression. No new
 plugin or project dependency is required beyond the existing `ipykernel`.

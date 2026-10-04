@@ -8,7 +8,7 @@ from pathlib import Path
 from PIL import Image
 
 render = runpy.run_path(
-    str(Path(__file__).resolve().parents[1] / "scripts/render-plot.py")
+    str(Path(__file__).resolve().parents[1] / "lua/custom/python/helpers/render-plot.py")
 )["render"]
 root = Path(sys.argv[1])
 for style in ("line", "scatter", "histogram", "heatmap"):

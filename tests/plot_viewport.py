@@ -7,7 +7,7 @@ from pathlib import Path
 from PIL import Image
 
 render = runpy.run_path(
-    str(Path(__file__).resolve().parents[1] / "scripts/image-viewport.py")
+    str(Path(__file__).resolve().parents[1] / "lua/custom/python/helpers/image-viewport.py")
 )["render"]
 with tempfile.TemporaryDirectory() as folder:
     folder = Path(folder)

@@ -10,7 +10,7 @@ import torch
 from PIL import Image
 
 inspect_value = runpy.run_path(
-    str(Path(__file__).resolve().parents[1] / "scripts/inspect-namespace.py")
+    str(Path(__file__).resolve().parents[1] / "lua/custom/python/helpers/inspect-namespace.py")
 )["inspect_namespace"]
 
 

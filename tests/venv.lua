@@ -1,5 +1,6 @@
 vim.opt.rtp:prepend(vim.fn.getcwd())
 local env = require 'custom.python.venv'
+local original_cwd = vim.fn.getcwd()
 local root = vim.fn.tempname() .. ' space'
 local function executable(path)
   vim.fn.mkdir(vim.fs.dirname(path), 'p')
@@ -21,8 +22,11 @@ local ok, err = xpcall(function()
   assert(env.python(root) == root .. '/alternate/bin/python')
   vim.cmd.PyVenvReset()
   assert(env.python(root) == root .. '/.venv/bin/python')
+  -- Load the module from a project cwd: helper lookup must follow the checkout.
+  vim.fn.chdir(root)
   local name, spec = require('custom.python.notebook').kernel(root)
   assert(spec.argv[1] == root .. '/.venv/bin/python')
+  assert(vim.fn.filereadable(spec.argv[2]) == 1, 'Kernel launcher must exist outside the project cwd')
   assert(spec.argv[3] == root)
   assert(spec.env.VIRTUAL_ENV == root .. '/.venv')
   assert(name ~= require('custom.python.notebook').kernel(root .. '/src'))
@@ -61,6 +65,7 @@ local ok, err = xpcall(function()
   assert(stopped.ours and not stopped.other)
   vim.lsp.get_clients, vim.lsp.start = original_get, original_start
 end, debug.traceback)
+vim.fn.chdir(original_cwd)
 vim.fn.delete(root, 'rf')
 assert(ok, err)
 print 'PASS: nested .venv, overrides/reset, kernel isolation, scoped LSP restart'

@@ -18,7 +18,7 @@ vim.api.nvim_create_autocmd('User', {
   callback = function(event) M.ready[event.data.kernel_id] = true end,
 })
 local env = require 'custom.python.venv'
-local config_root = vim.fs.dirname(vim.fs.dirname(vim.fs.dirname(vim.fs.dirname(debug.getinfo(1, 'S').source:sub(2)))))
+local paths = require 'custom.python.paths'
 
 -- Each project/interpreter pair gets a private kernelspec. Never register a
 -- generic python3 kernel or infer an interpreter from notebook metadata.
@@ -27,7 +27,7 @@ function M.kernel(path)
   local python = env.python(path)
   local name = 'nvim-' .. vim.fn.sha256(root .. '\n' .. python):sub(1, 16)
   local spec = {
-    argv = { python, vim.fs.joinpath(config_root, 'scripts', 'kernel-launch.py'), root, '-f', '{connection_file}' },
+    argv = { python, paths.helper 'kernel-launch.py', root, '-f', '{connection_file}' },
     display_name = 'Neovim: ' .. vim.fs.basename(root),
     language = 'python',
     env = { PATH = vim.fs.dirname(python) .. (vim.fn.has 'win32' == 1 and ';' or ':') .. (vim.env.PATH or '') },
