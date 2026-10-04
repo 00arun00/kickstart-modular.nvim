@@ -1,6 +1,8 @@
 -- Provision the disposable CI editor. Never run against a personal installation.
 local function setup()
   assert(vim.env.CI == 'true', 'This setup is only for disposable CI runners')
+  -- -u NONE disables plugin loading; Lazy deliberately skips setup otherwise.
+  vim.opt.loadplugins = true
   vim.opt.rtp:prepend(vim.fn.getcwd())
   require('custom.python.host').setup()
   require 'lazy-bootstrap'
