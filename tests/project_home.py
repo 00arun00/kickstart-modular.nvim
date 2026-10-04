@@ -256,11 +256,8 @@ if ok then theme.setup({flavour='mocha',compile_path=vim.fn.stdpath('state')..'/
             action('pr_overview', 42)
             check('Dashboard pull request 42' in lines(), 'back navigation PR cache keyed by number')
             action('home')
-            # Drive the real shortcut editor through its UI callbacks.
-            n.exec_lua("vim.ui.select=function(items,opts,cb)_G.ph_select={items=items,opts=opts,cb=cb}end;vim.ui.input=function(opts,cb)_G.ph_input={opts=opts,cb=cb}end")
-
-            def choose(label):
-                return n.exec_lua("local label=...;local s=ph_select;for _,item in ipairs(s.items)do local text=type(item)=='table' and item.label or item;if text==label then s.cb(item);return true end end;error('missing choice '..label)", label)
+            # Drive native input fallbacks through their UI callbacks.
+            n.exec_lua("vim.ui.input=function(opts,cb)_G.ph_input={opts=opts,cb=cb}end")
 
             action('find')
             n.exec_lua("ph_input.cb('docs/guide.md')")
@@ -277,18 +274,6 @@ if ok then theme.setup({flavour='mocha',compile_path=vim.fn.stdpath('state')..'/
             check(context('ctx.model.show_activity') is False, 'activity can be hidden')
             action('activity_visibility')
             check(context('ctx.model.show_activity') is True, 'activity can be restored')
-            before = context('ctx.model.shortcuts')
-            action('shortcuts')
-            choose('1. README.md')
-            choose('Move down')
-            choose('Discard changes')
-            check(context('ctx.model.shortcuts') == before, 'shortcut cancel preserves stable order')
-            action('shortcuts')
-            choose('1. README.md')
-            choose('Move down')
-            choose('Save shortcuts')
-            wait(lambda: context('ctx.model.shortcuts')[0]['path'] != 'README.md', 'shortcut saved order')
-            checks.append('shortcut reorder persists')
             action('new')
             n.exec_lua("ph_input.cb('nested/new.lua')")
             check(n.current.buffer.name.endswith('nested/new.lua'), 'new file opens intended buffer')

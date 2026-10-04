@@ -25,7 +25,7 @@ and j/k moves within a section. `?` opens contextual help; `m` opens More.
 Saved sessions, files, Git, PRs, worktrees, and persistence use the existing core.
 Volt renders the home dashboard. Detail pages use the core buffer renderer
 for native selection, scrolling, and searching. This configuration defaults to Volt and ignores retired layout preferences.
-Existing sessions, shortcuts, recent files, and activity settings are preserved.
+Existing sessions, recent files, and activity settings are preserved.
 
 The integration intentionally uses `volt.gen_data` and `volt.redraw` directly.
 Core owns window lifecycle and keyboard/mouse activation, so Volt's global

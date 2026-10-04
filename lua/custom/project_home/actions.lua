@@ -135,10 +135,8 @@ function M.dispatch(ctx, action, value)
     for _, e in ipairs(model.recents or {}) do
       rows[#rows + 1] = { label = e.label or e.path, action = 'file', value = e.path }
     end
-    if #rows == 0 then rows = { { label = 'No files opened in this project yet.', detail = 'Use Find file or Start exploring to begin.' } } end
+    if #rows == 0 then rows = { { label = 'No files opened in this project yet.', detail = 'Use Find file or Browse to begin.' } } end
     ctx.show(ui.page('Recent files', root, rows))
-  elseif action == 'shortcuts' or action == 'explore' then
-    require('custom.project_home.shortcuts').edit(root, ctx.guard(ctx.refresh))
   elseif action == 'resume' then
     local session = require('custom.project_home.state').get(root).session
     local info, err = require('custom.project_home.sessions').inspect(session, false, root)
@@ -319,7 +317,6 @@ function M.dispatch(ctx, action, value)
       { label = 'New file', action = 'new' },
       { label = 'Recent files', action = 'recents' },
       { label = 'Resume workspace', action = 'resume' },
-      { label = 'Edit shortcuts', action = 'shortcuts' },
       { label = 'Working changes', action = 'git' },
       { label = 'Pull requests', action = 'prs' },
       { label = 'Worktrees', action = 'worktrees' },

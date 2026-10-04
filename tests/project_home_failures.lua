@@ -13,7 +13,7 @@ state.configure { directory = tmp .. '/state' }
 local core = require 'custom.project_home'
 core.setup { startup = false }
 vim.cmd('cd ' .. vim.fn.fnameescape(tmp))
-state.set(tmp, { recents = 'malformed', shortcuts = 17, session = 'malformed', activity_visible = 'wrong' })
+state.set(tmp, { recents = 'malformed', session = 'malformed', activity_visible = 'wrong' })
 local ctx = core.open('volt', { root = tmp, reuse = true })
 assert(vim.wait(5000, function() return ctx.model.prs.status ~= 'loading' end))
 assert(#ctx.model.recents == 0 and ctx.model.session == nil and ctx.model.show_activity == true)
@@ -22,21 +22,12 @@ assert(table.concat(vim.api.nvim_buf_get_lines(ctx.buf, 0, -1, false), '\n'):fin
 ctx.dispatch 'home'
 state.set(tmp, {
   recents = { '/etc/hosts', tmp .. '/one.lua', false, 17 },
-  shortcuts = { false, '../outside.lua', 'one.lua', './one.lua', 'missing.lua' },
   session = { tree = { kind = 'unknown' }, root = tmp },
 })
 ctx.refresh()
 assert(vim.wait(5000, function() return #ctx.model.recents == 1 end))
 assert(ctx.model.recents[1].path == tmp .. '/one.lua')
-assert(#ctx.model.shortcuts == 1 and ctx.model.shortcuts[1].path == 'one.lua')
 assert(ctx.model.session == nil)
--- The editor keeps legitimate missing paths, but not malformed or escaping paths.
-local oldselect = vim.ui.select
-local menu
-vim.ui.select = function(items, _, cb) menu = items end
-require('custom.project_home.shortcuts').edit(tmp, function() end)
-assert(menu[1].label == '1. one.lua' and menu[2].label == '2. missing.lua · missing')
-vim.ui.select = oldselect
 local sessions = require 'custom.project_home.sessions'
 local bad = { root = tmp, tree = { kind = 'leaf', path = tmp .. '/missing' }, saved_at = 'bad' }
 local before = #vim.api.nvim_list_tabpages()
@@ -91,5 +82,5 @@ for _, h in ipairs(ctx.pages[#ctx.pages].highlights) do
   end
 end
 assert(warning == 6 and success == 2, 'check labels and status have semantic failure/success colors')
-print 'Failure tests passed: malformed state, project scoping, shortcuts, bounded sessions, missing files, check semantics'
+print 'Failure tests passed: malformed state, project scoping, bounded sessions, missing files, check semantics'
 vim.cmd 'qa!'

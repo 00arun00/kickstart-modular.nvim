@@ -11,7 +11,6 @@ local ctx = {
     root = root,
     session = {},
     recents = { 'one.lua', 'two.lua' },
-    shortcuts = { 'README.md', 'init.lua' },
     git = { available = true, changes = {} },
     prs = { items = { { number = 42, title = 'First PR' }, { number = 43, title = 'Second PR' } } },
     activity = { status = 'loading' },
