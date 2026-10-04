@@ -62,5 +62,6 @@ def test_fast_environment_isolated_from_installed_config(tmp_path):
     assert Path(env["XDG_CACHE_HOME"]).is_relative_to(tmp_path)
     runtime = Path(env["JUPYTER_RUNTIME_DIR"])
     assert runtime.is_relative_to(artifacts)
+    assert runtime == Path(env["JUPYTER_DATA_DIR"]) / "runtime"
     assert runtime.is_dir()
     assert runtime.stat().st_mode & 0o777 == 0o700

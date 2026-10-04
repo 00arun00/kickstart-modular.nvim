@@ -31,7 +31,8 @@ def environment(folder, config_root, fast=False):
     config = config_root / app
     config.parent.mkdir(parents=True, exist_ok=True)
     config.symlink_to(ROOT, target_is_directory=True)
-    runtime = folder / "jupyter-runtime"
+    # Molten also writes to <JUPYTER_DATA_DIR>/runtime directly.
+    runtime = folder / "jupyter" / "runtime"
     runtime.mkdir(parents=True, mode=0o700)
     env.update(
         XDG_CONFIG_HOME=str(config_root),
@@ -41,6 +42,7 @@ def environment(folder, config_root, fast=False):
         PYTHONDONTWRITEBYTECODE="1",
         MPLCONFIGDIR=str(folder / "matplotlib"),
         JUPYTER_RUNTIME_DIR=str(runtime),
+        JUPYTER_DATA_DIR=str(runtime.parent),
     )
     # Fast tests must not accidentally depend on the user's plugin installation.
     if fast:
