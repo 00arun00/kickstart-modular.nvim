@@ -1,5 +1,6 @@
 """Rasterize an attached Neovim UI's actual redraw grid for visual review."""
 
+import os
 from pathlib import Path
 
 _states = {}
@@ -48,12 +49,9 @@ def capture(n, path, width=150, height=48):
         n.channel_id,
     )
     n.run_loop(None, event)
-    font = ImageFont.truetype(
-        str(Path.home() / "Library/Fonts/FiraCodeNerdFontMono-Regular.ttf"), 16
-    )
-    bold_font = ImageFont.truetype(
-        str(Path.home() / "Library/Fonts/FiraCodeNerdFontMono-Bold.ttf"), 16
-    )
+    font_dir = Path(os.environ.get("NVIM_TEST_FONT_DIR", Path.home() / "Library/Fonts"))
+    font = ImageFont.truetype(str(font_dir / "FiraCodeNerdFontMono-Regular.ttf"), 16)
+    bold_font = ImageFont.truetype(str(font_dir / "FiraCodeNerdFontMono-Bold.ttf"), 16)
     image = Image.new("RGB", (width * 10, height * 22))
     draw = ImageDraw.Draw(image)
     for row in range(height):
