@@ -22,8 +22,9 @@ and a heatmap beside its controls. It adapts spacing to the window height; at
 80 columns it retains the two-column overview, while smaller windows stack.
 The background matches the editor, without an enclosing panel or chrome bars.
 A three-row NVIM block wordmark uses the theme accent above the project name
-and path. Short or narrow windows retain the compact text header; the wordmark
-uses existing header space and adds no scrolling.
+and path. The wordmark is reserved before allocating recent-file rows. Smaller windows
+reduce spacing and then use compact Git/PR and activity summaries to preserve
+section access. Very short or narrow windows use a compact NVIM text header.
 Project titles, section headings, filenames, and metadata use theme-derived
 color and weight for hierarchy; terminal Neovim uses one fixed font size.
 Selection surfaces and activity intensities are derived from the active theme.
@@ -34,7 +35,7 @@ Switching Repository/Yours preserves that period.
 
 Workspace keyboard navigation:
 
-- `r`, `x`, `p`, and `g` focus Recent Files, Start Exploring, Pull Requests, and
+- `r`, `p`, and `g` focus Recent Files, Pull Requests, and
   Git Workspace. Press the same key again for the full list or section action.
 - `1–9` opens a numbered entry in the focused section. `j`/`k` moves only within
   that section; Enter opens the selection. Headings and metadata are skipped.
@@ -70,17 +71,15 @@ Oil when installed, otherwise the normal Neovim directory editor. New file
 opens an unsaved buffer; nested directories are created on the explicit action.
 The file itself is written only when you save it.
 
-Recent files are recorded when project files are opened. Home shows five and
+Recent files are recorded when project files are opened. Home shows up to nine as window height allows (five in stacked layouts) and
 provides the full recent-file list. Each checkout has its own history. The
 dashboard does not import an existing global recent-file list, so the first launch
 may have an empty section.
 
-Start Exploring is a stable shortcut list. On first use, existing README,
-project configuration, source, tests, and documentation paths supply up to five
-suggestions. These are not continually reordered. Edit shortcuts lets you add,
-remove, reorder, restore suggestions, save, or discard changes. Paths must be
-inside the project. Missing shortcuts are hidden from Home but remain editable;
-explicit restoration of suggestions rebuilds the defaults.
+Project shortcuts remain available through More actions → Edit shortcuts (`m`).
+They are no longer displayed as a dashboard section. Existing saved shortcuts
+are retained, and the editor supports adding, removing, reordering, and restoring
+suggestions. Paths must remain inside the project.
 
 Resume restores saved file windows, cursor positions, and proportional splits in
 a new tab. Sessions are saved when opening Home from files, leaving a tab, or

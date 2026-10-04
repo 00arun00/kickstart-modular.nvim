@@ -50,9 +50,8 @@ assert(help:find('Recent files', 1, true) and help:find('Press r again', 1, true
 key '<Esc>'
 assert(vim.api.nvim_get_current_win() == ctx.win and vim.deep_equal(before, vim.api.nvim_win_get_cursor(ctx.win)), 'help restores exact focus')
 key '<Tab>'
-assert(ctx.keyboard_section == 'explore')
-key '2'
-assert(invoked[2] == 'init.lua', 'explore uses its own numbering')
+assert(ctx.keyboard_section == 'git', 'Tab moves directly from recent files to Git')
+assert(vim.fn.maparg('x', 'n') == '', 'removed section has no dashboard key binding')
 key '<S-Tab>'
 assert(ctx.keyboard_section == 'recent')
 key 'r'

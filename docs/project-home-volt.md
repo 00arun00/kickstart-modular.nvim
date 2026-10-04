@@ -20,7 +20,7 @@ Quiet shortcut labels, aligned sections, semantic PR status colors, and an adapt
 heatmap follow the current theme, including live colorscheme changes. A compact
 header and stacked columns handle smaller windows. No enclosing floating window.
 
-`r/x/p/g` focuses a section, numbers open entries, Tab/Shift-Tab changes sections,
+`r/p/g` focuses a section, numbers open entries, Tab/Shift-Tab changes sections,
 and j/k moves within a section. `?` opens contextual help; `m` opens More.
 Saved sessions, files, Git, PRs, worktrees, and persistence use the existing core.
 Volt renders the home dashboard. Detail pages use the core buffer renderer

@@ -23,6 +23,15 @@ def capture(n, path, width=150, height=48):
                     defaults[:] = data[:2]
                 elif ev[0] == "grid_clear":
                     grid.clear()
+                elif ev[0] == "grid_scroll":
+                    _, top, bottom, left, right, rows, cols = data
+                    previous = dict(grid)
+                    for row in range(top, bottom):
+                        for col in range(left, right):
+                            source = (row + rows, col + cols)
+                            grid[row, col] = (previous.get(source, (" ", 0))
+                                              if top <= source[0] < bottom and left <= source[1] < right
+                                              else (" ", 0))
                 elif ev[0] == "grid_line":
                     _, row, col, cells, *_ = data
                     hl = 0

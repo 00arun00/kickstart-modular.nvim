@@ -23,6 +23,44 @@ for _, width in ipairs { 24, 40, 60, 80, 120, 166 } do
     end
   end
 end
+-- Recent files use spare rows without hiding the activity chart or footer.
+local dense = vim.deepcopy(model)
+dense.git = { available = true, changes = {} }
+dense.activity = { status = 'ready', identity = 'me', days = {} }
+dense.recents = {}
+for i = 1, 20 do
+  dense.recents[i] = ('file-%02d.lua'):format(i)
+end
+for _, size in ipairs { { 90, 40 }, { 120, 50 }, { 166, 60 } } do
+  local page = view.render(dense, size[1], size[2])
+  local count = 0
+  for _, item in ipairs(page.items) do
+    if item.section == 'recent' and item.action == 'file' then
+      count = count + 1
+      assert(item.value == dense.recents[count], 'recent order is preserved')
+    end
+  end
+  assert(count > 5 and count <= 9, 'spare space exposes more keyboard-addressable files')
+  assert(#page.lines <= size[2], 'expanded recents leave activity and footer visible')
+end
+dense.prs = { items = { { number = 1, title = 'First' }, { number = 2, title = 'Second' }, { number = 3, title = 'Third' } } }
+dense.prs.items[1].statusCheckRollup = { { conclusion = 'FAILURE' } }
+dense.git.latest = { hash = 'abcdef', subject = 'Latest commit', date = '2026-10-05' }
+for _, size in ipairs { { 60, 32 }, { 80, 40 }, { 90, 40 }, { 120, 45 }, { 166, 50 } } do
+  local page = view.render(dense, size[1], size[2])
+  local text = table.concat(page.lines, '\n')
+  assert(#page.lines <= size[2], 'main content fits ' .. size[1] .. 'x' .. size[2])
+  if size[1] == 60 then assert(text:find('1 needs attention', 1, true), 'compact PR summary retains failures') end
+  for _, label in ipairs { '█', 'Recent files', 'Git workspace', 'Pull requests', 'Worktrees', 'Activity' } do
+    assert(text:find(label, 1, true), 'resize retains ' .. label)
+  end
+end
+local narrow = view.render(dense, 60, 60)
+local count = 0
+for _, item in ipairs(narrow.items) do
+  if item.section == 'recent' and item.action == 'file' then count = count + 1 end
+end
+assert(count >= 1 and count <= 5, 'stacked layout keeps recent list compact')
 -- Run the same keyboard contract against the actual Volt painter.
 dofile(root .. '/tests/project_home_keyboard.lua')
 local namespace = vim.api.nvim_get_namespaces().project_home_volt
@@ -58,6 +96,21 @@ for _, git in ipairs { { available = false }, { loading = true } } do
     assert(invoked == action, 'missing section opens its utility instead of leaving a file active')
   end
 end
+local opened
+ctx.dispatch = function(action, value)
+  if action == 'file' then opened = value end
+end
+ctx.keyboard_section = nil
+ui.draw(ctx, view.render(dense, 166, 60))
+vim.fn.maparg('r', 'n', false, true).callback()
+vim.fn.maparg('9', 'n', false, true).callback()
+assert(opened == dense.recents[9], 'key 9 opens ninth visible file')
+ui.draw(ctx, view.render(dense, 60, 60))
+opened = nil
+vim.fn.maparg('9', 'n', false, true).callback()
+assert(not opened, 'resize removes hidden numbered targets')
+vim.fn.maparg('<CR>', 'n', false, true).callback()
+assert(opened == dense.recents[1], 'resize restores focus to a visible recent file')
 local key_before = vim.api.nvim_get_hl(0, { name = 'ProjectHomeVoltKey', link = true })
 vim.api.nvim_set_hl(0, 'Title', { fg = 0xCC5588 })
 ui.draw(ctx, view.render(model, 120, 50))

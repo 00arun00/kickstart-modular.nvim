@@ -1,8 +1,8 @@
 local M = {}
 local ns = vim.api.nvim_create_namespace 'project_home_keyboard'
-local order = { 'actions', 'recent', 'explore', 'git', 'prs', 'activity' }
-local names = { actions = 'Actions', recent = 'Recent files', explore = 'Start Exploring', git = 'Git workspace', prs = 'Pull requests', activity = 'Activity' }
-local jumps = { r = 'recent', x = 'explore', g = 'git', p = 'prs' }
+local order = { 'actions', 'recent', 'git', 'prs', 'activity' }
+local names = { actions = 'Actions', recent = 'Recent files', git = 'Git workspace', prs = 'Pull requests', activity = 'Activity' }
+local jumps = { r = 'recent', g = 'git', p = 'prs' }
 local utility = { recents = true, shortcuts = true, prs = true, keyboard_help = true }
 local function entries(ctx, section)
   local result = {}
@@ -63,9 +63,9 @@ function M.refresh(ctx)
   local footer = ctx.keyboard_footer
   if footer then
     local hint = section and ('1–' .. math.min(#items, 9) .. ' open · j/k select · Tab section · Enter open · Esc back · ? help')
-      or 'r recent · x explore · p PRs · g Git · Tab sections · ? help'
+      or 'r recent · p PRs · g Git · Tab sections · ? help'
     if #items == 0 and section then hint = 'Tab next section · Esc back · ? help' end
-    local again = ({ recent = 'r all recent', explore = 'x edit shortcuts', prs = 'p all PRs' })[section]
+    local again = ({ recent = 'r all recent', prs = 'p all PRs' })[section]
     if again and vim.api.nvim_win_get_width(ctx.win) > 110 then hint = hint .. ' · ' .. again end
     local line = vim.api.nvim_buf_get_lines(ctx.buf, footer - 1, footer, false)[1] or ''
     local margin = #(line:match '^%s*' or '')
@@ -73,7 +73,7 @@ function M.refresh(ctx)
     hint = require('custom.project_home.layout').clip(hint, available)
     vim.api.nvim_buf_set_extmark(ctx.buf, ns, footer - 1, margin, {
       virt_text = { { hint .. string.rep(' ', math.max(0, #line - margin - vim.fn.strdisplaywidth(hint))), 'ProjectHomeMuted' } },
-      virt_text_pos = 'overlay',
+      virt_text_win_col = margin,
       priority = 220,
     })
   end
@@ -84,7 +84,7 @@ function M.help(ctx)
   local lines = {
     'Keyboard help · ' .. (names[section] or 'Dashboard'),
     '',
-    'r  Recent files     x  Start Exploring',
+    'r  Recent files',
     'p  Pull requests    g  Git workspace',
     'Tab / Shift-Tab     Next / previous section',
     'j / k              Move within section',
@@ -99,7 +99,7 @@ function M.help(ctx)
     'm More actions      q Close dashboard',
     '',
   }
-  local again = ({ recent = 'Press r again for all recent files.', explore = 'Press x again to edit shortcuts.', prs = 'Press p again for all pull requests.' })[section]
+  local again = ({ recent = 'Press r again for all recent files.', prs = 'Press p again for all pull requests.' })[section]
   if again then lines[#lines + 1] = again end
   lines[#lines + 1] = 'Esc / q / ? closes this help'
   local width = math.max(1, math.min(53, vim.o.columns - 4))
@@ -148,7 +148,7 @@ function M.bind(ctx, page)
   end
   for key, section in pairs(jumps) do
     map(key, function()
-      local action = ({ recent = 'recents', explore = 'shortcuts', prs = 'prs', git = 'git' })[section]
+      local action = ({ recent = 'recents', prs = 'prs', git = 'git' })[section]
       -- Empty/loading sections have no cursor target; open their utility directly.
       if ctx.keyboard_section == section or #entries(ctx, section) == 0 then
         ctx.dispatch(action)
