@@ -172,7 +172,8 @@ def aggregate(args):
     names = {
         "format": "Formatting · Lua",
         "fast": "Fast · Lua & Python",
-        "editor": "Editor / Python suites",
+        "editor": "Editor · plugins & navigation",
+        "kernel": "Python · kernels & rendering",
     }
     expected = {
         "fast": "Fast · Lua & Python",
