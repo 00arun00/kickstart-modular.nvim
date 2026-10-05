@@ -69,18 +69,13 @@ jobs:
           include-hidden-files: true
 
   editor:
-    name: ${{ matrix.label }}
+    name: Editor · plugins & navigation
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - suite: integration
-            label: Editor · plugins & navigation
-          - suite: kernel
-            label: Python · kernels & rendering
-    steps:
+    env:
+      TEST_SUITE: integration
+      TEST_LABEL: Editor · plugins & navigation
+    steps: &editor_steps
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
         with:
@@ -108,10 +103,10 @@ jobs:
           make test-setup
           bash scripts/setup-python.sh
       - name: Set up kernel environment
-        if: matrix.suite == 'kernel'
+        if: env.TEST_SUITE == 'kernel'
         run: make test-setup-kernel
       - name: Install ImageMagick 7 for rendering tests
-        if: matrix.suite == 'kernel'
+        if: env.TEST_SUITE == 'kernel'
         run: |
           mkdir -p "$RUNNER_TEMP/imagemagick" "$RUNNER_TEMP/test-bin"
           cd "$RUNNER_TEMP/imagemagick"
@@ -132,16 +127,16 @@ jobs:
           git diff --exit-code -- lazy-lock.json
       - name: Run Lua tests
         id: lua
-        run: make test-lua SUITE=${{ matrix.suite }}
+        run: make test-lua SUITE=${{ env.TEST_SUITE }}
       - name: Run Python tests
         id: python
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: make test-python SUITE=${{ matrix.suite }}
+        run: make test-python SUITE=${{ env.TEST_SUITE }}
       - uses: actions/upload-artifact@v4
         id: artifacts
         if: always()
         with:
-          name: test-results-${{ matrix.suite }}
+          name: test-results-${{ env.TEST_SUITE }}
           path: .test-results/
           include-hidden-files: true
       - name: Summarize tests
@@ -149,17 +144,26 @@ jobs:
         env:
           CI_STEPS: ${{ toJSON(steps) }}
           CI_ARTIFACT_URL: ${{ steps.artifacts.outputs.artifact-url }}
-        run: python3 scripts/ci-report.py --suite '${{ matrix.suite }}' --label '${{ matrix.label }}'
+        run: python3 scripts/ci-report.py --suite '${{ env.TEST_SUITE }}' --label '${{ env.TEST_LABEL }}'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: report-${{ matrix.suite }}
+          name: report-${{ env.TEST_SUITE }}
           path: .ci-reports/*.json
           include-hidden-files: true
 
+  kernel:
+    name: Python · kernels & rendering
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TEST_SUITE: kernel
+      TEST_LABEL: Python · kernels & rendering
+    steps: *editor_steps
+
   result:
     name: CI result
-    needs: [format, fast, editor]
+    needs: [format, fast, editor, kernel]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

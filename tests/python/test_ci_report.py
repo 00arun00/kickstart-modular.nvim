@@ -112,7 +112,7 @@ def test_summary_escapes_table_and_failure_output():
 def test_missing_reports_fail_aggregate_even_when_jobs_succeeded(tmp_path, monkeypatch):
     for key, value in {
         "CI_NEEDS": json.dumps(
-            {k: {"result": "success"} for k in ("format", "fast", "editor")}
+            {k: {"result": "success"} for k in ("format", "fast", "editor", "kernel")}
         ),
         "GITHUB_SERVER_URL": "https://github.com",
         "GITHUB_API_URL": "https://api.github.com",
@@ -167,7 +167,7 @@ def test_aggregate_links_timings_and_upstream_status(
         "CI_NEEDS": json.dumps(
             {
                 k: {"result": job_result if k == "editor" else "success"}
-                for k in ("format", "fast", "editor")
+                for k in ("format", "fast", "editor", "kernel")
             }
         ),
         "GITHUB_SERVER_URL": "https://github.com",
