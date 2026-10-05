@@ -1,24 +1,25 @@
-PYTHON ?= python3
 SUITE ?= fast
 FILE ?=
 ARGS ?=
+TEST_PYTHON = .test-venv/bin/python
+MARKERS = $(if $(filter all,$(SUITE)),not manual,$(SUITE))$(if $(LANGUAGE), and $(LANGUAGE),)
 
 .PHONY: test-setup test-setup-kernel test test-lua test-python test-integration test-kernel test-all test-list
 
 test-setup:
-	$(PYTHON) scripts/setup-tests.py
+	UV_PROJECT_ENVIRONMENT=.test-venv uv sync --locked --only-group test
 
 test-setup-kernel:
-	$(PYTHON) scripts/setup-tests.py --kernel
+	UV_PROJECT_ENVIRONMENT=.test-kernel uv sync --locked --only-group kernel
 
 test:
-	$(PYTHON) scripts/run-tests.py --suite $(SUITE) $(if $(FILE),--match "$(FILE)",) -- $(ARGS)
+	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(TEST_PYTHON) -m pytest -m "$(MARKERS)" $(if $(FILE),-k "$(FILE)",) $(ARGS)
 
-test-lua:
-	$(PYTHON) scripts/run-tests.py --language lua --suite $(SUITE) $(if $(FILE),--match "$(FILE)",)
+test-lua: LANGUAGE = lua
+test-lua: test
 
-test-python:
-	$(PYTHON) scripts/run-tests.py --language python --suite $(SUITE) $(if $(FILE),--match "$(FILE)",) -- $(ARGS)
+test-python: LANGUAGE = python
+test-python: test
 
 test-integration:
 	$(MAKE) test SUITE=integration
@@ -30,4 +31,4 @@ test-all:
 	$(MAKE) test SUITE=all
 
 test-list:
-	$(PYTHON) scripts/run-tests.py --suite all --list
+	$(MAKE) test SUITE=all ARGS=--collect-only

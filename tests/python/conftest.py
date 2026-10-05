@@ -1,21 +1,30 @@
-import os
+"""Keep each invocation's JUnit report and editor artifacts together."""
+
+import tempfile
+from pathlib import Path
+
+import pytest
+
+RUN_DIR = pytest.StashKey[Path]()
 
 
-def pytest_collection_modifyitems(config, items):
-    suite = os.environ.get("NVIM_TEST_SUITE", "fast")
-    match = os.environ.get("NVIM_TEST_MATCH", "")
-    keep, deselected = [], []
-    for item in items:
-        params = getattr(getattr(item, "callspec", None), "params", {})
-        case = params.get("case")
-        # An empty legacy parametrization uses pytest's NOTSET sentinel when
-        # FILE selects only native tests.
-        source = case.get("file", "") if isinstance(case, dict) else ""
-        matching = not match or match in item.nodeid or match in source
-        (
-            keep
-            if matching and (suite == "all" or item.get_closest_marker(suite))
-            else deselected
-        ).append(item)
-    items[:] = keep
-    config.hook.pytest_deselected(items=deselected)
+@pytest.hookimpl(tryfirst=True)
+def pytest_configure(config):
+    if config.option.collectonly:
+        return
+    results = config.rootpath / ".test-results"
+    results.mkdir(exist_ok=True)
+    folder = Path(tempfile.mkdtemp(prefix="run-", dir=results))
+    config.stash[RUN_DIR] = folder
+    if not config.option.xmlpath:
+        config.option.xmlpath = str(folder / "results.xml")
+
+
+def pytest_report_header(config):
+    if RUN_DIR in config.stash:
+        return f"Test logs and artifacts: {config.stash[RUN_DIR]}"
+
+
+@pytest.fixture(scope="session")
+def test_run_dir(pytestconfig):
+    return pytestconfig.stash[RUN_DIR]

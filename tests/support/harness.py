@@ -1,4 +1,4 @@
-"""Shared subprocess isolation for the native Lua and Python test runners."""
+"""Subprocess isolation for Lua and Python scenarios collected by pytest."""
 
 import json
 import os
@@ -9,18 +9,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = json.loads((ROOT / "tests/cases.json").read_text())
-
-
-def selected(language=None, suite=None, match=None):
-    suite = suite or os.environ.get("NVIM_TEST_SUITE", "fast")
-    match = match if match is not None else os.environ.get("NVIM_TEST_MATCH", "")
-    return [
-        case
-        for case in MANIFEST["cases"]
-        if (language is None or case["language"] == language)
-        and (suite == "all" or case["suite"] == suite)
-        and match in case["file"]
-    ]
 
 
 def environment(folder, config_root, fast=False):
@@ -85,8 +73,7 @@ def run_process(command, *, env, timeout, log):
         )
 
 
-def run_case(case):
-    run_dir = Path(os.environ.get("NVIM_TEST_RUN_DIR", ROOT / ".test-results"))
+def run_case(case, run_dir):
     run_dir.mkdir(parents=True, exist_ok=True)
     folder = Path(tempfile.mkdtemp(prefix=Path(case["file"]).stem + "-", dir=run_dir))
     with (
@@ -112,30 +99,12 @@ def _run_case(case, folder, env, project):
             case["file"],
         ]
     else:
-        name = Path(case["file"]).stem
         python = ROOT / ".test-venv/bin/python"
         output = folder / "artifacts"
         output.mkdir()
-        args = []
         kernel = ROOT / ".test-kernel/bin/python"
-        value_tests = {
-            "variable_values",
-            "image_values",
-            "plot_values",
-            "plot_renderer",
-        }
-        project_tests = {
-            "cells_ui",
-            "notebook_markdown",
-            "notebook",
-            "output",
-            "plots",
-            "python_tools",
-            "variables",
-            "variables_workspace",
-            "plot_workspace",
-            "image_viewer",
-        }
+        values = {"project": str(project), "artifacts": str(output)}
+        args = [arg.format(**values) for arg in case.get("args", [])]
         if case["suite"] == "kernel":
             if not kernel.exists():
                 raise AssertionError(
@@ -147,26 +116,15 @@ def _run_case(case, folder, env, project):
             (project / "pyproject.toml").write_text(
                 '[project]\nname="nvim-test-fixture"\nversion="0.0.0"\n'
             )
-        if name in value_tests:
-            python = kernel if name != "plot_renderer" else python
-        if name in project_tests:
-            args.append(project)
-        if name in {"variables_workspace", "plot_workspace", "image_viewer"}:
-            args.append(output)
-        if name in {"project_home", "project_home_visual"}:
-            args.extend([output, "--volt"])
-        if name == "project_home_visual":
-            args.append("--full-config")
-        if name == "plot_values":
-            args.append(output)
-        if name == "plot_renderer":
+        if case.get("python") == "kernel":
+            python = kernel
+        if case.get("prepare_plot"):
             run_process(
                 [kernel, "tests/plot_values.py", output],
                 env=env,
                 timeout=case["timeout"],
                 log=log,
             )
-            args.append(output)
         command = [python, case["file"], *args]
     run_process(command, env=env, timeout=case["timeout"], log=log)
     return folder

@@ -1,0 +1,40 @@
+[project]
+name = "nvim-dev"
+version = "0.0.0"
+requires-python = ">=3.12,<3.13"
+
+[dependency-groups]
+host = [
+  "pynvim>=0.5,<1",
+  "jupyter-client>=8,<9",
+  "nbformat>=5,<6",
+  "jupytext>=1.16,<2",
+  "pillow>=11,<13",
+  "debugpy>=1.8,<2",
+  "vl-convert-python>=1.8,<2",
+]
+test = [{ include-group = "host" }, "pytest>=8,<10"]
+kernel = [
+  "ipykernel>=6,<8",
+  "nbformat>=5,<6",
+  "numpy>=2,<3",
+  "pandas>=2,<4",
+  "torch>=2,<3",
+  "matplotlib>=3,<4",
+  "seaborn>=0.13,<1",
+  "plotly>=6,<7",
+  "pillow>=11,<13",
+  "pytest>=8,<10",
+  "ruff>=0.12,<1",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
