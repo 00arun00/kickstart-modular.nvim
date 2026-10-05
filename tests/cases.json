@@ -124,7 +124,10 @@
       "file": "tests/cells_ui.py",
       "language": "python",
       "suite": "integration",
-      "timeout": 90
+      "timeout": 90,
+      "args": [
+        "{project}"
+      ]
     },
     {
       "file": "tests/dropbar.py",
@@ -136,13 +139,18 @@
       "file": "tests/image_values.py",
       "language": "python",
       "suite": "kernel",
-      "timeout": 240
+      "timeout": 240,
+      "python": "kernel"
     },
     {
       "file": "tests/image_viewer.py",
       "language": "python",
       "suite": "kernel",
-      "timeout": 240
+      "timeout": 240,
+      "args": [
+        "{project}",
+        "{artifacts}"
+      ]
     },
     {
       "file": "tests/image_viewport.py",
@@ -154,13 +162,19 @@
       "file": "tests/notebook.py",
       "language": "python",
       "suite": "kernel",
-      "timeout": 240
+      "timeout": 240,
+      "args": [
+        "{project}"
+      ]
     },
     {
       "file": "tests/notebook_markdown.py",
       "language": "python",
       "suite": "integration",
-      "timeout": 90
+      "timeout": 90,
+      "args": [
+        "{project}"
+      ]
     },
     {
       "file": "tests/notebook_titles.py",
@@ -172,19 +186,30 @@
       "file": "tests/output.py",
       "language": "python",
       "suite": "kernel",
-      "timeout": 240
+      "timeout": 240,
+      "args": [
+        "{project}"
+      ]
     },
     {
       "file": "tests/plot_renderer.py",
       "language": "python",
       "suite": "kernel",
-      "timeout": 240
+      "timeout": 240,
+      "args": [
+        "{artifacts}"
+      ],
+      "prepare_plot": true
     },
     {
       "file": "tests/plot_values.py",
       "language": "python",
       "suite": "kernel",
-      "timeout": 240
+      "timeout": 240,
+      "python": "kernel",
+      "args": [
+        "{artifacts}"
+      ]
     },
     {
       "file": "tests/plot_viewport.py",
@@ -196,19 +221,30 @@
       "file": "tests/plot_workspace.py",
       "language": "python",
       "suite": "kernel",
-      "timeout": 240
+      "timeout": 240,
+      "args": [
+        "{project}",
+        "{artifacts}"
+      ]
     },
     {
       "file": "tests/plots.py",
       "language": "python",
       "suite": "kernel",
-      "timeout": 240
+      "timeout": 240,
+      "args": [
+        "{project}"
+      ]
     },
     {
       "file": "tests/project_home.py",
       "language": "python",
       "suite": "integration",
-      "timeout": 90
+      "timeout": 90,
+      "args": [
+        "{artifacts}",
+        "--volt"
+      ]
     },
     {
       "file": "tests/project_home_full_config.py",
@@ -220,7 +256,12 @@
       "file": "tests/project_home_visual.py",
       "language": "python",
       "suite": "integration",
-      "timeout": 90
+      "timeout": 90,
+      "args": [
+        "{artifacts}",
+        "--volt",
+        "--full-config"
+      ]
     },
     {
       "file": "tests/python_indent.py",
@@ -232,25 +273,36 @@
       "file": "tests/python_tools.py",
       "language": "python",
       "suite": "kernel",
-      "timeout": 240
+      "timeout": 240,
+      "args": [
+        "{project}"
+      ]
     },
     {
       "file": "tests/variable_values.py",
       "language": "python",
       "suite": "kernel",
-      "timeout": 240
+      "timeout": 240,
+      "python": "kernel"
     },
     {
       "file": "tests/variables.py",
       "language": "python",
       "suite": "kernel",
-      "timeout": 240
+      "timeout": 240,
+      "args": [
+        "{project}"
+      ]
     },
     {
       "file": "tests/variables_workspace.py",
       "language": "python",
       "suite": "kernel",
-      "timeout": 240
+      "timeout": 240,
+      "args": [
+        "{project}",
+        "{artifacts}"
+      ]
     }
   ],
   "manual": {

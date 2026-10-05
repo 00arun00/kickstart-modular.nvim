@@ -1,175 +1,131 @@
 # Testing this configuration
 
-Lua tests use mini.test; Python tests use pytest. Make provides the common entry
-point. The initial migration keeps existing regression scripts intact: each is
-one named framework case, executed in a fresh subprocess. New granular Lua tests
-can be added under `tests/lua/test_*.lua`; Python tests belong under
-`tests/python/test_*.py` with a `fast`, `integration`, or `kernel` marker.
+Pytest collects Python tests and launches the existing Lua scripts directly in
+headless Neovim. Lua assertions stay in Lua. Make is a thin convenience layer;
+there is no second test runner or custom report format.
 
-## Setup
+## Setup and commands
 
-Requires macOS or Linux, Neovim 0.12.2, Python 3, Git, Make, and uv on PATH.
+Requires macOS or Linux, Neovim 0.12.2, Make, and uv on PATH. uv supplies Python 3.12.
 
 ```sh
-make test-setup
-make test
+make test-setup          # uv sync --locked --only-group test into .test-venv
+make test               # fast tests, without installed Neovim plugins
+make test-integration   # installed editor/plugins required
+make test-setup-kernel   # separate scientific Python environment
+make test-kernel         # live Jupyter/debugger/rendering scenarios
+make test-all            # all registered headless scenarios
+make test-list           # pytest --collect-only, all suites
 ```
 
-Setup creates `.test-venv/` with hash-locked test dependencies and downloads
-mini.nvim into `.test-deps/`, using the exact revision in `lazy-lock.json`.
-It does not modify the editor's Python environment or install a Git hook.
-The fast suite has an empty Neovim data directory: it works without your
-installed plugins. Pre-commit runs this same suite.
+Standard pytest selection works for both languages:
 
-To run the fast suite before each commit, install pre-commit separately, then:
+```sh
+make test-lua SUITE=all FILE=chainsaw
+make test-python SUITE=integration FILE=dropbar
+make test ARGS='-k viewport -x'
+.test-venv/bin/python -m pytest -m 'integration and lua'
+.test-venv/bin/python -m pytest -m 'fast or integration' -k 'not visual'
+```
+
+`SUITE` defaults to `fast`; `FILE` passes a pytest `-k` expression; `ARGS` passes
+additional pytest options. Direct pytest also defaults to the fast marker via
+`pytest.ini`. No matches is a nonzero exit, not an empty successful run.
+Ordinary runs do not install dependencies. Tests run sequentially by default.
+
+To enable the optional pre-commit hook, install pre-commit separately and run:
 
 ```sh
 pre-commit install
 pre-commit run nvim-tests --all-files
 ```
 
-The hook runs `make test`; it does not install dependencies during a commit.
+The hook runs `make test`, using the environment prepared by `make test-setup`.
 
-## Commands
+## Dependencies
 
-| Command | Runs |
-| --- | --- |
-| `make test` | Fast Lua and Python cases, including runner failure checks |
-| `make test-lua` | Fast Lua cases |
-| `make test-python` | Fast Python cases |
-| `make test-integration` | Installed-plugin and editor integration cases |
-| `make test-kernel` | Scientific Python, live kernel, and debugger cases |
-| `make test-all` | All registered headless cases in all three suites |
-| `make test-list` | Registered scripts, groups, and explicit manual exclusions |
+`pyproject.toml` declares three dependency groups, resolved together in `uv.lock`:
 
-The language targets accept `SUITE=integration`, `SUITE=kernel`, or `SUITE=all`.
-A substring selects an existing script; unmatched selectors fail rather than
-reporting an empty successful run:
+- `host`: the editor's Python provider and notebook helpers.
+- `test`: pytest plus host dependencies for test-driving Neovim.
+- `kernel`: scientific packages installed separately in `.test-kernel`.
 
-```sh
-make test-lua SUITE=all FILE=chainsaw
-make test-python SUITE=all FILE=project_home
-make test-python ARGS='-k viewport -x'
-make test-python ARGS='--lf'
-```
+`scripts/setup-python.sh` syncs only the host group into Neovim's data directory.
+Test setup syncs only the test group into `.test-venv`. Kernel fixtures reference
+`.test-kernel` as their disposable project's `.venv`. A shared lock does not mix
+these environments. Linux Torch comes from an explicit CPU-only index; macOS
+uses PyPI. There are no parallel requirements.txt exports to keep synchronized.
 
-Python runner arguments go in `ARGS`. Logs, generated artifacts, and pytest JUnit
-XML are retained under `.test-results/run-*`.
-That directory is disposable. A failure in either language makes the shared
-command fail; one failed suite does not prevent the other from reporting.
-
-## Integration prerequisites
-
-Integration tests intentionally use the locally installed Neovim plugins,
-parsers, remote-plugin registration, Mason tools, and editor Python host.
-Prepare those with the normal config setup (`scripts/setup-python.sh`, Lazy,
-`:UpdateRemotePlugins`, Mason, and Treesitter). Existing legacy tests assume
-plugins under `~/.local/share/nvim`. Unlike the fast suite, these runs may trigger
-normal editor dependency installation if that setup is incomplete.
-
-Chainsaw integration also needs Python 3, Rust/rustfmt, Clang++, LuaJIT, rg,
-and Ruff; its assertion test expects Mason's Ruff installation. Kernel tests
-require an additional isolated scientific environment:
+To update a dependency deliberately:
 
 ```sh
-make test-setup-kernel
-make test-kernel
-```
-
-This creates `.test-kernel/` with locked dependencies (including PyTorch).
-Linux x86-64 uses a separate CPU-only lockfile to avoid CUDA downloads.
-Each kernel case gets a disposable project outside the checkout referencing
-that environment as `.venv`. Projects are removed when their case finishes,
-so Neotest and pytest cannot accidentally discover this repo instead. Renderer
-tests generate their own plot inputs rather than depending on
-test execution order. Missing dependencies fail; no automatic dependency skips
-or downloads are performed by the runner itself.
-
-Every case receives separate state/cache/log paths and a config path pointing
-at this checkout, including when it is not your installed config. Full-config
-cases retain access to installed plugin data. Child processes have timeouts;
-the runner terminates their process groups, including remaining kernels and
-debug adapters. Integration cases are run sequentially.
-
-## Coverage and migration
-
-`tests/cases.json` classifies every legacy script. An inventory test catches new
-scripts that have not been registered. Capture utilities are not tests. The
-existing PTY/Ghostty media checks and Playwright browser check remain explicit
-manual runs with platform-specific setup; `make test-all` means all registered
-headless tests, not these manual checks. `make test-list` names each exclusion.
-
-Existing top-level scripts remain directly runnable. The initial reports are
-per script; assertions inside a script are not yet individual cases. Splitting
-those into native mini.test sets and pytest functions is a follow-up migration.
-New native Lua test files are collected by mini.test alongside the wrappers.
-They should be fast and independent of installed plugins; the legacy suite
-classification applies only to scripts listed in the manifest.
-
-To update locked Python dependencies deliberately:
-
-```sh
-uv pip compile tests/requirements.in --universal --python-version 3.12 --generate-hashes -o tests/requirements.txt
-uv pip compile tests/kernel-requirements.in --universal --python-version 3.12 --generate-hashes -o tests/kernel-requirements.txt
+uv lock --upgrade-package pytest
 make test-setup
+# For changes affecting scientific packages:
 make test-setup-kernel
 ```
 
-## Continuous integration
+Commit `pyproject.toml` and `uv.lock` together. `--locked` setup fails when they
+are out of sync. The lock is marked generated for GitHub review.
 
-Pull requests and pushes to `master` run one **CI** workflow. Feature-branch
-pushes with an open PR therefore run only once. The checks are:
+## Integration prerequisites and isolation
 
-- **Formatting · Lua**: pinned StyLua, without plugin setup.
-- **Fast · Lua & Python**: isolated tests used by the pre-commit hook.
-- **Editor · plugins & navigation**: the integration suite.
-- **Python · kernels & rendering**: the kernel suite.
-- **CI result**: combines all checks and fails if a job fails or a suite report is missing.
+Integration tests use installed Neovim plugins, Tree-sitter parsers, Mason tools,
+and the registered Python provider. Prepare them through the normal config
+setup: `scripts/setup-python.sh`, Lazy, Mason, Tree-sitter, and
+`:UpdateRemotePlugins`. Existing scripts assume plugins under
+`~/.local/share/nvim`; an incomplete installation may trigger normal editor setup.
+Chainsaw checks also need Python, Rust/rustfmt, Clang++, LuaJIT, rg, and Mason's Ruff.
 
-Open the workflow run's **Summary** for case counts, timeouts, setup/test timings,
-and links to each job and its artifacts. Failures include their category, last
-named stage when available, and expandable output. Counts represent framework
-cases, not assertion counts or line coverage. Lua and Python run as separate
-steps; a Lua failure does not suppress Python results after successful setup.
+Each script receives a disposable project/config directory and isolated
+state, cache, logs, and Jupyter runtime paths. Fast cases also receive an empty
+Neovim data directory. Full-config cases retain installed plugin data. The small
+subprocess helper enforces timeouts and kills the process group, including
+remaining kernels/debug adapters. Plot-renderer fixtures generate their inputs
+explicitly; they do not depend on another test having run first.
 
-Each run directory contains `run.json` with runner exit codes/timings, `lua.json`
-with mini.test results, and/or pytest's `python.xml`. CI uploads these alongside
-script logs and screenshots as `test-results-<suite>`. Small `report-<suite>`
-artifacts feed the aggregate summary. Setup time is fetched from GitHub's job
-steps; if that lookup is unavailable, results remain valid and timings show `—`.
+## Adding tests and reading results
 
-The heavier jobs install the editor Python host, plugins from `lazy-lock.json`,
-Tree-sitter CLI/parsers, pinned Mason tools from `scripts/ci-tools.json`, and
-remote-plugin registration on a clean runner. Screenshot tests use Nerd Fonts
-v3.4.0 via `NVIM_TEST_FONT_DIR` (locally this defaults to `~/Library/Fonts`).
-Each test gets a private Jupyter runtime directory. The kernel job also installs the
-scientific project environment and a checksum-verified ImageMagick 7 binary.
-uv downloads are cached; editor setup is rebuilt
-so missing setup steps cannot be hidden by an existing plugin cache.
+Add native Python tests under `tests/python/test_*.py`, marked `python` and one
+of `fast`, `integration`, or `kernel`. Existing standalone Lua/Python scenarios
+are registered in `tests/cases.json`; an inventory test catches missing entries.
+Each entry declares its suite, timeout, and any arguments/interpreter it needs.
+`{project}` and `{artifacts}` arguments refer to the case's disposable paths.
+The plot renderer's `prepare_plot` flag requests its input-generation fixture.
+This registry is a migration bridge for existing scripts, not a new assertion
+framework. Native Lua suites can adopt mini.test later when its structured
+assertions/child-editor APIs are useful; it is not needed just to launch scripts.
 
-`scripts/setup-ci.lua` is only for disposable CI installations and requires
-`CI=true`; do not run it against your personal editor data. Setup and test failures
-fail the job, and each suite uploads separate logs/artifacts even on failure.
-The pre-commit hook remains fast. Terminal/browser checks remain manual.
+Every invocation stores logs/artifacts under `.test-results/run-*` and writes a
+standard JUnit `results.xml` there. Pass `--junitxml=path.xml` to override the report
+location. A script is one pytest case, regardless of how many assertions it
+contains. Counts are not line coverage. Failures show the script's output and
+log location, including named stages where the script records them.
 
-Update the Linux CPU lock with:
+`make test-all` excludes the PTY/Ghostty media checks and Playwright browser check;
+they need interactive/platform-specific setup. `tests/cases.json` lists these
+under `manual`, with reasons. Screenshot capture utilities are also not tests.
 
-```sh
-uv pip compile tests/kernel-requirements.in --python-version 3.12 --python-platform x86_64-unknown-linux-gnu --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match --generate-hashes --emit-index-url -o tests/kernel-requirements-linux.txt
-```
+## CI
 
-## Lua formatting
+Pull requests and pushes to `master` run one workflow, with separate Formatting,
+Fast, Editor, Kernel/rendering, and CI result jobs visible in the main graph.
+The heavy jobs provision plugins from `lazy-lock.json`, parsers, pinned Mason
+tools, the Python host, Nerd Fonts, and (for kernel tests) ImageMagick 7 and the
+scientific environment. `scripts/setup-ci.lua` is for disposable CI installations
+only. uv downloads are cached; editor provisioning starts clean.
 
-The **Formatting · Lua** CI check runs StyLua 2.5.2 using
-`.stylua.toml`. It checks formatting without modifying files or installing the
-editor's plugins. Use the same version locally:
+Lua and Python run in separate steps. Python still runs after Lua fails when
+setup succeeded. Each suite requires both language reports and uploads its logs,
+screenshots, `lua.xml`, and `python.xml`. The pinned `test-summary/action` reads
+JUnit directly and displays counts and expandable failures in GitHub's Summary.
+The final job combines those reports and fails for any failed/cancelled/skipped
+required job or missing report. Job/step durations stay in GitHub's native UI;
+there is no custom timing API client or failure-text classifier.
+
+StyLua 2.5.2 checks formatting without installing plugins:
 
 ```sh
 stylua --check .
-# Apply formatting when needed:
-stylua .
+stylua .                # apply formatting
 ```
-
-StyLua enforces consistent formatting; it does not replace behavioral tests or
-static analysis. The formatter version is pinned so upgrades do not unexpectedly
-change the formatting required by CI.

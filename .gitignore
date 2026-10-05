@@ -20,9 +20,11 @@
 __pycache__/
 
 # Local test dependencies and reports
-/.test-deps/
 /.test-venv/
 /.test-kernel/
 /.test-results/
 /.pytest_cache/
-/.ci-reports/
+/.venv/
+
+# Cache left by the former mini.test setup; safe to remove locally.
+/.test-deps/

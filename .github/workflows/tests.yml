@@ -43,11 +43,11 @@ jobs:
         id: setup
       - name: Run Lua tests
         id: lua
-        run: make test-lua SUITE=fast
+        run: make test-lua SUITE=fast ARGS="--junitxml=.test-results/lua.xml"
       - name: Run Python tests
         id: python
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: make test-python SUITE=fast
+        run: make test-python SUITE=fast ARGS="--junitxml=.test-results/python.xml"
       - uses: actions/upload-artifact@v4
         id: artifacts
         if: always()
@@ -55,18 +55,16 @@ jobs:
           name: test-results-fast
           path: .test-results/
           include-hidden-files: true
+      - name: Require both language reports
+        if: always()
+        run: test -s .test-results/lua.xml && test -s .test-results/python.xml
       - name: Summarize tests
         if: always()
-        env:
-          CI_STEPS: ${{ toJSON(steps) }}
-          CI_ARTIFACT_URL: ${{ steps.artifacts.outputs.artifact-url }}
-        run: python3 scripts/ci-report.py --suite 'fast' --label 'Fast · Lua & Python'
-      - uses: actions/upload-artifact@v4
-        if: always()
+        uses: test-summary/action@37b508cfee6d4d080eedd00b5bb240a6a784a6a5 # v2
         with:
-          name: report-fast
-          path: .ci-reports/*.json
-          include-hidden-files: true
+          paths: .test-results/*.xml
+          show: fail, skip
+          folded: true
 
   editor:
     name: Editor · plugins & navigation
@@ -74,15 +72,12 @@ jobs:
     timeout-minutes: 25
     env:
       TEST_SUITE: integration
-      TEST_LABEL: Editor · plugins & navigation
     steps: &editor_steps
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-          cache-dependency-glob: |
-            scripts/python-requirements.txt
-            tests/*requirements*.txt
+          cache-dependency-glob: uv.lock
       - uses: rhysd/action-setup-vim@v1
         with:
           neovim: true
@@ -127,11 +122,11 @@ jobs:
           git diff --exit-code -- lazy-lock.json
       - name: Run Lua tests
         id: lua
-        run: make test-lua SUITE=${{ env.TEST_SUITE }}
+        run: make test-lua SUITE=${{ env.TEST_SUITE }} ARGS="--junitxml=.test-results/lua.xml"
       - name: Run Python tests
         id: python
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: make test-python SUITE=${{ env.TEST_SUITE }}
+        run: make test-python SUITE=${{ env.TEST_SUITE }} ARGS="--junitxml=.test-results/python.xml"
       - uses: actions/upload-artifact@v4
         id: artifacts
         if: always()
@@ -139,18 +134,16 @@ jobs:
           name: test-results-${{ env.TEST_SUITE }}
           path: .test-results/
           include-hidden-files: true
+      - name: Require both language reports
+        if: always()
+        run: test -s .test-results/lua.xml && test -s .test-results/python.xml
       - name: Summarize tests
         if: always()
-        env:
-          CI_STEPS: ${{ toJSON(steps) }}
-          CI_ARTIFACT_URL: ${{ steps.artifacts.outputs.artifact-url }}
-        run: python3 scripts/ci-report.py --suite '${{ env.TEST_SUITE }}' --label '${{ env.TEST_LABEL }}'
-      - uses: actions/upload-artifact@v4
-        if: always()
+        uses: test-summary/action@37b508cfee6d4d080eedd00b5bb240a6a784a6a5 # v2
         with:
-          name: report-${{ env.TEST_SUITE }}
-          path: .ci-reports/*.json
-          include-hidden-files: true
+          paths: .test-results/*.xml
+          show: fail, skip
+          folded: true
 
   kernel:
     name: Python · kernels & rendering
@@ -158,7 +151,6 @@ jobs:
     timeout-minutes: 25
     env:
       TEST_SUITE: kernel
-      TEST_LABEL: Python · kernels & rendering
     steps: *editor_steps
 
   result:
@@ -167,19 +159,30 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    permissions:
-      contents: read
-      actions: read
     steps:
-      - uses: actions/checkout@v6
       - uses: actions/download-artifact@v4
-        continue-on-error: true
         with:
-          pattern: report-*
-          merge-multiple: true
-          path: .ci-reports
-      - name: Publish CI overview
+          pattern: test-results-*
+          path: ci-results
+      - name: Require every suite report
+        if: always()
+        run: |
+          for suite in fast integration kernel; do
+            test -s "ci-results/test-results-$suite/lua.xml"
+            test -s "ci-results/test-results-$suite/python.xml"
+          done
+      - name: Publish test overview
+        if: always()
+        uses: test-summary/action@37b508cfee6d4d080eedd00b5bb240a6a784a6a5 # v2
+        with:
+          paths: ci-results/*/*.xml
+          show: fail, skip
+          folded: true
+      - name: Require all checks to pass
+        if: always()
         env:
-          CI_NEEDS: ${{ toJSON(needs) }}
-          GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/ci-report.py --aggregate --root .ci-reports
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            test "$result" = success
+          done

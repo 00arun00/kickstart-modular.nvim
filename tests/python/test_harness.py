@@ -9,7 +9,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "support"))
 from harness import MANIFEST, ROOT, environment, run_process
 
-pytestmark = pytest.mark.fast
+pytestmark = [pytest.mark.fast, pytest.mark.python]
 
 
 def test_every_legacy_script_is_classified():
@@ -23,9 +23,7 @@ def test_every_legacy_script_is_classified():
         for p in (ROOT / "tests").iterdir()
         if p.suffix in {".lua", ".py", ".cjs"}
     }
-    expected = (
-        set(files) | {"tests/" + p for p in MANIFEST["manual"]} | {"tests/run_lua.lua"}
-    )
+    expected = set(files) | {"tests/" + p for p in MANIFEST["manual"]}
     assert actual == expected, (
         "Classify new scripts in tests/cases.json before committing"
     )

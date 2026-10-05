@@ -7,7 +7,7 @@ adds `# %%` cell movement and execution in both `.py` and `.ipynb` buffers.
 Lua integration modules live in `lua/custom/python/`; their Python runtime
 helpers live alongside them in `lua/custom/python/helpers/`. The Lua callers use
 `custom.python.paths` to find helpers independently of the current project.
-Environment setup and its pinned requirements remain in `scripts/`.
+Environment setup remains in `scripts/setup-python.sh`; the host dependency group is declared in `pyproject.toml` and pinned in `uv.lock`.
 
 ## Setup
 
