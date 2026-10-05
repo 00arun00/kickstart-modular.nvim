@@ -1,6 +1,7 @@
-name: Tests
+name: CI
 on:
   push:
+    branches: [master]
   pull_request:
 
 permissions:
@@ -15,7 +16,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  format:
+    name: Formatting · Lua
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: JohnnyMorganz/stylua-action@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: v2.5.2
+          args: --check .
+
   fast:
+    name: Fast · Lua & Python
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -26,22 +40,46 @@ jobs:
           neovim: true
           version: v0.12.2
       - run: make test-setup
-      - run: make test
+        id: setup
+      - name: Run Lua tests
+        id: lua
+        run: make test-lua SUITE=fast
+      - name: Run Python tests
+        id: python
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: make test-python SUITE=fast
+      - uses: actions/upload-artifact@v4
+        id: artifacts
+        if: always()
+        with:
+          name: test-results-fast
+          path: .test-results/
+          include-hidden-files: true
+      - name: Summarize tests
+        if: always()
+        env:
+          CI_STEPS: ${{ toJSON(steps) }}
+          CI_ARTIFACT_URL: ${{ steps.artifacts.outputs.artifact-url }}
+        run: python3 scripts/ci-report.py --suite 'fast' --label 'Fast · Lua & Python'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results
-          path: .test-results/
+          name: report-fast
+          path: .ci-reports/*.json
           include-hidden-files: true
 
   editor:
-    name: ${{ matrix.suite }}
+    name: ${{ matrix.label }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        suite: [integration, kernel]
+        include:
+          - suite: integration
+            label: Editor · plugins & navigation
+          - suite: kernel
+            label: Python · kernels & rendering
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
@@ -86,16 +124,58 @@ jobs:
           "$RUNNER_TEMP/test-bin/magick" -version
           echo "$RUNNER_TEMP/test-bin" >> "$GITHUB_PATH"
       - name: Set up editor from lockfile
+        id: setup
         run: |
           mkdir -p ~/.config .test-results
           ln -s "$GITHUB_WORKSPACE" ~/.config/nvim
           nvim --headless -u NONE -i NONE -l scripts/setup-ci.lua 2>&1 | tee .test-results/setup.log
           git diff --exit-code -- lazy-lock.json
-      - name: Run suite
-        run: make test SUITE=${{ matrix.suite }}
+      - name: Run Lua tests
+        id: lua
+        run: make test-lua SUITE=${{ matrix.suite }}
+      - name: Run Python tests
+        id: python
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: make test-python SUITE=${{ matrix.suite }}
       - uses: actions/upload-artifact@v4
+        id: artifacts
         if: always()
         with:
           name: test-results-${{ matrix.suite }}
           path: .test-results/
           include-hidden-files: true
+      - name: Summarize tests
+        if: always()
+        env:
+          CI_STEPS: ${{ toJSON(steps) }}
+          CI_ARTIFACT_URL: ${{ steps.artifacts.outputs.artifact-url }}
+        run: python3 scripts/ci-report.py --suite '${{ matrix.suite }}' --label '${{ matrix.label }}'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: report-${{ matrix.suite }}
+          path: .ci-reports/*.json
+          include-hidden-files: true
+
+  result:
+    name: CI result
+    needs: [format, fast, editor]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: report-*
+          merge-multiple: true
+          path: .ci-reports
+      - name: Publish CI overview
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci-report.py --aggregate --root .ci-reports
