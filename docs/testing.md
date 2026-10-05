@@ -137,3 +137,19 @@ Update the Linux CPU lock with:
 ```sh
 uv pip compile tests/kernel-requirements.in --python-version 3.12 --python-platform x86_64-unknown-linux-gnu --extra-index-url https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match --generate-hashes --emit-index-url -o tests/kernel-requirements-linux.txt
 ```
+
+## Lua formatting
+
+A separate CI check runs StyLua 2.5.2 on pushes and pull requests using
+`.stylua.toml`. It checks formatting without modifying files or installing the
+editor's plugins. Use the same version locally:
+
+```sh
+stylua --check .
+# Apply formatting when needed:
+stylua .
+```
+
+StyLua enforces consistent formatting; it does not replace behavioral tests or
+static analysis. The formatter version is pinned so upgrades do not unexpectedly
+change the formatting required by CI.
