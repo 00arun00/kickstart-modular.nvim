@@ -32,24 +32,29 @@ with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
     try:
         n.ui_attach(140, 55, rgb=True)
 
-        def wait(check):
-            print(
-                f"Waiting for Dropbar condition at line {check.__code__.co_firstlineno}",
-                flush=True,
-            )
+        def wait(check, stage):
+            print(f"STAGE: {stage}", flush=True)
             until = time.monotonic() + 10
+            mode = None
             while time.monotonic() < until:
-                if check():
+                # This API is fast: it still responds when getchar()/a partial
+                # Normal-mode command prevents ordinary RPC requests running.
+                mode = n.api.get_mode()
+                if not mode["blocking"] and check():
                     return
                 time.sleep(0.05)
-            raise AssertionError(
-                (
-                    n.command_output("messages"),
-                    n.current.buffer.name,
-                    n.current.buffer[:],
-                    n.funcs.mode(),
-                )
-            )
+            raise AssertionError(f"Stage timed out: {stage}; Neovim mode={mode}")
+
+        def close_menu():
+            # Check focus and execute the actual buffer-local q mapping in one
+            # editor call, without a queued key racing focus/refresh events.
+            n.exec_lua("""
+                assert(require('dropbar.utils').menu.get_current(), 'No focused menu')
+                local mapping = vim.fn.maparg('q', 'n', false, true)
+                assert(mapping.buffer == 1, 'Missing menu-local q mapping')
+                vim.api.nvim_feedkeys('q', 'mx', false)
+            """)
+            wait(lambda: not menu(), "close keyboard picker")
 
         def bar(win=None):
             return n.exec_lua(
@@ -63,13 +68,14 @@ with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
             )
 
         wait(
-            lambda: n.current.buffer.options["filetype"] == "python" and len(bar()) > 0
+            lambda: n.current.buffer.options["filetype"] == "python" and len(bar()) > 0,
+            "notebook breadcrumbs ready",
         )
         source = n.current.buffer[:]
         code = next(i for i, s in enumerate(source, 1) if "return x" in s)
         notes = next(i for i, s in enumerate(source, 1) if s == "# ## Results")
         n.current.window.cursor = (code, 8)
-        wait(lambda: any("forward" in s for s in bar()))
+        wait(lambda: any("forward" in s for s in bar()), "Python scope visible")
         labels = bar()
         assert any("02 Code" in s for s in labels), labels
         assert any("Model" in s for s in labels), labels
@@ -88,7 +94,7 @@ with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
         assert n.current.window.cursor[0] == notes - 1
         n.current.window.cursor = (1, 0)  # all-cells menu also works from metadata
         n.exec_lua("require('custom.navigation.notebook').pick_cells()")
-        wait(menu)
+        wait(menu, "notebook cell menu focused")
         assert (
             n.exec_lua("return #require('dropbar.utils').menu.get_current().entries")
             == 4
@@ -97,19 +103,37 @@ with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
         wait(
             lambda: n.exec_lua(
                 "local m=require('dropbar.utils').menu.get_current(); return m and m.fzf_state ~= nil"
-            )
+            ),
+            "fuzzy search ready",
         )
         n.input("Results")
         time.sleep(0.2)
         n.input("<CR>")
-        wait(lambda: n.current.buffer.name == str(path) and not menu())
+        wait(
+            lambda: n.current.buffer.name == str(path) and not menu(),
+            "fuzzy selection returns to notebook",
+        )
         assert n.current.window.cursor[0] == notes - 1, n.current.window.cursor
         # The advertised keyboard picker opens a path menu and returns cleanly.
         bar()
-        n.input(" ;a")
-        wait(menu)
-        n.input("q")
-        wait(lambda: not menu())
+        # Select the notebook path itself, not an arbitrary ancestor of the
+        # host's temporary directory (whose contents vary between machines).
+        pivot = n.exec_lua("""
+            local bar = require('dropbar.utils').bar.get_current()
+            local index = 0
+            for _, component in ipairs(bar.components) do
+                if component.on_click then
+                    index = index + 1
+                    if (component._.opts.name or component.name) == 'navigation.ipynb' then
+                        return require('dropbar.configs').opts.bar.pick.pivots:sub(index, index)
+                    end
+                end
+            end
+        """)
+        assert pivot, labels
+        n.input(" ;" + pivot)
+        wait(menu, "keyboard path menu focused")
+        close_menu()
         assert n.current.window.handle == secondwin
         # Unsaved edits invalidate cached cell labels.
         n.current.buffer[notes - 1] = "# ## Updated results"
@@ -126,14 +150,14 @@ with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
         md.write_text("# Main\n\n## Detail\n\nText\n")
         n.command("edit " + str(md))
         n.current.window.cursor = (5, 0)
-        wait(lambda: any("Detail" in s for s in bar()))
+        wait(lambda: any("Detail" in s for s in bar()), "Markdown headings visible")
         assert any("Main" in s for s in bar()), bar()
         # Plain Python fallback works with its Tree-sitter parser even before LSP.
         py = root / "model.py"
         py.write_text("class Plain:\n    def method(self):\n        return 1\n")
         n.command("edit " + str(py))
         n.current.window.cursor = (3, 8)
-        wait(lambda: any("method" in s for s in bar()))
+        wait(lambda: any("method" in s for s in bar()), "plain Python scope visible")
         time.sleep(
             1
         )  # Let initial LSP/attachment refreshes settle before opening a menu.
@@ -141,11 +165,11 @@ with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
         labels = bar()
         class_index = next(i for i, s in enumerate(labels, 1) if "Plain" in s)
         n.exec_lua("require('dropbar.api').pick(...)", class_index)
-        wait(menu)
+        wait(menu, "Python scope menu focused")
         n.input("l")
         time.sleep(0.1)
         n.input("<CR>")
-        wait(lambda: not menu())
+        wait(lambda: not menu(), "submenu selection returns to source")
         assert n.current.buffer.name == str(py)
         assert n.current.window.cursor[0] == 2, (
             n.current.window.cursor,
@@ -183,7 +207,8 @@ with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
         )
     finally:
         try:
-            n.command("qa!")
+            n.input("<Esc>")
+            n.command("qa!", async_=True)
         except (EOFError, OSError):
             pass
         n.close()

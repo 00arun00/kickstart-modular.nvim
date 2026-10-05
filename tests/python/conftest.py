@@ -7,7 +7,10 @@ def pytest_collection_modifyitems(config, items):
     keep, deselected = [], []
     for item in items:
         params = getattr(getattr(item, "callspec", None), "params", {})
-        source = params.get("case", {}).get("file", "")
+        case = params.get("case")
+        # An empty legacy parametrization uses pytest's NOTSET sentinel when
+        # FILE selects only native tests.
+        source = case.get("file", "") if isinstance(case, dict) else ""
         matching = not match or match in item.nodeid or match in source
         (
             keep

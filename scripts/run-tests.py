@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -77,9 +78,25 @@ def main():
         )
         print(f"Test logs and artifacts: {folder}", flush=True)
         codes = []
+        metadata = {"suite": args.suite, "commands": []}
+
+        def run(command):
+            language = "python" if str(command[0]) == str(python) else "lua"
+            started = time.monotonic()
+            code = subprocess.call(command, cwd=ROOT, env=env)
+            metadata["commands"].append(
+                {
+                    "language": language,
+                    "exit_code": code,
+                    "seconds": time.monotonic() - started,
+                }
+            )
+            (folder / "run.json").write_text(json.dumps(metadata))
+            return code
+
         if "lua" in languages:
             codes.append(
-                subprocess.call(
+                run(
                     [
                         "nvim",
                         "--headless",
@@ -91,8 +108,6 @@ def main():
                         "-l",
                         "tests/run_lua.lua",
                     ],
-                    cwd=ROOT,
-                    env=env,
                 )
             )
         if "python" in languages:
@@ -100,7 +115,7 @@ def main():
             if extra[:1] == ["--"]:
                 extra = extra[1:]
             codes.append(
-                subprocess.call(
+                run(
                     [
                         str(python),
                         "-m",
@@ -110,8 +125,6 @@ def main():
                         str(folder / "python.xml"),
                         *extra,
                     ],
-                    cwd=ROOT,
-                    env=env,
                 )
             )
         return 1 if any(codes) else 0

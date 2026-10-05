@@ -25,3 +25,4 @@ __pycache__/
 /.test-kernel/
 /.test-results/
 /.pytest_cache/
+/.ci-reports/

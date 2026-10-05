@@ -117,7 +117,27 @@ make test-setup-kernel
 
 ## Continuous integration
 
-Every push and pull request runs three Linux jobs: fast, integration, and kernel.
+Pull requests and pushes to `master` run one **CI** workflow. Feature-branch
+pushes with an open PR therefore run only once. The checks are:
+
+- **Formatting · Lua**: pinned StyLua, without plugin setup.
+- **Fast · Lua & Python**: isolated tests used by the pre-commit hook.
+- **Editor · plugins & navigation**: the integration suite.
+- **Python · kernels & rendering**: the kernel suite.
+- **CI result**: combines all checks and fails if a job fails or a suite report is missing.
+
+Open the workflow run's **Summary** for case counts, timeouts, setup/test timings,
+and links to each job and its artifacts. Failures include their category, last
+named stage when available, and expandable output. Counts represent framework
+cases, not assertion counts or line coverage. Lua and Python run as separate
+steps; a Lua failure does not suppress Python results after successful setup.
+
+Each run directory contains `run.json` with runner exit codes/timings, `lua.json`
+with mini.test results, and/or pytest's `python.xml`. CI uploads these alongside
+script logs and screenshots as `test-results-<suite>`. Small `report-<suite>`
+artifacts feed the aggregate summary. Setup time is fetched from GitHub's job
+steps; if that lookup is unavailable, results remain valid and timings show `—`.
+
 The heavier jobs install the editor Python host, plugins from `lazy-lock.json`,
 Tree-sitter CLI/parsers, pinned Mason tools from `scripts/ci-tools.json`, and
 remote-plugin registration on a clean runner. Screenshot tests use Nerd Fonts
@@ -140,7 +160,7 @@ uv pip compile tests/kernel-requirements.in --python-version 3.12 --python-platf
 
 ## Lua formatting
 
-A separate CI check runs StyLua 2.5.2 on pushes and pull requests using
+The **Formatting · Lua** CI check runs StyLua 2.5.2 using
 `.stylua.toml`. It checks formatting without modifying files or installing the
 editor's plugins. Use the same version locally:
 
