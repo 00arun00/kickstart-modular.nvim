@@ -129,3 +129,21 @@ StyLua 2.5.2 checks formatting without installing plugins:
 stylua --check .
 stylua .                # apply formatting
 ```
+
+### Native viewport cases
+
+Image and plot viewport contracts now run as independent pytest cases. Zoom,
+pan direction, and aspect-ratio variants have readable parameter IDs. Each case
+uses fresh `tmp_path` inputs, so a failure does not prevent the other scenarios
+from running. Native-test output files remain in pytest's temporary directory,
+shown in failure tracebacks.
+
+```sh
+make test-python FILE=viewport
+make test-python FILE='vector_detail and 32x'
+make test-python FILE=cache_navigation
+.test-venv/bin/python tests/capture_image_viewport.py /tmp/viewport-examples
+```
+
+The last command preserves the former raster script's optional screenshot
+utility; it generates examples and is not counted as a regression test.

@@ -28,3 +28,14 @@ def pytest_report_header(config):
 @pytest.fixture(scope="session")
 def test_run_dir(pytestconfig):
     return pytestconfig.stash[RUN_DIR]
+
+
+@pytest.fixture(scope="session")
+def render_viewport():
+    import runpy
+
+    helper = (
+        Path(__file__).resolve().parents[2]
+        / "lua/custom/python/helpers/image-viewport.py"
+    )
+    return runpy.run_path(str(helper))["render"]
