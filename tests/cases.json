@@ -153,12 +153,6 @@
       ]
     },
     {
-      "file": "tests/image_viewport.py",
-      "language": "python",
-      "suite": "fast",
-      "timeout": 90
-    },
-    {
       "file": "tests/notebook.py",
       "language": "python",
       "suite": "kernel",
@@ -210,12 +204,6 @@
       "args": [
         "{artifacts}"
       ]
-    },
-    {
-      "file": "tests/plot_viewport.py",
-      "language": "python",
-      "suite": "fast",
-      "timeout": 90
     },
     {
       "file": "tests/plot_workspace.py",
@@ -310,6 +298,7 @@
     "capture_cells.py": "Manual notebook screenshot tool.",
     "snacks_plots.py": "PTY/Ghostty graphics validation; run after plots.py in a disposable project.",
     "notebook_markdown_media.py": "PTY media validation requiring ImageMagick, tectonic, and mmdc.",
-    "plot_browser.cjs": "Browser validation requiring separately installed Playwright/Chromium and a generated plot HTML."
+    "plot_browser.cjs": "Browser validation requiring separately installed Playwright/Chromium and a generated plot HTML.",
+    "capture_image_viewport.py": "Generate viewport example images; assertions live in native pytest cases."
   }
 }

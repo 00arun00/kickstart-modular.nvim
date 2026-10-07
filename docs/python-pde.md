@@ -345,7 +345,7 @@ The adapter was exercised with ipykernel 6.30.1 and 7.3.0.
 /path/to/disposable-project/.venv/bin/python tests/variable_values.py
 ~/.local/share/nvim/python/bin/python tests/image_viewer.py /path/to/disposable-project /tmp/image-review
 /path/to/disposable-project/.venv/bin/python tests/image_values.py
-~/.local/share/nvim/python/bin/python tests/image_viewport.py
+make test-python FILE=image_viewport
 ```
 
 The disposable project's `.venv` needs `ipykernel`, `numpy`, `pandas`, and `torch`.

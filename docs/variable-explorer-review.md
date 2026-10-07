@@ -60,7 +60,7 @@ and direct batch-index navigation. The independent reviewer scored the first
 pass 8.8/10, then 9.2/10 after compact labels, native-placement callback tests,
 color/alpha examples, and no-op boundary handling. No release blockers remained.
 
-`tests/image_viewport.py` verifies actual pixels, center anchoring, pan clamps,
+`tests/python/test_image_viewport.py` verifies actual pixels, center anchoring, pan clamps,
 aspect ratios, transparency, and bounded output. `tests/image_viewer.py` exercises
 the real Neovim controls, rapid input, source-PNG retention, help scrolling/error
 states, tiny windows, and counts kernel requests to establish that viewport
@@ -127,7 +127,7 @@ Rasterization is bounded to 8192 pixels per side and 24 million pixels, without
 allocating the whole zoomed chart. Ordinary image inspection keeps its original
 nearest-neighbor path and bounds. No new dependency or kernel request is added.
 
-Validation: `tests/plot_viewport.py` proves vector detail from a blank source PNG,
+Validation: `tests/python/test_plot_viewport.py` proves vector detail from a blank source PNG,
 antialiasing through 32x zoom, bounded crops, allocation limits, and matching
 coordinates when the PNG is 1.5x the SVG. The real plot workspace integration
 passes with mocked 2x/3x terminal dimensions and asserts full physical pixel
