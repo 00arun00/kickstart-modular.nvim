@@ -26,9 +26,19 @@ def wait(check, seconds=15):
     raise AssertionError(n.exec_lua("return _G.output_messages"))
 
 
+def wait_output(text):
+    # Observe Molten's available output text through its public command without
+    # opening/focusing the window whose one-press behavior we are about to test.
+    def available():
+        n.command("silent MoltenYankOutput")
+        return text in n.funcs.getreg('"')
+
+    wait(available)
+
+
 try:
     n.exec_lua(
-        "_G.output_messages = {}; vim.notify = function(msg) table.insert(_G.output_messages, msg) end; vim.o.lines=60; vim.o.columns=160"
+        "_G.output_messages = {}; vim.notify = function(msg) table.insert(_G.output_messages, msg) end; vim.o.lines=60; vim.o.columns=160; vim.opt.clipboard={}"
     )
     n.exec_lua("require('custom.python.notebook').init()")
     wait(
@@ -41,7 +51,7 @@ try:
     source_buf = n.current.buffer.handle
     original = n.current.buffer[:]
     n.exec_lua("require('custom.python.notebook').run()")
-    time.sleep(1)
+    wait_output("row 099:")
     n.exec_lua("require('custom.python.output').preview()")
     floating = [w for w in n.windows if n.api.win_get_config(w)["relative"] == "win"]
     assert len(floating) == 1
@@ -55,7 +65,12 @@ try:
     wait(lambda: any("row 099:" in line for line in output_buf[:]))
     config = n.api.win_get_config(n.current.window)
     assert config["relative"] == "win"
-    assert "MoltenOutputBorderSuccess" in str(config["border"]), config
+    wait(
+        lambda: (
+            "MoltenOutputBorderSuccess"
+            in str(n.api.win_get_config(n.current.window)["border"])
+        )
+    )
     assert config["height"] <= 24 and config["width"] <= 120, config
     assert not n.current.window.options["foldenable"]
     assert not n.current.window.options["wrap"]
@@ -94,15 +109,19 @@ try:
     n.current.buffer.append(["# %%", "raise RuntimeError('pde-output-error')"])
     n.current.window.cursor = (len(n.current.buffer[:]), 0)
     n.exec_lua("require('custom.python.notebook').run()")
-    time.sleep(1)
+    wait_output("pde-output-error")
     n.exec_lua("require('custom.python.output').enter()")
     assert "pde-output-error" in "\n".join(n.current.buffer[:])
-    assert "MoltenOutputBorderFail" in str(
-        n.api.win_get_config(n.current.window)["border"]
+    wait(
+        lambda: (
+            "MoltenOutputBorderFail"
+            in str(n.api.win_get_config(n.current.window)["border"])
+        )
     )
     n.input("q")
     wait(lambda: n.current.window.handle == source_win)
-    # Reproduce the reported None-window crash with the cell end off screen.
+    # Entering output must work with the cell end off screen, whether or not
+    # the installed upstream version still exhibits the original window bug.
     start = len(n.current.buffer[:]) + 2
     n.current.buffer.append(
         ["# %%", "value = 1"] + ["# padding"] * 80 + ["print('long-cell-output')"]
@@ -110,13 +129,7 @@ try:
     n.current.window.cursor = (start, 0)
     n.command("normal! zt")
     n.exec_lua("require('custom.python.notebook').run()")
-    time.sleep(1)
-    reproduced = n.exec_lua("""
-      vim.fn.MoltenUpdateOption('enter_output_behavior', 'open_and_enter')
-      local ok, err = pcall(vim.cmd, 'noautocmd MoltenEnterOutput')
-      return not ok and tostring(err):find('expecting Window', 1, true) ~= nil
-    """)
-    assert reproduced, "Expected the upstream off-screen window failure"
+    wait_output("long-cell-output")
     n.exec_lua("require('custom.python.output').enter()")
     assert n.current.window.handle != source_win, (
         n.exec_lua("return _G.output_messages"),

@@ -24,7 +24,13 @@ n = pynvim.attach(
 )
 try:
     n.ui_attach(120, 60, rgb=True)
-    time.sleep(0.3)
+    deadline = time.monotonic() + 10
+    while (
+        n.current.buffer.options["filetype"] != "python"
+        or "x = 42" not in n.current.buffer[:]
+    ):
+        assert time.monotonic() < deadline, "Notebook did not finish loading"
+        time.sleep(0.05)
     source = n.current.buffer[:]
 
     def render(row):
@@ -38,6 +44,20 @@ try:
             "local lines={}; for r=1,60 do local line=''; for c=1,120 do line=line..vim.fn.screenstring(r,c) end; table.insert(lines,line) end return table.concat(lines,'\\n')"
         )
 
+    def frame_text():
+        ns = n.api.create_namespace("python-cell-frames")
+        marks = n.api.buf_get_extmarks(0, ns, 0, -1, {"details": True})
+        lines = []
+        for _, _, _, details in marks:
+            chunks = (
+                [details["virt_text"]]
+                if "virt_text" in details
+                else details.get("virt_lines", [])
+            )
+            lines.extend("".join(text for text, *_ in line) for line in chunks)
+        assert lines, "No cell frames were produced"
+        return "\n".join(lines)
+
     code_row = next(i for i, l in enumerate(source, 1) if l == "x = 42")
     screen = render(code_row)
     assert (
@@ -45,8 +65,9 @@ try:
         and "02 · Code · active" in screen
         and "03 · Raw" in screen
     ), screen
-    assert "04 " not in screen
-    assert "╭" not in screen and "╰" not in screen, screen
+    frames = frame_text()
+    assert "04 " not in frames
+    assert "╭" not in frames and "╰" not in frames, frames
     assert "id=" not in screen, screen
     assert "Introduction" in screen and "# # Introduction" not in screen, screen
     markdown_row = next(i for i, l in enumerate(source, 1) if l == "# # Introduction")

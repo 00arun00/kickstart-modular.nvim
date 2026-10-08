@@ -43,10 +43,14 @@ with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
                 if not mode["blocking"] and check():
                     return
                 time.sleep(0.05)
-            details = n.exec_lua("""
+            details = (
+                n.exec_lua("""
                 return {win = vim.api.nvim_get_current_win(),
                     filetype = vim.bo.filetype, buffer = vim.api.nvim_buf_get_name(0)}
-            """) if not mode["blocking"] else {}
+            """)
+                if not mode["blocking"]
+                else {}
+            )
             raise AssertionError(
                 f"Stage timed out: {stage}; Neovim mode={mode}; focus={details}; "
                 f"messages={n.command_output('messages') if not mode['blocking'] else '<blocked>'}"
@@ -65,7 +69,7 @@ with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
 
         def bar(win=None):
             return n.exec_lua(
-                "local w=...; local b=require('dropbar.utils').bar.get({win=w or vim.api.nvim_get_current_win()}); if not b then return {} end; b:_update(); local t={}; for _,s in ipairs(b.components) do table.insert(t,s._.opts.name or s.name) end return t",
+                "local w=...; local b=require('dropbar.utils').bar.get({win=w or vim.api.nvim_get_current_win()}); if not b then return {} end; local t={}; for _,s in ipairs(b.components) do table.insert(t,s._.opts.name or s.name) end return t",
                 win or n.current.window.handle,
             )
 
@@ -91,6 +95,10 @@ with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
         secondwin = n.current.window.handle
         n.command("vertical resize 46")
         n.current.window.cursor = (notes, 0)
+        wait(
+            lambda: any("03 Markdown" in s and "Results" in s for s in bar()),
+            "split context refreshed",
+        )
         labels = bar()
         assert any("03 Markdown" in s and "Results" in s for s in labels), labels
         assert not any("forward" in s for s in labels), labels
@@ -114,7 +122,14 @@ with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
             "fuzzy search ready",
         )
         n.input("Results")
-        time.sleep(0.2)
+        wait(
+            lambda: n.exec_lua("""
+            local m = require('dropbar.utils').menu.get_current()
+            return m and #m.entries == 1
+                and vim.api.nvim_buf_get_lines(m.buf, 0, -1, false)[1]:find('Results', 1, true) ~= nil
+        """),
+            "fuzzy results filtered",
+        )
         n.input("<CR>")
         wait(
             lambda: n.current.buffer.name == str(path) and not menu(),
@@ -127,7 +142,6 @@ with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
         # host's temporary directory (whose contents vary between machines).
         n.exec_lua("""
             local bar = require('dropbar.utils').bar.get_current()
-            bar:_update()
             local index = 0
             local pivot
             for _, component in ipairs(bar.components) do
@@ -152,13 +166,18 @@ with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
             vim.api.nvim_feedkeys(' ;' .. pivot, 'mx', false)
         """)
         wait(menu, "keyboard path menu focused")
-        wait(lambda: n.exec_lua("return refresh_elapsed"), "pending breadcrumb refresh elapsed")
+        wait(
+            lambda: n.exec_lua("return refresh_elapsed"),
+            "pending breadcrumb refresh elapsed",
+        )
         assert menu(), "pending breadcrumb refresh closed the active menu"
         # An edit while the menu is open must be reflected after dismissal.
         source_buf = n.exec_lua(
             "return require('dropbar.utils').menu.get_current():root().prev_buf"
         )
-        n.api.buf_set_lines(source_buf, notes - 1, notes, False, ["# ## Updated results"])
+        n.api.buf_set_lines(
+            source_buf, notes - 1, notes, False, ["# ## Updated results"]
+        )
         n.exec_lua("""
             local menu = require('dropbar.utils').menu.get_current():root()
             require('dropbar.utils').bar.get({win = menu.prev_win}):_update()
@@ -166,11 +185,18 @@ with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
         assert menu(), "source edit closed the active menu"
         # A menu in one split must not freeze breadcrumbs in another split.
         n.api.win_set_cursor(firstwin, [notes, 0])
-        assert any("Updated results" in label for label in bar(firstwin))
+        # This inactive window did not receive a user CursorMoved event.
+        # Request its normal debounced update explicitly; observation stays pure.
+        n.exec_lua("require('dropbar.utils').bar.get({win = ...}):update()", firstwin)
+        wait(
+            lambda: any("Updated results" in label for label in bar(firstwin)),
+            "other split refreshed",
+        )
         assert menu(), "refreshing another split closed the active menu"
         close_menu()
         assert n.current.window.handle == secondwin
-        wait(lambda: n.exec_lua("""
+        wait(
+            lambda: n.exec_lua("""
             local bar = require('dropbar.utils').bar.get_current()
             for _, component in ipairs(bar.components) do
                 if (component._.opts.name or component.name):find('Updated results', 1, true) then
@@ -178,7 +204,9 @@ with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
                 end
             end
             return false
-        """), "deferred breadcrumb refresh after dismissal")
+        """),
+            "deferred breadcrumb refresh after dismissal",
+        )
         n.current.buffer[:] = source
         n.command("write")
         saved = nbformat.read(path, as_version=4)
@@ -198,16 +226,18 @@ with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
         n.command("edit " + str(py))
         n.current.window.cursor = (3, 8)
         wait(lambda: any("method" in s for s in bar()), "plain Python scope visible")
-        time.sleep(
-            1
-        )  # Let initial LSP/attachment refreshes settle before opening a menu.
         # Enter selects the named scope; l opens its child submenu.
         labels = bar()
         class_index = next(i for i, s in enumerate(labels, 1) if "Plain" in s)
         n.exec_lua("require('dropbar.api').pick(...)", class_index)
         wait(menu, "Python scope menu focused")
         n.input("l")
-        time.sleep(0.1)
+        wait(
+            lambda: n.exec_lua(
+                "local m=require('dropbar.utils').menu.get_current(); return m and m.prev_menu ~= nil"
+            ),
+            "Python child submenu focused",
+        )
         n.input("<CR>")
         wait(lambda: not menu(), "submenu selection returns to source")
         assert n.current.buffer.name == str(py)
