@@ -116,7 +116,7 @@ assert(vim.wo.number and vim.wo.statusline == 'ORIGINAL', 'file restores editor 
 vim.cmd.tabclose()
 ctx.dispatch 'close'
 assert(vim.wo.number and vim.wo.statusline == 'ORIGINAL', 'dashboard options restored')
--- JSON split sessions restore in a new tab, keeping modified buffers intact.
+-- JSON split sessions restore in the current tab, keeping modified buffers intact.
 vim.cmd('edit ' .. vim.fn.fnameescape(tmp .. '/one.lua'))
 vim.cmd.vsplit(tmp .. '/two.lua')
 vim.api.nvim_win_set_cursor(0, { 2, 1 })
@@ -126,17 +126,26 @@ local session = require('custom.project_home.sessions').capture(tmp)
 assert(session.count == 2)
 local dirty = vim.api.nvim_get_current_buf()
 vim.api.nvim_buf_set_lines(dirty, 0, 1, false, { 'unsaved' })
+local oldtab = vim.api.nvim_get_current_tabpage()
 local oldtabs = #vim.api.nvim_list_tabpages()
+vim.cmd 'vnew'
+local extra = vim.api.nvim_get_current_buf()
+vim.api.nvim_buf_set_lines(extra, 0, -1, false, { 'unsaved extra' })
+vim.bo[extra].bufhidden = 'wipe'
 assert(require('custom.project_home.sessions').restore(session, { window_options = { number = true, statusline = 'ORIGINAL' } }))
 for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
   assert(vim.wo[win].number and vim.wo[win].statusline == 'ORIGINAL', 'restored windows use editor options')
 end
-assert(#vim.api.nvim_list_tabpages() == oldtabs + 1 and vim.bo[dirty].modified)
+assert(#vim.api.nvim_list_tabpages() == oldtabs and vim.api.nvim_get_current_tabpage() == oldtab and vim.bo[dirty].modified)
+assert(
+  vim.api.nvim_buf_is_loaded(extra) and vim.bo[extra].modified and vim.api.nvim_buf_get_lines(extra, 0, -1, false)[1] == 'unsaved extra',
+  'unrestored dirty buffer survives in memory'
+)
 assert(vim.fn.getcwd() == tmp and #vim.api.nvim_tabpage_list_wins(0) == 2)
 local restoredfirst = vim.api.nvim_tabpage_list_wins(0)[1]
 assert(math.abs(vim.api.nvim_win_get_width(restoredfirst) - 17) <= 2, 'split proportions preserved')
 local corrupt = vim.deepcopy(session)
-corrupt.tree = { kind = 'leaf', path = tmp .. '/missing' }
+corrupt.tabs[1].tree = { kind = 'leaf', path = tmp .. '/missing' }
 local before = #vim.api.nvim_list_tabpages()
 local ok = require('custom.project_home.sessions').restore(corrupt)
 assert(not ok and #vim.api.nvim_list_tabpages() == before)

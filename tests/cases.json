@@ -61,6 +61,12 @@
       "timeout": 60
     },
     {
+      "file": "tests/project_home_sessions.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 60
+    },
+    {
       "file": "tests/project_home_core.lua",
       "language": "lua",
       "suite": "integration",

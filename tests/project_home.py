@@ -292,9 +292,23 @@ if ok then theme.setup({flavour='mocha',compile_path=vim.fn.stdpath('state')..'/
             home('volt', project)
             wait(lambda: Path(context('ctx.model.root')) == project.resolve(), 'explicit root switch')
             checks.append('explicit root option changes existing home context')
-            action('resume')
-            action('restore')
+            tab = n.current.tabpage.handle
+            tabs = len(n.tabpages)
+            saved_tabs = len(context('ctx.model.session.tabs'))
+            n.input('u')
+            wait(lambda: n.current.buffer.options['filetype'] != 'projecthome', 'Resume restores immediately')
+            check(any(t.handle == tab for t in n.tabpages) and len(n.tabpages) == tabs + saved_tabs - 1,
+                  'Resume reuses dashboard tab and adds remaining project tabs')
             check(n.buffers[dirty].options['modified'], 'restore preserves dirty buffers')
+            global_tabs = n.exec_lua("local s=require('custom.project_home.sessions');local snapshot=s.capture(vim.fn.getcwd(),{scope='global'});require('custom.project_home.state').update(s.global_key,'session',snapshot);return #snapshot.tabs")
+            home()
+            action('more')
+            check('Resume last Neovim session' in lines() and 'replaces all current tabs' in lines(),
+                  'More describes global restore scope')
+            action('resume_global')
+            check(len(n.tabpages) == global_tabs and n.current.buffer.options['filetype'] != 'projecthome',
+                  'Global action restores complete saved tab layout')
+            check(n.buffers[dirty].options['modified'], 'global action preserves dirty buffers')
         finally:
             close(n)
     finally:

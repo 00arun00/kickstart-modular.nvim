@@ -259,7 +259,7 @@ function M.render(model, width, height)
   header[#header + 1] = U.separator('─', canvas, 'ProjectHomeVoltRule')
   local toolbar, row = {}, {}
   local buttons = { { 'f', 'Find', 'find' }, { '/', 'Search', 'search' }, { 'e', 'Browse', 'browse' }, { 'n', 'New', 'new' }, { '?', 'Help', 'keyboard_help' } }
-  if (model.session or model.resume) and model.has_session ~= false then table.insert(buttons, 1, { 'u', 'Resume', 'resume' }) end
+  if (model.session or model.resume) and model.has_session ~= false then table.insert(buttons, 1, { 'u', 'Resume project', 'resume' }) end
   for _, button in ipairs(buttons) do
     local buttonwidth = #button[2] + 5
     if U.line_w(row) + buttonwidth > canvas and #row > 0 then
