@@ -32,6 +32,8 @@ make test ARGS='-k viewport -x'
 additional pytest options. Direct pytest also defaults to the fast marker via
 `pytest.ini`. No matches is a nonzero exit, not an empty successful run.
 Ordinary runs do not install dependencies. Tests run sequentially by default.
+Verbose output names each test as it starts and reports `PASSED`, `FAILED`, or
+`SKIPPED` when it finishes, including in CI. Use `ARGS=-q` for compact output.
 
 To enable the optional pre-commit hook, install pre-commit separately and run:
 
