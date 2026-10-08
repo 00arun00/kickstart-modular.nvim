@@ -297,8 +297,8 @@ if ok then theme.setup({flavour='mocha',compile_path=vim.fn.stdpath('state')..'/
             saved_tabs = len(context('ctx.model.session.tabs'))
             n.input('u')
             wait(lambda: n.current.buffer.options['filetype'] != 'projecthome', 'Resume restores immediately')
-            check(any(t.handle == tab for t in n.tabpages) and len(n.tabpages) == tabs + saved_tabs - 1,
-                  'Resume reuses dashboard tab and adds remaining project tabs')
+            check(all(t.handle != tab for t in n.tabpages) and len(n.tabpages) == tabs + saved_tabs - 1,
+                  'Resume replaces dashboard tab and adds remaining project tabs')
             check(n.buffers[dirty].options['modified'], 'restore preserves dirty buffers')
             global_tabs = n.exec_lua("local s=require('custom.project_home.sessions');local snapshot=s.capture(vim.fn.getcwd(),{scope='global'});require('custom.project_home.state').update(s.global_key,'session',snapshot);return #snapshot.tabs")
             home()
