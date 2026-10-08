@@ -83,7 +83,7 @@ _G.visual_model={
             recent_row = next(i for i, line in enumerate(data['lines']) if 'Recent files' in line)
             git_row = next(i for i, line in enumerate(data['lines']) if 'Git workspace' in line)
             assert recent_row == git_row, 'main column headings must align'
-            heat_rows = [line for line in data['lines'] if line.count('■') == (52 if width == 166 else 39 if width == 120 else 26)]
+            heat_rows = [line for line in data['lines'] if line.count('■') + line.count('□') == (52 if width == 166 else 39 if width == 120 else 26)]
             assert len(heat_rows) == 7, 'the entire adaptive graph must remain visible'
             assert any('History' in line for line in data['lines']), 'history action remains available'
             (output / f'workspace-{width}x{height}.json').write_text(json.dumps(data, indent=2))
