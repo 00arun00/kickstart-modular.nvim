@@ -9,7 +9,7 @@ pytestmark = [pytest.mark.integration, pytest.mark.python]
 
 
 @pytest.fixture
-def nvim(tmp_path, monkeypatch):
+def nvim(tmp_path, monkeypatch, pytestconfig):
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     # pynvim's child transport still uses this deprecated asyncio API on 3.12.
@@ -26,8 +26,9 @@ def nvim(tmp_path, monkeypatch):
         )
     try:
         n.ui_attach(100, 25, rgb=True)
-        n.exec_lua("""
-          vim.opt.rtp:prepend(vim.fn.getcwd())
+        n.exec_lua(
+            """
+          vim.opt.rtp:prepend(...)
           local plugins = vim.fn.stdpath('data') .. '/lazy/'
           vim.opt.rtp:append(vim.env.NVIM_STATUSCOL_DIR or plugins .. 'statuscol.nvim')
           vim.opt.rtp:append(plugins .. 'guttermarks.nvim')
@@ -40,7 +41,9 @@ def nvim(tmp_path, monkeypatch):
           vim.wo.foldmethod = 'manual'
           vim.opt.fillchars = { foldopen = 'v', foldclose = '>', foldsep = ' ' }
           vim.api.nvim_buf_set_lines(0, 0, -1, false, vim.fn['repeat']({'code'}, 100))
-        """)
+        """,
+            str(pytestconfig.rootpath),
+        )
 
         yield n
     finally:

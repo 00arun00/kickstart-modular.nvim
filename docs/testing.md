@@ -135,9 +135,10 @@ a local pass with revision drift does not establish parity with CI.
 
 Gutter tests live in `tests/python/test_statuscolumn.py` as independent cases
 with fresh editor instances. They cover indicator order, scroll stability,
-breakpoint/diagnostic/test-sign fallback, column collapse, fold restoration,
-split isolation with active source signs, normal-buffer floats, and special
-buffer transitions. Run them with `make test-python SUITE=integration FILE=statuscolumn`.
+breakpoint/diagnostic/test-sign fallback, column collapse, native fold toggles,
+fold restoration across splits and tabs, split isolation with active source
+signs, normal-buffer floats, and special buffer transitions. Run them with
+`make test-python SUITE=integration FILE=statuscolumn`.
 
 Breadcrumb observations do not force refreshes. Explicit refresh requests in
 the menu-race scenario are intentional stimuli, and the assertions wait for
