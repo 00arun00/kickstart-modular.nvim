@@ -43,7 +43,24 @@ function M.setup()
     end
   end
   local group = vim.api.nvim_create_augroup('CustomStatusColumn', { clear = true })
-  vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter', 'WinNew', 'FileType' }, { group = group, callback = update })
+  local inherited_foldcolumn
+  -- Splits copy options but not window variables. WinLeave also covers new tabs,
+  -- which do not fire WinNewPre.
+  vim.api.nvim_create_autocmd({ 'WinNewPre', 'WinLeave' }, {
+    group = group,
+    callback = function() inherited_foldcolumn = vim.w.statuscolumn_foldcolumn end,
+  })
+  vim.api.nvim_create_autocmd('WinNew', {
+    group = group,
+    callback = function()
+      if vim.api.nvim_win_get_config(0).relative == '' and not vim.wo.foldenable and vim.wo.foldcolumn == '0' then
+        vim.w.statuscolumn_foldcolumn = inherited_foldcolumn
+      end
+      inherited_foldcolumn = nil
+      update()
+    end,
+  })
+  vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter', 'FileType' }, { group = group, callback = update })
   vim.api.nvim_create_autocmd('OptionSet', { group = group, pattern = { 'buftype', 'foldenable' }, callback = update })
   update()
 end
