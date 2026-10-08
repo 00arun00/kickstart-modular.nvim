@@ -62,6 +62,9 @@ function M.setup()
   })
   vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter', 'FileType' }, { group = group, callback = update })
   vim.api.nvim_create_autocmd('OptionSet', { group = group, pattern = { 'buftype', 'foldenable' }, callback = update })
+  -- Native commands such as zi/za change foldenable without firing OptionSet.
+  -- Reconcile once command processing finishes, without replacing their mappings.
+  vim.api.nvim_create_autocmd('SafeState', { group = group, callback = update })
   update()
 end
 
