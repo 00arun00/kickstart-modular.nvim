@@ -1,6 +1,8 @@
 """Test the failure reporting contracts that make hooks and CI trustworthy."""
 
 import os
+import select
+import signal
 import sys
 from pathlib import Path
 
@@ -47,6 +49,61 @@ def test_hung_child_is_a_failure(tmp_path):
             timeout=0.2,
             log=tmp_path / "output.log",
         )
+
+
+@pytest.mark.parametrize(
+    "timeout", [False, True], ids=["parent-exits", "parent-times-out"]
+)
+def test_descendants_are_terminated(tmp_path, timeout):
+    # A pipe reaches EOF only once the child closes its writer. Unlike a PID
+    # check, this also works while a killed child remains briefly as a zombie.
+    fifo, ready = tmp_path / "pipe", tmp_path / "ready"
+    os.mkfifo(fifo)
+    reader = os.open(fifo, os.O_RDONLY | os.O_NONBLOCK)
+    child = (
+        "import os,time; from pathlib import Path; "
+        f"fd=os.open({str(fifo)!r},os.O_WRONLY); "
+        "os.write(fd,b'ready'); "
+        f"Path({str(ready)!r}).write_text(str(os.getpid())); time.sleep(60)"
+    )
+    parent = (
+        "import subprocess,sys,time; from pathlib import Path\n"
+        f"subprocess.Popen([sys.executable,'-c',{child!r}])\n"
+        "deadline=time.monotonic()+3\n"
+        f"while not Path({str(ready)!r}).exists():\n"
+        "    assert time.monotonic()<deadline, 'child did not start'\n"
+        "    time.sleep(.01)\n" + ("time.sleep(60)\n" if timeout else "")
+    )
+
+    def run():
+        run_process(
+            [sys.executable, "-c", parent],
+            env=os.environ.copy(),
+            timeout=5,
+            log=tmp_path / "output.log",
+        )
+
+    terminated = False
+    try:
+        if timeout:
+            with pytest.raises(AssertionError, match="Timed out"):
+                run()
+        else:
+            run()
+        assert os.read(reader, 1024) == b"ready", "child never reached readiness"
+        assert select.select([reader], [], [], 5)[0], (
+            "descendant still holds the pipe open"
+        )
+        assert os.read(reader, 1024) == b"", "expected EOF after descendant termination"
+        terminated = True
+    finally:
+        os.close(reader)
+        # Also clean up if the assertion detects a broken harness.
+        if not terminated and ready.exists():
+            try:
+                os.kill(int(ready.read_text()), signal.SIGKILL)
+            except ProcessLookupError:
+                pass
 
 
 def test_fast_environment_isolated_from_installed_config(tmp_path):
