@@ -88,6 +88,21 @@ with tempfile.TemporaryDirectory(prefix="nvim-statuscolumn-") as directory:
         assert len(rendered()) == len(baseline)
         n.command("set foldenable")
         assert len(rendered()) == len(baseline) + 1
+        # Splits copy window options, but not the saved fold-column variable.
+        for split in ("vsplit", "split", "tab split"):
+            for foldcolumn in ("auto:1", "auto:2", "0"):
+                n.command(f"setlocal foldcolumn={foldcolumn} nofoldenable")
+                n.command(split)
+                n.command("setlocal foldenable")
+                assert n.current.window.options["foldcolumn"] == foldcolumn, split
+                if foldcolumn != "0":
+                    assert rendered(2).startswith("v"), (split, rendered(2))
+                n.command("close")
+                assert not n.current.window.options["foldenable"]
+                assert n.current.window.options["foldcolumn"] == "0"
+                n.command("setlocal foldenable")
+                assert n.current.window.options["foldcolumn"] == foldcolumn
+        n.command("setlocal foldcolumn=auto:1")
         n.command("normal! zE")
         assert len(rendered()) == len(baseline)
 
