@@ -125,6 +125,27 @@ The final job combines those reports and fails for any failed/cancelled/skipped
 required job or missing report. Job/step durations stay in GitHub's native UI;
 there is no custom timing API client or failure-text classifier.
 
+Integration and kernel selections write `dependency-revisions.json` beside the
+JUnit report and list missing or different installed plugin revisions in the
+console. The reference is the **committed** `lazy-lock.json`, so unstaged upgrades
+remain visible. This reports provenance without installing or changing plugins;
+a local pass with revision drift does not establish parity with CI.
+
+### Gutter and lifecycle contracts
+
+Gutter tests live in `tests/python/test_statuscolumn.py` as independent cases
+with fresh editor instances. They cover indicator order, scroll stability,
+breakpoint/diagnostic/test-sign fallback, column collapse, fold restoration,
+split isolation with active source signs, normal-buffer floats, and special
+buffer transitions. Run them with `make test-python SUITE=integration FILE=statuscolumn`.
+
+Breadcrumb observations do not force refreshes. Explicit refresh requests in
+the menu-race scenario are intentional stimuli, and the assertions wait for
+their effects. Kernel output checks wait for available output instead of fixed
+startup delays and validate offscreen entry without requiring an upstream bug
+to remain present. Harness tests verify descendant termination after both
+normal parent exit and timeout.
+
 StyLua 2.5.2 checks formatting without installing plugins:
 
 ```sh
