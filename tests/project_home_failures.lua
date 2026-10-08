@@ -17,8 +17,12 @@ state.set(tmp, { recents = 'malformed', session = 'malformed', activity_visible 
 local ctx = core.open('volt', { root = tmp, reuse = true })
 assert(vim.wait(5000, function() return ctx.model.prs.status ~= 'loading' end))
 assert(#ctx.model.recents == 0 and ctx.model.session == nil and ctx.model.show_activity == true)
+local notified, notify = nil, vim.notify
+vim.notify = function(message) notified = message end
 ctx.dispatch 'resume'
-assert(table.concat(vim.api.nvim_buf_get_lines(ctx.buf, 0, -1, false), '\n'):find('No valid saved workspace', 1, true))
+vim.notify = notify
+assert(notified:find('No valid saved workspace', 1, true))
+assert(vim.api.nvim_get_current_buf() == ctx.buf, 'invalid resume leaves dashboard intact')
 ctx.dispatch 'home'
 state.set(tmp, {
   recents = { '/etc/hosts', tmp .. '/one.lua', false, 17 },
@@ -60,8 +64,8 @@ local escaped = vim.deepcopy(metadata)
 escaped.tree = { kind = 'leaf', path = tmp .. '/../outside.lua' }
 assert(not sessions.inspect(escaped), 'session files stay inside root')
 assert(sessions.restore(metadata), 'malformed optional geometry does not crash restore')
-vim.cmd.tabclose()
-ctx.dispatch 'home'
+ctx = core.open('volt', { root = tmp, reuse = true })
+assert(vim.wait(5000, function() return ctx.model.prs.status ~= 'loading' end))
 ctx.prs = {
   [42] = {
     statusCheckRollup = {

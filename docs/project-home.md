@@ -28,7 +28,7 @@ section access. Very short or narrow windows use a compact NVIM text header.
 Project titles, section headings, filenames, and metadata use theme-derived
 color and weight for hierarchy; terminal Neovim uses one fixed font size.
 Selection surfaces and activity intensities are derived from the active theme.
-When a saved session exists, `u Resume` appears first in the action bar. Recent
+When a saved session exists, `u Resume project` appears first in the action bar. Recent
 Files contains only files. The activity graph expands from 26 to 39 to 52 weeks
 as available width increases; its count covers exactly the displayed period.
 Switching Repository/Yours preserves that period.
@@ -77,12 +77,23 @@ provides the full recent-file list. Each checkout has its own history. The
 dashboard does not import an existing global recent-file list, so the first launch
 may have an empty section.
 
-Resume restores saved file windows, cursor positions, and proportional splits in
-a new tab. Sessions are saved when opening Home from files, leaving a tab, or
-exiting. They do not serialize terminal processes, plugin scratch windows,
-unsaved text to disk, or a language/kernel process. Existing unsaved buffers are
-reused safely; missing saved files cause a clear refusal without replacing the
-current workspace.
+Pressing `u` immediately resumes the current project. It restores all saved tabs
+whose file windows belong to that checkout, including cursor positions,
+proportional splits, tab order, and the active tab/window. The first saved tab
+reuses the dashboard tab; remaining saved tabs open beside it. Existing other
+tabs stay unchanged. Mixed-project tabs are excluded from project snapshots.
+Project snapshots are saved when opening Home from files, leaving a tab, or exiting.
+
+For a complete file workspace, press `m` and choose **Resume last Neovim session**.
+This restores file tabs across projects, including mixed-project tabs, and replaces
+all current tabs. The action shows the saved time and tab count. The global snapshot
+is saved on exit independently of project snapshots; an empty session does not
+overwrite it. Older single-tab project snapshots remain supported.
+
+Both modes preserve existing modified buffers in memory. They do not serialize
+terminal processes, plugin scratch windows, unsaved text to disk, or language/kernel
+processes. Missing saved files or directories cause a refusal before replacing
+windows; an unsaved named file can be reused while its buffer is still loaded.
 
 ## Git and GitHub
 

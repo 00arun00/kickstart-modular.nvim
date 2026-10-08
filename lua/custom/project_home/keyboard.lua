@@ -93,7 +93,7 @@ function M.help(ctx)
     'Esc                Leave section / go back',
     '',
     'f Find   / Search   e Browse   n New',
-    'u Resume (if saved)  w Worktrees',
+    'u Resume project    w Worktrees',
     'a Toggle activity scope   h History',
     'R Refresh',
     'm More actions      q Close dashboard',

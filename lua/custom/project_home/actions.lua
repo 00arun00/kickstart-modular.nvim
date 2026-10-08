@@ -137,24 +137,18 @@ function M.dispatch(ctx, action, value)
     end
     if #rows == 0 then rows = { { label = 'No files opened in this project yet.', detail = 'Use Find file or Browse to begin.' } } end
     ctx.show(ui.page('Recent files', root, rows))
-  elseif action == 'resume' then
-    local session = require('custom.project_home.state').get(root).session
-    local info, err = require('custom.project_home.sessions').inspect(session, false, root)
-    if not info then
-      ctx.show(ui.page('Resume workspace', err, { { label = 'Open files, then save with :ProjectHomeSessionSave', action = 'home' } }))
-      return
-    end
-    local rows =
-      { { label = 'Restore ' .. info.count .. ' windows in a new tab', detail = 'Current windows and unsaved buffers stay open.', action = 'restore' } }
-    for _, file in ipairs(info.files) do
-      rows[#rows + 1] = { label = file.path, detail = 'Cursor at line ' .. file.line }
-    end
-    ctx.show(ui.page('Resume workspace', os.date('%b %d · %H:%M', info.saved_at), rows))
-  elseif action == 'restore' then
+  elseif action == 'resume' or action == 'restore' then
     local ok, err = require('custom.project_home.sessions').restore(
       require('custom.project_home.state').get(root).session,
       { window_options = ctx.original_options, root = root }
     )
+    if not ok then notify(err) end
+  elseif action == 'resume_global' then
+    local sessions = require 'custom.project_home.sessions'
+    local ok, err = sessions.restore(require('custom.project_home.state').get(sessions.global_key).session, {
+      window_options = ctx.original_options,
+      scope = 'global',
+    })
     if not ok then notify(err) end
   elseif action == 'git' then
     if model.git.error then
@@ -309,6 +303,10 @@ function M.dispatch(ctx, action, value)
     require('custom.project_home.state').update(root, 'scope', ctx.scope)
     ctx.home()
   elseif action == 'more' then
+    local sessions = require 'custom.project_home.sessions'
+    local saved = sessions.inspect(require('custom.project_home.state').get(sessions.global_key).session, false, nil, 'global')
+    local global_detail = saved and (os.date('%b %d · %H:%M', saved.saved_at) .. ' · ' .. #saved.tabs .. ' tabs · replaces all current tabs')
+      or 'No saved Neovim session yet'
     ctx.show(ui.page('Workspace actions', root, {
       { label = model.show_activity == false and 'Show activity' or 'Hide activity', action = 'activity_visibility' },
       { label = 'Find file', action = 'find' },
@@ -316,7 +314,8 @@ function M.dispatch(ctx, action, value)
       { label = 'Explore files', action = 'browse' },
       { label = 'New file', action = 'new' },
       { label = 'Recent files', action = 'recents' },
-      { label = 'Resume workspace', action = 'resume' },
+      { label = 'Resume project', action = 'resume' },
+      { label = 'Resume last Neovim session', detail = global_detail, action = saved and 'resume_global' or nil },
       { label = 'Working changes', action = 'git' },
       { label = 'Pull requests', action = 'prs' },
       { label = 'Worktrees', action = 'worktrees' },

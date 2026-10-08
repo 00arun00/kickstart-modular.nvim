@@ -3,19 +3,27 @@ local function in_root(path, root)
   path, root = vim.fs.normalize(path), vim.fs.normalize(root)
   return root == '/' and path:sub(1, 1) == '/' or path == root or path:sub(1, #root + 1) == root .. '/'
 end
-function M.capture(root)
-  local count = 0
+M.global_key = '__global_session__'
+function M.capture(root, opts)
+  if M.restoring then return end
+  local global = opts and opts.scope == 'global'
+  local count, foreign, focused = 0, false, nil
   local function walk(node)
     if node[1] == 'leaf' then
       local win = node[2]
       local buf = vim.api.nvim_win_get_buf(win)
       local path = vim.api.nvim_buf_get_name(buf)
-      if vim.bo[buf].buftype ~= '' or path == '' or not in_root(path, root) then return nil end
+      if vim.bo[buf].buftype ~= '' or path == '' then return nil end
+      if not global and not in_root(path, root) then
+        foreign = true
+        return nil
+      end
       count = count + 1
       return {
         kind = 'leaf',
         path = path,
         cursor = vim.api.nvim_win_get_cursor(win),
+        focused = win == focused,
         width = vim.api.nvim_win_get_width(win),
         height = vim.api.nvim_win_get_height(win),
       }
@@ -42,15 +50,29 @@ function M.capture(root)
     end
     return { kind = node[1], children = children, width = width, height = height }
   end
-  local tree = walk(vim.fn.winlayout())
-  if not tree then return nil end
-  return { tree = tree, count = count, saved_at = os.time(), root = root }
+  local tabs, active = {}, 1
+  for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
+    foreign, focused = false, vim.api.nvim_tabpage_get_win(tab)
+    local before = count
+    local number = vim.api.nvim_tabpage_get_number(tab)
+    local tree = walk(vim.fn.winlayout(number))
+    if tree and not foreign then
+      tabs[#tabs + 1] = { tree = tree, cwd = vim.fn.getcwd(-1, number) }
+      if tab == vim.api.nvim_get_current_tabpage() then active = #tabs end
+    else
+      count = before
+    end
+  end
+  if #tabs == 0 then return nil end
+  return { tabs = tabs, active_tab = active, scope = global and 'global' or 'project', count = count, saved_at = os.time(), root = root }
 end
 -- Persisted JSON is data, including when it was edited or partially corrupted.
-function M.inspect(session, require_files, expected_root)
-  if type(session) ~= 'table' or type(session.tree) ~= 'table' or type(session.root) ~= 'string' or session.root == '' or session.root:find '%z' then
+function M.inspect(session, require_files, expected_root, scope)
+  if type(session) ~= 'table' or type(session.root) ~= 'string' or session.root == '' or session.root:find '%z' then
     return nil, 'No valid saved workspace is available.'
   end
+  local global = scope == 'global'
+  if (session.scope == 'global') ~= global then return nil, 'Saved session scope does not match.' end
   if
     expected_root
     and (vim.uv.fs_realpath(session.root) or vim.fs.normalize(session.root)) ~= (vim.uv.fs_realpath(expected_root) or vim.fs.normalize(expected_root))
@@ -65,8 +87,8 @@ function M.inspect(session, require_files, expected_root)
         type(node.path) ~= 'string'
         or node.path == ''
         or node.path:find '%z'
-        or not in_root(node.path, session.root)
-        or (require_files and vim.fn.filereadable(node.path) ~= 1)
+        or (not global and not in_root(node.path, session.root))
+        or (require_files and vim.fn.filereadable(node.path) ~= 1 and vim.fn.bufloaded(node.path) ~= 1)
       then
         return false
       end
@@ -83,19 +105,36 @@ function M.inspect(session, require_files, expected_root)
     end
     return true
   end
-  if not walk(session.tree, 0) then return nil, 'Saved files are missing or the session is invalid. Your current windows are unchanged.' end
+  -- Read old single-tab snapshots as a one-tab session.
+  local tabs = session.tabs or (session.tree and { { tree = session.tree, cwd = session.root } })
+  if type(tabs) ~= 'table' or #tabs == 0 or #tabs > 32 then return nil, 'No valid saved workspace is available.' end
+  result.tabs = {}
+  for _, tab in ipairs(tabs) do
+    if
+      type(tab) ~= 'table'
+      or type(tab.cwd) ~= 'string'
+      or tab.cwd == ''
+      or tab.cwd:find '%z'
+      or (require_files and vim.fn.isdirectory(tab.cwd) ~= 1)
+      or not walk(tab.tree, 0)
+    then
+      return nil, 'Saved files or folders are missing or the session is invalid. Your current windows are unchanged.'
+    end
+    result.tabs[#result.tabs + 1] = tab
+  end
+  local active = tonumber(session.active_tab) or 1
+  result.active_tab = active == active and math.floor(math.max(1, math.min(active, #tabs))) or 1
   local timestamp = tonumber(session.saved_at)
   result.saved_at = timestamp and timestamp == timestamp and math.max(0, math.min(timestamp, os.time())) or os.time()
   return result
 end
 function M.restore(session, opts)
   opts = opts or {}
-  local info, err = M.inspect(session, true, opts.root)
+  local info, err = M.inspect(session, true, opts.root, opts.scope)
   if not info then return false, err end
   if vim.fn.isdirectory(session.root) ~= 1 then return false, 'Saved project folder is unavailable.' end
-  vim.cmd.tabnew()
-  vim.cmd('tcd ' .. vim.fn.fnameescape(session.root))
-  local function restore(node, win)
+  local focused_win
+  local function restore(node, win, top)
     vim.api.nvim_set_current_win(win)
     if node.kind == 'leaf' then
       local b = vim.fn.bufadd(node.path)
@@ -113,6 +152,7 @@ function M.restore(session, opts)
       if col ~= col then col = 0 end
       col = math.floor(math.max(0, math.min(col, #text)))
       pcall(vim.api.nvim_win_set_cursor, win, { line, col })
+      if node.focused then focused_win = win end
       return
     end
     local available = node.kind == 'row' and vim.api.nvim_win_get_width(win) or vim.api.nvim_win_get_height(win)
@@ -125,6 +165,7 @@ function M.restore(session, opts)
     for i, c in ipairs(node.children) do
       restore(c, wins[i])
     end
+    if top and focused_win then vim.api.nvim_set_current_win(focused_win) end
     local total = tonumber(node.kind == 'row' and node.width or node.height)
     if total and total == total and total >= 1 and total < 10000000 then
       total = math.floor(total)
@@ -137,7 +178,50 @@ function M.restore(session, opts)
       end
     end
   end
-  restore(session.tree, vim.api.nvim_get_current_win())
-  return true
+  -- Load every saved file before replacing any windows.
+  local loaded, load_error = pcall(function()
+    for _, file in ipairs(info.files) do
+      vim.fn.bufload(vim.fn.bufadd(file.path))
+    end
+  end)
+  if not loaded then return false, tostring(load_error) end
+  local hidden = {}
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.bo[buf].modified and hidden[buf] == nil then
+      hidden[buf] = vim.bo[buf].bufhidden
+      vim.bo[buf].bufhidden = 'hide'
+    end
+  end
+  M.restoring = true
+  local ok, restore_error = pcall(function()
+    local target = vim.api.nvim_get_current_tabpage()
+    if opts.scope == 'global' then
+      for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
+        if tab ~= target then
+          -- Protect loaded buffers while removing the old tab layout.
+          vim.api.nvim_set_current_tabpage(tab)
+          vim.cmd 'silent keepalt hide tabclose'
+        end
+      end
+      vim.api.nvim_set_current_tabpage(target)
+    end
+    local restored = {}
+    for i, tab in ipairs(info.tabs) do
+      if i > 1 then vim.cmd.tabnew() end
+      vim.cmd 'silent keepalt hide only'
+      vim.cmd 'keepalt hide enew'
+      vim.cmd('tcd ' .. vim.fn.fnameescape(tab.cwd))
+      focused_win = nil
+      restore(tab.tree, vim.api.nvim_get_current_win(), true)
+      if focused_win then vim.api.nvim_set_current_win(focused_win) end
+      restored[i] = vim.api.nvim_get_current_tabpage()
+    end
+    vim.api.nvim_set_current_tabpage(restored[info.active_tab])
+  end)
+  M.restoring = false
+  for buf, value in pairs(hidden) do
+    if vim.api.nvim_buf_is_valid(buf) then vim.bo[buf].bufhidden = value end
+  end
+  return ok, not ok and tostring(restore_error) or nil
 end
 return M

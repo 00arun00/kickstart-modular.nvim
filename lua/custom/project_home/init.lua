@@ -279,7 +279,32 @@ function M.setup(opts)
       state.update(root, 'recents', recent)
     end,
   })
-  vim.api.nvim_create_autocmd({ 'TabLeave', 'VimLeavePre' }, { group = group, callback = function() save_session(root_for(vim.fn.getcwd())) end })
+  local function save_projects()
+    local sessions = require 'custom.project_home.sessions'
+    if sessions.restoring then return end
+    local roots = {}
+    for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
+      local cwd = vim.fn.getcwd(-1, vim.api.nvim_tabpage_get_number(tab))
+      for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tab)) do
+        local buf = vim.api.nvim_win_get_buf(win)
+        local path = vim.api.nvim_buf_get_name(buf)
+        if vim.bo[buf].buftype == '' and path ~= '' then roots[vim.fs.root(path, { '.git' }) or cwd] = true end
+      end
+    end
+    for root in pairs(roots) do
+      save_session(root)
+    end
+  end
+  vim.api.nvim_create_autocmd('TabLeave', { group = group, callback = save_projects })
+  vim.api.nvim_create_autocmd('VimLeavePre', {
+    group = group,
+    callback = function()
+      save_projects()
+      local sessions = require 'custom.project_home.sessions'
+      local snapshot = sessions.capture(vim.fn.getcwd(), { scope = 'global' })
+      if snapshot then state.update(sessions.global_key, 'session', snapshot) end
+    end,
+  })
   local stdin = false
   vim.api.nvim_create_autocmd('StdinReadPre', { group = group, callback = function() stdin = true end })
   local function startup()
