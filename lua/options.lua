@@ -38,8 +38,8 @@ vim.o.undofile = true
 vim.o.ignorecase = true
 vim.o.smartcase = true
 
--- Reserve room for mark signs alongside Git or diagnostic signs.
-vim.o.signcolumn = 'yes:2'
+-- statuscol.nvim renders separate, automatically sized sign segments.
+vim.o.signcolumn = 'auto'
 
 -- Decrease update time
 vim.o.updatetime = 250
