@@ -1,6 +1,12 @@
 {
   "cases": [
     {
+      "file": "tests/statuscolumn.py",
+      "language": "python",
+      "suite": "integration",
+      "timeout": 60
+    },
+    {
       "file": "tests/chainsaw.lua",
       "language": "lua",
       "suite": "integration",
