@@ -79,9 +79,9 @@ may have an empty section.
 
 Pressing `u` immediately resumes the current project. It restores all saved tabs
 whose file windows belong to that checkout, including cursor positions,
-proportional splits, tab order, and the active tab/window. The first saved tab
-reuses the dashboard tab; remaining saved tabs open beside it. Existing other
-tabs stay unchanged. Mixed-project tabs are excluded from project snapshots.
+proportional splits, tab order, and the active tab/window. The saved layout is built
+in new tabs before replacing the dashboard tab at its existing position. If
+construction fails, the original tabs stay intact. Existing other tabs stay unchanged. Mixed-project tabs are excluded from project snapshots.
 Project snapshots are saved when opening Home from files, leaving a tab, or exiting.
 
 For a complete file workspace, press `m` and choose **Resume last Neovim session**.

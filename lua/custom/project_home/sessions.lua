@@ -193,31 +193,44 @@ function M.restore(session, opts)
     end
   end
   M.restoring = true
+  local target, original_win = vim.api.nvim_get_current_tabpage(), vim.api.nvim_get_current_win()
+  local originals, restored, sizes = vim.api.nvim_list_tabpages(), {}, {}
+  -- Construct the entire replacement before removing any original windows.
   local ok, restore_error = pcall(function()
-    local target = vim.api.nvim_get_current_tabpage()
-    if opts.scope == 'global' then
-      for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
-        if tab ~= target then
-          -- Protect loaded buffers while removing the old tab layout.
-          vim.api.nvim_set_current_tabpage(tab)
-          vim.cmd 'silent keepalt hide tabclose'
-        end
-      end
-      vim.api.nvim_set_current_tabpage(target)
-    end
-    local restored = {}
     for i, tab in ipairs(info.tabs) do
-      if i > 1 then vim.cmd.tabnew() end
-      vim.cmd 'silent keepalt hide only'
-      vim.cmd 'keepalt hide enew'
+      vim.cmd 'noautocmd tabnew'
+      restored[i] = vim.api.nvim_get_current_tabpage()
       vim.cmd('tcd ' .. vim.fn.fnameescape(tab.cwd))
       focused_win = nil
       restore(tab.tree, vim.api.nvim_get_current_win(), true)
       if focused_win then vim.api.nvim_set_current_win(focused_win) end
-      restored[i] = vim.api.nvim_get_current_tabpage()
+      sizes[i] = vim.fn.winrestcmd()
     end
-    vim.api.nvim_set_current_tabpage(restored[info.active_tab])
   end)
+  if ok then
+    ok, restore_error = pcall(function()
+      for _, tab in ipairs(originals) do
+        if opts.scope == 'global' or tab == target then
+          vim.api.nvim_set_current_tabpage(tab)
+          vim.cmd 'silent keepalt hide tabclose'
+        end
+      end
+      -- Closing the last old tab can toggle the tabline and equalize splits.
+      for i, tab in ipairs(restored) do
+        vim.api.nvim_set_current_tabpage(tab)
+        vim.cmd(sizes[i])
+      end
+      vim.api.nvim_set_current_tabpage(restored[info.active_tab])
+    end)
+  else
+    for _, tab in ipairs(restored) do
+      if vim.api.nvim_tabpage_is_valid(tab) then
+        vim.api.nvim_set_current_tabpage(tab)
+        vim.cmd 'silent noautocmd keepalt hide tabclose'
+      end
+    end
+    vim.api.nvim_set_current_win(original_win)
+  end
   M.restoring = false
   for buf, value in pairs(hidden) do
     if vim.api.nvim_buf_is_valid(buf) then vim.bo[buf].bufhidden = value end
