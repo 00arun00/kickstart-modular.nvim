@@ -130,8 +130,13 @@ local function activity(model, width, compact)
   local side = width >= 72
   local leftwidth = side and width - graphwidth - 3 or width
   local days = data.year_days or data.days or {}
-  local start, total = math.max(0, #days - weeks * 7), 0
-  for i = start + 1, #days do
+  -- History ends today; reserve the remaining days of its Monday–Sunday week.
+  local date = (days[#days] or {}).date or os.date '%Y-%m-%d'
+  local yy, mm, dd = date:match '(%d+)%-(%d+)%-(%d+)'
+  local weekday = tonumber(os.date('%w', os.time { year = tonumber(yy), month = tonumber(mm), day = tonumber(dd), hour = 12 }))
+  local future = (7 - weekday) % 7
+  local start, total = #days - weeks * 7 + future, 0
+  for i = math.max(1, start + 1), #days do
     total = total + (scope == 'you' and (days[i].mine or 0) or (days[i].count or 0))
   end
   local bad = data.status == 'unavailable'
@@ -193,18 +198,16 @@ local function activity(model, width, compact)
       end
     end
     graph[1] = fit(months, graphwidth)
-    local date = (days[start + 1] or {}).date or ''
-    local yy, mm, dd = date:match '(%d+)%-(%d+)%-(%d+)'
-    local first = yy and tonumber(os.date('%w', os.time { year = tonumber(yy), month = tonumber(mm), day = tonumber(dd), hour = 12 })) or 0
-    local labels = { 'Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa' }
+    local labels = { 'Mo', '  ', 'We', '  ', 'Fr', '  ', 'Su' }
     for d = 1, 7 do
-      local weekday = (first + d - 1) % 7
-      local row = { c((weekday % 2 == 1 and labels[weekday + 1] or '  ') .. ' ', 'Muted') }
+      local row = { c(labels[d] .. ' ', 'Muted') }
       for w = 1, weeks do
-        local day = days[start + (w - 1) * 7 + d] or {}
+        local index = start + (w - 1) * 7 + d
+        local day = days[index] or {}
         local count = scope == 'you' and (day.mine or 0) or (day.count or 0)
         local level = count == 0 and 0 or count < 2 and 1 or count < 4 and 2 or count < 7 and 3 or 4
-        row[#row + 1] = c('■ ', 'Heat' .. level)
+        local glyph = index > #days and '□ ' or '■ '
+        row[#row + 1] = c(glyph, 'Heat' .. level)
       end
       graph[#graph + 1] = row
     end
