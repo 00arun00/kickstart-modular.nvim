@@ -29,6 +29,7 @@ return {
       -- Document existing key chains
       spec = {
         { '<leader>s', group = '[S]earch', mode = { 'n', 'v' } },
+        { '<leader>m', group = '[M]arks' },
         { '<leader>t', group = '[T]oggle' },
         { '<leader>z', group = 'Folds' },
         { '<leader>g', group = '[G]it' },
