@@ -1,5 +1,7 @@
 """Independent gutter contracts using real Neovim and the installed plugins."""
 
+import warnings
+
 import pynvim
 import pytest
 
@@ -10,7 +12,18 @@ pytestmark = [pytest.mark.integration, pytest.mark.python]
 def nvim(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
-    n = pynvim.attach("child", argv=["nvim", "--embed", "--clean", "-n", "-i", "NONE"])
+    # pynvim's child transport still uses this deprecated asyncio API on 3.12.
+    # Limit suppression to that exact warning during attachment, not the tests.
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=r"'get_child_watcher' is deprecated as of Python 3\.12 and will be removed in Python 3\.14\.",
+            category=DeprecationWarning,
+            module=r"asyncio\.events",
+        )
+        n = pynvim.attach(
+            "child", argv=["nvim", "--embed", "--clean", "-n", "-i", "NONE"]
+        )
     try:
         n.ui_attach(100, 25, rgb=True)
         n.exec_lua("""
