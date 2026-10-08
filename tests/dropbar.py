@@ -43,7 +43,14 @@ with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
                 if not mode["blocking"] and check():
                     return
                 time.sleep(0.05)
-            raise AssertionError(f"Stage timed out: {stage}; Neovim mode={mode}")
+            details = n.exec_lua("""
+                return {win = vim.api.nvim_get_current_win(),
+                    filetype = vim.bo.filetype, buffer = vim.api.nvim_buf_get_name(0)}
+            """) if not mode["blocking"] else {}
+            raise AssertionError(
+                f"Stage timed out: {stage}; Neovim mode={mode}; focus={details}; "
+                f"messages={n.command_output('messages') if not mode['blocking'] else '<blocked>'}"
+            )
 
         def close_menu():
             # Check focus and execute the actual buffer-local q mapping in one
@@ -118,27 +125,60 @@ with tempfile.TemporaryDirectory(prefix="nvim-dropbar-") as directory:
         bar()
         # Select the notebook path itself, not an arbitrary ancestor of the
         # host's temporary directory (whose contents vary between machines).
-        pivot = n.exec_lua("""
+        n.exec_lua("""
             local bar = require('dropbar.utils').bar.get_current()
+            bar:_update()
             local index = 0
+            local pivot
             for _, component in ipairs(bar.components) do
                 if component.on_click then
                     index = index + 1
                     if (component._.opts.name or component.name) == 'navigation.ipynb' then
-                        return require('dropbar.configs').opts.bar.pick.pivots:sub(index, index)
+                        pivot = require('dropbar.configs').opts.bar.pick.pivots:sub(index, index)
+                        break
                     end
                 end
             end
+            assert(pivot and pivot ~= '', 'Notebook path has no keyboard pivot')
+            assert(vim.fn.maparg(' ;', 'n') ~= '', 'Missing breadcrumb picker mapping')
+            -- Reproduce a refresh already queued when the user opens the menu.
+            -- A later timer proves the debounce has elapsed before we inspect it.
+            bar:update()
+            refresh_elapsed = false
+            vim.defer_fn(function() refresh_elapsed = true end,
+                require('dropbar.configs').opts.bar.update_debounce + 20)
+            -- Open through the real mapping before the queued refresh can run.
+            -- Supply its getchar() response in the same editor call.
+            vim.api.nvim_feedkeys(' ;' .. pivot, 'mx', false)
         """)
-        assert pivot, labels
-        n.input(" ;" + pivot)
         wait(menu, "keyboard path menu focused")
+        wait(lambda: n.exec_lua("return refresh_elapsed"), "pending breadcrumb refresh elapsed")
+        assert menu(), "pending breadcrumb refresh closed the active menu"
+        # An edit while the menu is open must be reflected after dismissal.
+        source_buf = n.exec_lua(
+            "return require('dropbar.utils').menu.get_current():root().prev_buf"
+        )
+        n.api.buf_set_lines(source_buf, notes - 1, notes, False, ["# ## Updated results"])
+        n.exec_lua("""
+            local menu = require('dropbar.utils').menu.get_current():root()
+            require('dropbar.utils').bar.get({win = menu.prev_win}):_update()
+        """)
+        assert menu(), "source edit closed the active menu"
+        # A menu in one split must not freeze breadcrumbs in another split.
+        n.api.win_set_cursor(firstwin, [notes, 0])
+        assert any("Updated results" in label for label in bar(firstwin))
+        assert menu(), "refreshing another split closed the active menu"
         close_menu()
         assert n.current.window.handle == secondwin
-        # Unsaved edits invalidate cached cell labels.
-        n.current.buffer[notes - 1] = "# ## Updated results"
-        labels = bar()
-        assert any("Updated results" in s for s in labels), labels
+        wait(lambda: n.exec_lua("""
+            local bar = require('dropbar.utils').bar.get_current()
+            for _, component in ipairs(bar.components) do
+                if (component._.opts.name or component.name):find('Updated results', 1, true) then
+                    return true
+                end
+            end
+            return false
+        """), "deferred breadcrumb refresh after dismissal")
         n.current.buffer[:] = source
         n.command("write")
         saved = nbformat.read(path, as_version=4)

@@ -61,6 +61,7 @@ return {
     end,
     config = function(_, opts)
       require('dropbar').setup(opts)
+      require('custom.navigation.dropbar').setup()
       local function highlights()
         -- PmenuSel's bright background washes out the colored cell labels.
         vim.api.nvim_set_hl(0, 'DropBarMenuCurrentContext', { link = 'Visual' })
