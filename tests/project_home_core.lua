@@ -116,7 +116,7 @@ assert(vim.wo.number and vim.wo.statusline == 'ORIGINAL', 'file restores editor 
 vim.cmd.tabclose()
 ctx.dispatch 'close'
 assert(vim.wo.number and vim.wo.statusline == 'ORIGINAL', 'dashboard options restored')
--- JSON split sessions restore in the current tab, keeping modified buffers intact.
+-- JSON split sessions replace the current tab, keeping modified buffers intact.
 vim.cmd('edit ' .. vim.fn.fnameescape(tmp .. '/one.lua'))
 vim.cmd.vsplit(tmp .. '/two.lua')
 vim.api.nvim_win_set_cursor(0, { 2, 1 })
@@ -136,7 +136,7 @@ assert(require('custom.project_home.sessions').restore(session, { window_options
 for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
   assert(vim.wo[win].number and vim.wo[win].statusline == 'ORIGINAL', 'restored windows use editor options')
 end
-assert(#vim.api.nvim_list_tabpages() == oldtabs and vim.api.nvim_get_current_tabpage() == oldtab and vim.bo[dirty].modified)
+assert(#vim.api.nvim_list_tabpages() == oldtabs and not vim.api.nvim_tabpage_is_valid(oldtab) and vim.bo[dirty].modified)
 assert(
   vim.api.nvim_buf_is_loaded(extra) and vim.bo[extra].modified and vim.api.nvim_buf_get_lines(extra, 0, -1, false)[1] == 'unsaved extra',
   'unrestored dirty buffer survives in memory'

@@ -36,11 +36,11 @@ local original_tabs = vim.api.nvim_list_tabpages()
 vim.cmd 'tabnew'
 local target = vim.api.nvim_get_current_tabpage()
 assert(sessions.restore(project, { root = root .. '/a' }))
-assert(#vim.api.nvim_list_tabpages() == 6, 'project reuses target and adds one tab')
+assert(#vim.api.nvim_list_tabpages() == 6, 'project replaces target and adds one tab')
 for _, tab in ipairs(original_tabs) do
   assert(vim.api.nvim_tabpage_is_valid(tab), 'unrelated tabs preserved')
 end
-assert(vim.api.nvim_tabpage_is_valid(target), 'dashboard tab reused')
+assert(not vim.api.nvim_tabpage_is_valid(target), 'dashboard tab replaced after construction')
 assert(vim.api.nvim_buf_get_name(0) == root .. '/a/three.lua', 'active window restored')
 assert(vim.deep_equal(vim.api.nvim_win_get_cursor(0), { 2, 2 }), 'active cursor restored')
 -- A global restore hides dirty buffers even with destructive bufhidden settings.
@@ -54,9 +54,37 @@ invalid.tabs[4].tree = { kind = 'leaf', path = root .. '/missing' }
 local before = vim.api.nvim_list_tabpages()
 assert(not sessions.restore(invalid, { scope = 'global' }))
 assert(vim.deep_equal(before, vim.api.nvim_list_tabpages()), 'invalid snapshot leaves all tabs unchanged')
+-- A valid layout may no longer fit a smaller terminal. Failure after building
+-- one replacement tab must preserve every original tab, window, and dirty buffer.
+local columns = vim.o.columns
+vim.o.columns = 12
+local original_win = vim.api.nvim_get_current_win()
+local layouts = {}
+for _, tab in ipairs(before) do
+  layouts[tab] = vim.fn.winlayout(vim.api.nvim_tabpage_get_number(tab))
+end
+for _, scope in ipairs { 'project', 'global' } do
+  local cramped = vim.deepcopy(scope == 'global' and global or project)
+  local children = {}
+  for _ = 1, 8 do
+    children[#children + 1] = { kind = 'leaf', path = root .. '/a/one.lua', width = 19, height = 20 }
+  end
+  cramped.tabs[2].tree = { kind = 'row', children = children, width = 152, height = 20 }
+  assert(sessions.inspect(cramped, true, nil, scope), 'snapshot passes path validation')
+  local ok, err = sessions.restore(cramped, { scope = scope })
+  assert(not ok and err:find('E36', 1, true), 'narrow terminal rejects saved splits')
+  assert(vim.deep_equal(before, vim.api.nvim_list_tabpages()), 'failure removes only temporary tabs')
+  assert(vim.api.nvim_get_current_win() == original_win, 'failure restores original focus')
+  for _, tab in ipairs(before) do
+    assert(vim.deep_equal(layouts[tab], vim.fn.winlayout(vim.api.nvim_tabpage_get_number(tab))), 'original windows remain intact')
+  end
+  assert(vim.api.nvim_buf_is_loaded(dirty) and vim.bo[dirty].modified, 'failure preserves dirty buffers')
+  assert(vim.bo[dirty].bufhidden == 'wipe' and not sessions.restoring, 'failure restores options and save guard')
+end
+vim.o.columns = columns
 assert(sessions.restore(global, { scope = 'global' }))
 assert(#vim.api.nvim_list_tabpages() == 4, 'global replaces entire tab layout')
-assert(vim.api.nvim_tabpage_is_valid(current), 'global reuses current tab as first restored tab')
+assert(not vim.api.nvim_tabpage_is_valid(current), 'global replaces original tabs after construction')
 assert(vim.api.nvim_buf_is_loaded(dirty) and vim.bo[dirty].modified, 'global preserves unsaved buffers')
 assert(vim.api.nvim_buf_get_lines(dirty, 0, -1, false)[1] == 'unsaved unrelated work')
 assert(vim.api.nvim_buf_get_name(0) == root .. '/a/three.lua')
