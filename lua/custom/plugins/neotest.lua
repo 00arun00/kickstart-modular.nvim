@@ -15,7 +15,7 @@ return {
       { '<leader>tf', function() require('neotest').run.run(vim.api.nvim_buf_get_name(0)) end, desc = 'Tests: test file' },
       {
         '<leader>ta',
-        function() require('neotest').run.run(require('custom.python.venv').root(require('custom.python.venv').here())) end,
+        function() require('neotest').project.run(require('custom.python.venv').root(require('custom.python.venv').here())) end,
         desc = 'Tests: test project',
       },
       { '<leader>td', function() require('neotest').run.run { strategy = 'dap' } end, desc = 'Tests: debug nearest test' },
@@ -26,13 +26,44 @@ return {
       { '<leader>tl', function() require('neotest').run.run_last() end, desc = 'Tests: rerun last test' },
     },
     opts = function()
+      local env = require 'custom.python.venv'
+      local adapter = require 'neotest-python' {
+        python = function(root) return env.python(root) end,
+        dap = { justMyCode = false },
+      }
+      -- unittest resolves module names from cwd, including when the editor
+      -- was opened in a different project. Apply the same cwd to debugging.
+      local build_spec = adapter.build_spec
+      adapter.build_spec = function(args)
+        local position = args.tree:data()
+        if position.type == 'dir' then
+          local root = adapter.root(position.path) or vim.fn.getcwd()
+          if require('neotest-python.base').get_runner { env.python(root) } == 'unittest' then
+            -- unittest discovery skips non-package subdirectories on Python 3.11.
+            -- Let Neotest run its discovered files instead of rediscovering them.
+            return nil
+          end
+        end
+        local spec = build_spec(args)
+        spec.cwd = adapter.root(args.tree:data().path) or vim.fn.getcwd()
+        if type(spec.strategy) == 'table' then spec.strategy.cwd = spec.cwd end
+        return spec
+      end
       return {
-        adapters = {
-          require 'neotest-python' {
-            python = function(root) return require('custom.python.venv').python(root) end,
-            runner = 'pytest',
-            dap = { justMyCode = false },
-          },
+        status = { signs = true, virtual_text = false },
+        adapters = { adapter },
+        consumers = {
+          project = function(client)
+            return {
+              run = require('nio').create(function(root)
+                -- Neotest has no public refresh consumer. Await discovery before
+                -- running so files added outside the editor join this run too.
+                root = vim.uv.fs_realpath(root) or root
+                client:_update_positions(root)
+                require('neotest').run.run(root)
+              end, 1),
+            }
+          end,
         },
       }
     end,
