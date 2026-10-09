@@ -74,6 +74,25 @@ try:
         "local s = require('neotest').state; for _,id in ipairs(s.adapter_ids()) do local c = s.status_counts(id); if c and c.passed == 1 and c.failed == 1 then return c end end"
     )
     assert counts["total"] == 2, counts
+    wait("return #vim.fn.sign_getplaced(vim.api.nvim_get_current_buf(), {group='neotest-status'})[1].signs > 0")
+    n.exec_lua("""
+      local config = require('neotest.config')
+      local function indicator()
+        vim.cmd('redraw!')
+        return vim.api.nvim_eval_statusline(vim.wo.statuscolumn,
+          {use_statuscol_lnum=4}).str
+      end
+      assert(indicator():find(config.icons.passed, 1, true), 'missing real passing test sign')
+      local ns = vim.api.nvim_create_namespace('neotest-gutter-collision')
+      vim.diagnostic.set(ns, 0, {{lnum=3, col=0, message='fixture', severity=vim.diagnostic.severity.ERROR}})
+      assert(not indicator():find(config.icons.passed, 1, true), 'test sign hid diagnostic')
+      require('dap.breakpoints').set({}, vim.api.nvim_get_current_buf(), 4)
+      local bp = vim.fn.sign_getdefined('DapBreakpoint')[1].text:gsub('%s', '')
+      assert(indicator():find(bp, 1, true), 'diagnostic or test hid breakpoint')
+      require('dap.breakpoints').clear()
+      vim.diagnostic.reset(ns)
+      assert(indicator():find(config.icons.passed, 1, true), 'test sign did not return')
+    """)
     # Debug the nearest pytest test through its new mapping and real adapter.
     n.current.window.cursor = (4, 0)
     n.exec_lua("""

@@ -10,15 +10,12 @@ function M.setup()
         sign = { namespace = { '^gitsigns' }, maxwidth = 1, colwidth = 1, auto = true },
         click = 'v:lua.ScSa',
       },
-      { text = { builtin.foldfunc }, condition = { function(args) return vim.wo[args.win].foldenable end }, click = 'v:lua.ScFa' },
       {
-        -- The wildcard excludes signs claimed by the dedicated segments above.
-        -- DAP uses priority 21; diagnostics use 10-13. Future test signs should
-        -- use a lower priority to keep breakpoints and diagnostics visible.
-        sign = { name = { '.*' }, namespace = { '.*' }, maxwidth = 1, colwidth = 1, auto = true },
+        text = { require('custom.navigation.indicators').render },
         click = 'v:lua.ScSa',
       },
       { text = { builtin.lnumfunc, ' ' }, click = 'v:lua.ScLa' },
+      { text = { builtin.foldfunc }, condition = { function(args) return vim.wo[args.win].foldenable end }, click = 'v:lua.ScFa' },
     },
   }
 
