@@ -160,6 +160,18 @@ output and the summary retain results when another indicator occupies the slot.
 | `<leader>de` | Evaluate expression (normal or visual mode) |
 | `<leader>du` / `<leader>dq` | Toggle debugger UI / terminate |
 
+To inspect the latest result, place the cursor on or inside a test and press
+`<leader>to` to open its per-test report in a scrollable floating window.
+The popup uses diagnostic-style placement, a rounded border and `NormalFloat`
+background, with a green Passed or red Failed title/border.
+Parametrized cases remain grouped under their function. File/class entries fall
+back to the complete run log when no per-test report exists. The unittest adapter
+does not supply per-test reports, so its output also uses the full-log fallback. In the Neotest
+summary, select a test and press `K`, `o`, or `<leader>to` for that test's output;
+`O` also shows the per-test report; `go` explicitly opens the full run log. `[f` jumps to the previous failed test. Close the popup with `:close`. `<leader>tO` toggles
+the full output panel. Available logs depend on what the test runner captures;
+pytest normally includes captured stdout/stderr for failures, not passing tests.
+
 Start debugging from a `.py` file. The launch picker offers current-file and
 pytest-current-file configurations. For custom modules/arguments, use a project
 `.vscode/launch.json` as supported by nvim-dap. Notebook cell debugging is not
