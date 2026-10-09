@@ -138,6 +138,7 @@ function M.restore(session, opts)
     vim.api.nvim_set_current_win(win)
     if node.kind == 'leaf' then
       local b = vim.fn.bufadd(node.path)
+      vim.bo[b].buflisted = true
       vim.fn.bufload(b)
       vim.api.nvim_win_set_buf(win, b)
       for key, value in pairs(opts.window_options or {}) do
