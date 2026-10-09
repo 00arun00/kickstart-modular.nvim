@@ -103,6 +103,8 @@ real kernel execution, interpreter/cwd selection, output export, and reopening.
 
 ## Tests and debugging
 
+Test actions use `<leader>t`; toggles use `<leader>T`.
+
 Neotest discovers pytest tests and shows results inline and in a summary tree.
 The test interpreter comes from the same resolver as notebook kernels and LSP.
 Debugpy itself lives in the editor host; the program being debugged uses project
@@ -110,11 +112,11 @@ Python. This avoids requiring debugpy in each project.
 
 | Key | Action |
 | --- | --- |
-| `<leader>pt` / `<leader>pf` / `<leader>pa` | Run nearest test / file / project |
-| `<leader>pd` | Debug nearest test |
-| `<leader>ps` | Toggle test summary tree |
-| `<leader>po` / `<leader>pO` | Open test output / output panel |
-| `<leader>pl` / `<leader>px` | Rerun last / stop tests |
+| `<leader>tn` / `<leader>tf` / `<leader>ta` | Run nearest test / file / project |
+| `<leader>td` | Debug nearest test |
+| `<leader>ts` | Toggle test summary tree |
+| `<leader>to` / `<leader>tO` | Open test output / output panel |
+| `<leader>tl` / `<leader>tx` | Rerun last / stop tests |
 | `<leader>db` / `<leader>dB` | Toggle breakpoint / conditional breakpoint |
 | `<F5>` or `<leader>dc` | Start or continue debugger |
 | `<F10>` / `<F11>` / `<F12>` | Step over / into / out |

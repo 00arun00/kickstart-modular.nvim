@@ -23,7 +23,7 @@ return {
         desc = 'Send marks to quickfix',
       },
       { '<leader>mt', '<cmd>GutterMarks toggle<CR>', desc = 'Toggle mark signs' },
-      { '<leader>tm', '<cmd>GutterMarks toggle<CR>', desc = '[T]oggle [M]ark signs' },
+      { '<leader>Tm', '<cmd>GutterMarks toggle<CR>', desc = '[T]oggle [M]ark signs' },
     },
   },
 }

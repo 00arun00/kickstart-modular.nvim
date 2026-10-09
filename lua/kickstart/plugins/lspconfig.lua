@@ -112,7 +112,7 @@ return {
           --
           -- This may be unwanted, since they displace some of your code
           if client and client:supports_method('textDocument/inlayHint', event.buf) then
-            map('<leader>th', function() vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf }) end, '[T]oggle Inlay [H]ints')
+            map('<leader>Th', function() vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf }) end, '[T]oggle Inlay [H]ints')
           end
         end,
       })
@@ -151,8 +151,9 @@ return {
           -- leaves the client pointing at the original table and the value is
           -- silently dropped. Same `on_init` shape `lua_ls` uses below.
           on_init = function(client)
+            local root = client.root_dir or assert(vim.uv.cwd())
             client.settings = vim.tbl_deep_extend('force', client.settings or {}, {
-              python = { pythonPath = require('custom.python.venv').python(client.root_dir or assert(vim.uv.cwd())) },
+              python = { pythonPath = require('custom.python.venv').python(root) },
             })
           end,
           settings = {

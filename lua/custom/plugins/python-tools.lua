@@ -57,42 +57,6 @@ return {
     end,
   },
   {
-    'nvim-neotest/neotest',
-    dependencies = {
-      'nvim-neotest/neotest-python',
-      'nvim-neotest/nvim-nio',
-      'nvim-lua/plenary.nvim',
-      'nvim-treesitter/nvim-treesitter',
-      'mfussenegger/nvim-dap',
-    },
-    keys = {
-      { '<leader>pt', function() require('neotest').run.run() end, desc = 'Python: nearest test' },
-      { '<leader>pf', function() require('neotest').run.run(vim.api.nvim_buf_get_name(0)) end, desc = 'Python: test file' },
-      {
-        '<leader>pa',
-        function() require('neotest').run.run(require('custom.python.venv').root(require('custom.python.venv').here())) end,
-        desc = 'Python: test project',
-      },
-      { '<leader>pd', function() require('neotest').run.run { strategy = 'dap' } end, desc = 'Python: debug nearest test' },
-      { '<leader>ps', function() require('neotest').summary.toggle() end, desc = 'Python: test summary' },
-      { '<leader>po', function() require('neotest').output.open { enter = true, auto_close = true } end, desc = 'Python: test output' },
-      { '<leader>pO', function() require('neotest').output_panel.toggle() end, desc = 'Python: test output panel' },
-      { '<leader>px', function() require('neotest').run.stop() end, desc = 'Python: stop test' },
-      { '<leader>pl', function() require('neotest').run.run_last() end, desc = 'Python: rerun last test' },
-    },
-    opts = function()
-      return {
-        adapters = {
-          require 'neotest-python' {
-            python = function(root) return require('custom.python.venv').python(root) end,
-            runner = 'pytest',
-            dap = { justMyCode = false },
-          },
-        },
-      }
-    end,
-  },
-  {
     'folke/which-key.nvim',
     opts = function(_, opts) vim.list_extend(opts.spec, { { '<leader>d', group = 'debug' } }) end,
   },
