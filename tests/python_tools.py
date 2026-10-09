@@ -93,6 +93,37 @@ try:
       vim.diagnostic.reset(ns)
       assert(indicator():find(config.icons.passed, 1, true), 'test sign did not return')
     """)
+    # The popup shares diagnostic styling and communicates the result by color.
+    n.current.window.cursor = (4, 0)
+    n.input(" to")
+    wait("return vim.bo.filetype == 'neotest-output'")
+    n.exec_lua("local c=vim.api.nvim_win_get_config(0); assert(c.border[1][2]=='DiagnosticOk'); assert(c.title[1][1]:find('Passed')); assert(vim.wo.winhighlight:find('NormalFloat',1,true))")
+    n.command("close")
+    # Read the latest failure from both the source line and the summary selection.
+    n.current.window.cursor = (7, 0)
+    n.input(" to")
+    wait("return vim.bo.filetype == 'neotest-output'")
+    wait("return table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), '\\n'):find('assert 1 == 2', 1, true)")
+    n.exec_lua("local c=vim.api.nvim_win_get_config(0); assert(c.border[1][2]=='DiagnosticError'); assert(c.title[1][1]:find('Failed'))")
+    assert "test session starts" not in "\n".join(n.current.buffer[:]), "test popup must not show the entire run"
+    assert "test_environment" not in "\n".join(n.current.buffer[:]), "unrelated test leaked into popup"
+    n.command("close")
+    n.exec_lua("require('neotest').summary.open({enter=true})")
+    wait("return vim.bo.filetype == 'neotest-summary'")
+    wait("for i,line in ipairs(vim.api.nvim_buf_get_lines(0, 0, -1, false)) do if line:find('test_failure_is_reported', 1, true) then vim.api.nvim_win_set_cursor(0, {i,0}); return true end end")
+    for key in ("K", " to"):
+        n.input(key)
+        wait("return vim.bo.filetype == 'neotest-output'")
+        wait("return table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), '\\n'):find('assert 1 == 2', 1, true)")
+        assert "test session starts" not in "\n".join(n.current.buffer[:])
+        n.command("close")
+    # File entries have no per-test report and should retain the complete log.
+    n.exec_lua("for i,line in ipairs(vim.api.nvim_buf_get_lines(0,0,-1,false)) do if line:find('test_pde_smoke.py',1,true) then vim.api.nvim_win_set_cursor(0,{i,0}); return end end; error('missing file row')")
+    n.input(" to")
+    wait("return vim.bo.filetype == 'neotest-output'")
+    wait("return table.concat(vim.api.nvim_buf_get_lines(0,0,-1,false), '\\n'):find('test session starts',1,true)")
+    n.command("close")
+    n.exec_lua("require('neotest').summary.close()")
     # Debug the nearest pytest test through its new mapping and real adapter.
     n.current.window.cursor = (4, 0)
     n.exec_lua("""

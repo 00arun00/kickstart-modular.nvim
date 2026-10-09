@@ -20,7 +20,7 @@ return {
       },
       { '<leader>td', function() require('neotest').run.run { strategy = 'dap' } end, desc = 'Tests: debug nearest test' },
       { '<leader>ts', function() require('neotest').summary.toggle() end, desc = 'Tests: test summary' },
-      { '<leader>to', function() require('neotest').output.open { enter = true, auto_close = true } end, desc = 'Tests: test output' },
+      { '<leader>to', function() require('neotest').output.open { short = true, enter = true, auto_close = true } end, desc = 'Tests: test output' },
       { '<leader>tO', function() require('neotest').output_panel.toggle() end, desc = 'Tests: test output panel' },
       { '<leader>tx', function() require('neotest').run.stop() end, desc = 'Tests: stop test' },
       { '<leader>tl', function() require('neotest').run.run_last() end, desc = 'Tests: rerun last test' },
@@ -53,8 +53,10 @@ return {
         icons = { passed = '', failed = '' },
         highlights = { passed = 'DiagnosticOk', failed = 'DiagnosticError' },
         status = { signs = true, virtual_text = false },
+        summary = { mappings = { short = { 'o', 'O', 'K', '<leader>to' }, output = 'go', prev_failed = '[f' } },
         adapters = { adapter },
         consumers = {
+          output_style = require 'custom.navigation.test_output',
           project = function(client)
             return {
               run = require('nio').create(function(root)
