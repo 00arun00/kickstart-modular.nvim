@@ -90,19 +90,21 @@ def signed_gutter(nvim):
 
 def test_indicator_order_and_scroll_stability(signed_gutter):
     n, baseline = signed_gutter
-    assert rendered(n, 2).startswith("b+vE")
-    assert rendered(n, 2)[4:].strip() == "1", "relative number"
-    assert rendered(n)[4:].strip() == "1", "current absolute number"
+    assert rendered(n, 2).startswith("b+E")
+    assert rendered(n, 2)[3:-1].strip() == "1", "relative number"
+    assert rendered(n, 2).endswith("v"), "fold follows the number"
+    assert rendered(n)[3:-1].strip() == "1", "current absolute number"
     n.command("normal! zM")
-    assert rendered(n, 2).startswith("b+>E")
+    assert rendered(n, 2).startswith("b+E")
+    assert rendered(n, 2).endswith(">")
     n.command("normal! zR")
     assert len(rendered(n)) == len(baseline) + 4
     n.command("normal! 90Gzt")
     assert len(rendered(n, 90)) == len(baseline) + 4, (
         "offscreen signs lost their columns"
     )
-    assert rendered(n, 90)[4:].strip() == "90"
-    assert rendered(n, 91)[4:].strip() == "1"
+    assert rendered(n, 90)[3:-1].strip() == "90"
+    assert rendered(n, 91)[3:-1].strip() == "1"
 
 
 def test_breakpoint_priority_and_fallback(signed_gutter):
@@ -115,13 +117,14 @@ def test_breakpoint_priority_and_fallback(signed_gutter):
         vim.api.nvim_buf_set_extmark(0, test_ns, 1, 0,
             {sign_text = 'T', sign_hl_group = 'Special', priority = 5})
     """)
-    assert rendered(n, 2).startswith("b+vB")
+    assert rendered(n, 2).startswith("b+B")
     n.exec_lua("require('dap.breakpoints').clear()")
-    assert rendered(n, 2).startswith("b+vE")
+    assert rendered(n, 2).startswith("b+E")
     n.exec_lua("vim.diagnostic.reset(diagnostic_ns)")
-    assert rendered(n, 2).startswith("b+vT")
+    assert rendered(n, 2).startswith("b+T")
     n.exec_lua("vim.api.nvim_buf_clear_namespace(0, test_ns, 0, -1)")
-    assert rendered(n, 2).startswith("b+v")
+    assert rendered(n, 2).startswith("b+")
+    assert rendered(n, 2).endswith("v")
 
 
 def test_empty_columns_collapse_and_folds_restore(signed_gutter):
@@ -157,7 +160,7 @@ def test_native_fold_commands_restore_column(nvim):
     n.command("normal! 2Gza")
     assert n.current.window.options["foldenable"]
     assert n.current.window.options["foldcolumn"] == "auto:1"
-    assert rendered(n, 2).startswith(">")
+    assert rendered(n, 2).endswith(">")
 
 
 @pytest.mark.parametrize("split", ["vsplit", "split", "tab split"])
@@ -171,7 +174,7 @@ def test_split_preserves_disabled_fold_column(nvim, split, foldcolumn):
     n.command("setlocal foldenable")
     assert n.current.window.options["foldcolumn"] == foldcolumn
     if foldcolumn != "0":
-        assert rendered(n, 2).startswith("v")
+        assert rendered(n, 2).endswith("v")
     n.command("close")
     assert not n.current.window.options["foldenable"]
     assert n.current.window.options["foldcolumn"] == "0"
@@ -188,7 +191,7 @@ def test_empty_split_does_not_inherit_active_columns(signed_gutter):
     assert len(rendered(n)) == len(baseline), "empty split inherited source columns"
     n.command("close")
     assert n.current.window.handle == source
-    assert rendered(n, 2).startswith("b+vE"), "source columns changed"
+    assert rendered(n, 2).startswith("b+E"), "source columns changed"
 
 
 def test_float_excludes_an_ordinary_editing_buffer(signed_gutter):
@@ -211,7 +214,7 @@ def test_float_excludes_an_ordinary_editing_buffer(signed_gutter):
     assert n.current.window.options["statuscolumn"] == ""
     n.command("close")
     assert n.current.window.handle == source
-    assert rendered(n, 2).startswith("b+vE")
+    assert rendered(n, 2).startswith("b+E")
 
 
 @pytest.mark.parametrize(

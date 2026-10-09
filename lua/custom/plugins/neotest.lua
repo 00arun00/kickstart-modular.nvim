@@ -50,6 +50,8 @@ return {
         return spec
       end
       return {
+        icons = { passed = '', failed = '' },
+        highlights = { passed = 'DiagnosticOk', failed = 'DiagnosticError' },
         status = { signs = true, virtual_text = false },
         adapters = { adapter },
         consumers = {

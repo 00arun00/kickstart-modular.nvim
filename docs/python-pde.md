@@ -142,6 +142,11 @@ configuration for those. Static imports introduced by runtime `sys.path` changes
 need declared source roots (for example, basedpyright `extraPaths` in project
 configuration); selecting an interpreter alone cannot resolve them.
 
+Open a `test_*.py` file, use `<leader>ts` to inspect discovery, then run a test
+with `<leader>tn`. Status signs appear in the shared indicators column with
+breakpoints ahead of diagnostics and diagnostics ahead of test status. Test
+output and the summary retain results when another indicator occupies the slot.
+
 | Key | Action |
 | --- | --- |
 | `<leader>tn` / `<leader>tf` / `<leader>ta` | Run nearest test / file / project |
