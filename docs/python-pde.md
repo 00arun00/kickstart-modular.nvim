@@ -112,12 +112,35 @@ real kernel execution, interpreter/cwd selection, output export, and reopening.
 
 ## Tests and debugging
 
-Test actions use `<leader>t`; toggles use `<leader>T`.
-
-Neotest discovers pytest tests and shows results inline and in a summary tree.
+Neotest discovers pytest and unittest tests and shows results inline and in a summary tree.
 The test interpreter comes from the same resolver as notebook kernels and LSP.
 Debugpy itself lives in the editor host; the program being debugged uses project
 Python. This avoids requiring debugpy in each project.
+
+Test actions live under `<leader>t` (Tests), leaving `<leader>T` for toggles.
+They are configured in `lua/custom/plugins/neotest.lua`; Python is the initial
+adapter. The adapter chooses pytest when installed in the selected environment,
+then Django, otherwise the standard-library unittest runner. Project/directory
+runs with unittest execute Neotest’s discovered files individually, including
+files under test directories without `__init__.py`. `<leader>ta` refreshes
+discovery before running, including files added outside the editor. Unittest
+project runs use a separate process for each discovered file. Restart Neovim after
+adding a runner to an existing environment because the adapter caches detection.
+
+Use `:PyVenvInfo` to inspect interpreter selection. Automatic selection finds the
+nearest `.venv`; `:PyVenvSet /path/to/venv` selects an alternative for the current
+project and remembers it in Neovim's local state across editor sessions.
+`:PyVenvReset` removes that selection. Tests, basedpyright, notebook kernels and
+debugged programs use the same selection. Python servers in the current editor restart automatically;
+restart existing kernels, debug sessions, and servers in other editors separately. A missing saved environment
+produces an actionable error instead of silently running a different Python.
+
+Select the environment that contains the project's dependencies and test runner.
+The editor does not install dependencies or override project test arguments,
+markers, environment variables, or source paths. Use the project's normal test
+configuration for those. Static imports introduced by runtime `sys.path` changes
+need declared source roots (for example, basedpyright `extraPaths` in project
+configuration); selecting an interpreter alone cannot resolve them.
 
 | Key | Action |
 | --- | --- |
@@ -145,7 +168,8 @@ To rerun the real debugger/test checks using the disposable uv project:
 
 This test creates `test_pde_smoke.py` (one intentionally failing test) and
 `pde_debug.py`, then verifies LSP interpreter selection/restart, both pytest
-results, a debugpy breakpoint, and the running debuggee's interpreter.
+results, a debugpy breakpoint, and the running debuggee's interpreter. A second
+disposable project verifies unittest pass/fail results without pytest installed.
 
 
 ## Variable explorer

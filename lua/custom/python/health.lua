@@ -21,11 +21,11 @@ function M.check()
   vim.health.info('Project Python: ' .. env.python(path))
   vim.health.info('Ruff: ' .. env.ruff(path))
   if not env.venv(path) then vim.health.warn('No project .venv; using PATH Python', { 'Run uv sync in your project' }) end
-  local result = vim.system({ env.python(path), '-c', 'import ipykernel, pytest' }, { text = true }):wait(10000)
+  local result = vim.system({ env.python(path), '-c', 'import ipykernel' }, { text = true }):wait(10000)
   if result.code == 0 then
-    vim.health.ok 'Project has ipykernel and pytest'
+    vim.health.ok 'Project has ipykernel'
   else
-    vim.health.warn('Project notebook/test dependencies missing', { 'Run uv add --dev ipykernel pytest', result.stderr or '' })
+    vim.health.warn('Project notebook dependency missing', { 'For notebooks, install ipykernel in the selected environment', result.stderr or '' })
   end
   if vim.fn.exists ':MoltenInit' == 2 then
     vim.health.ok 'Molten remote commands registered'
