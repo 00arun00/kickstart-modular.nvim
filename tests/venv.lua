@@ -20,8 +20,41 @@ local ok, err = xpcall(function()
   vim.cmd.edit(vim.fn.fnameescape(root .. '/main.py'))
   vim.cmd.PyVenvSet(root .. '/alternate')
   assert(env.python(root) == root .. '/alternate/bin/python')
+  -- A fresh module (another editor session) and a symlink share the selection.
+  package.loaded['custom.python.venv'] = nil
+  env = require 'custom.python.venv'
+  assert(env.python(root) == root .. '/alternate/bin/python')
+  local alias = root .. '-link'
+  assert(vim.uv.fs_symlink(root, alias))
+  assert(env.python(alias) == root .. '/alternate/bin/python')
+  vim.fn.delete(alias)
+  vim.fn.delete(root .. '/alternate/bin/python')
+  local valid, failure = pcall(env.python, root)
+  assert(not valid and failure:find 'PyVenvReset', 'stale selections must not silently fall back')
   vim.cmd.PyVenvReset()
   assert(env.python(root) == root .. '/.venv/bin/python')
+  executable(root .. '/alternate/bin/python')
+  local original_select, original_input = vim.ui.select, vim.ui.input
+  local choose
+  vim.ui.select = function(items, _, callback)
+    assert(vim.tbl_contains(items, root .. '/alternate'))
+    assert(vim.tbl_contains(items, root .. '/.venv'))
+    choose = callback
+  end
+  vim.cmd.PyVenvSet()
+  choose(nil)
+  assert(env.python(root) == root .. '/.venv/bin/python', 'cancelling must preserve selection')
+  -- Picker callbacks must retain the originating project even after a buffer switch.
+  vim.cmd.edit(vim.fn.fnameescape(root .. '/src/main.py'))
+  choose(root .. '/alternate')
+  assert(env.python(root) == root .. '/alternate/bin/python')
+  assert(env.python(root .. '/src') == root .. '/src/.venv/bin/python')
+  vim.cmd.edit(vim.fn.fnameescape(root .. '/main.py'))
+  vim.ui.input = function(_, callback) callback(root .. '/.venv') end
+  choose 'Enter another environment path…'
+  assert(env.python(root) == root .. '/.venv/bin/python')
+  vim.ui.select, vim.ui.input = original_select, original_input
+  vim.cmd.PyVenvReset()
   -- Load the module from a project cwd: helper lookup must follow the checkout.
   vim.fn.chdir(root)
   local name, spec = require('custom.python.notebook').kernel(root)

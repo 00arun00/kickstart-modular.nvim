@@ -88,3 +88,8 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 })
 
 -- vim: ts=2 sts=2 sw=2 et
+
+-- Python environment actions share the project-scoped resolver.
+vim.keymap.set('n', '<leader>pse', function() require('custom.python.venv').pick() end, { desc = 'Python: set environment' })
+vim.keymap.set('n', '<leader>pi', '<cmd>PyVenvInfo<cr>', { desc = 'Python: environment info' })
+vim.keymap.set('n', '<leader>pr', '<cmd>PyVenvReset<cr>', { desc = 'Python: reset environment' })

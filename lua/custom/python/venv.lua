@@ -17,10 +17,6 @@
 
 local M = {}
 
---- Overrides set by `:PyVenvSet`, keyed by project root.
----@type table<string, string>
-local overrides = {}
-
 local windows = vim.fn.has 'win32' == 1
 local bindir = windows and 'Scripts' or 'bin'
 local exe = windows and '.exe' or ''
@@ -29,16 +25,33 @@ local exe = windows and '.exe' or ''
 ---@param path string
 ---@return string|nil
 local function project_root(path)
-  local marker = vim.fs.find({ '.venv', 'pyproject.toml', '.git' }, { path = path, upward = true })[1]
+  local marker = vim.fs.find({ '.venv', 'pyproject.toml', 'setup.cfg', 'setup.py', 'pytest.ini', '.git' }, { path = path, upward = true })[1]
   return marker and vim.fs.dirname(marker) or nil
 end
 
---- Nearest `.venv` above `path`, honouring any `:PyVenvSet` override.
----@param path string
----@return string|nil
+-- One file per canonical project root keeps independent editor sessions from
+-- overwriting each other's selections. These are local preferences, not repo files.
+local function selection_file(root)
+  local key = vim.uv.fs_realpath(root) or vim.fs.normalize(root)
+  return vim.fs.joinpath(vim.fn.stdpath 'state', 'python-envs', vim.fn.sha256(key))
+end
+
+local function selection(root)
+  if not root then return nil end
+  local file = selection_file(root)
+  if vim.fn.filereadable(file) == 0 then return nil end
+  local path = vim.fn.readfile(file)[1]
+  return path and path ~= '' and path or nil
+end
+
+--- Nearest `.venv` above `path`, honouring the saved project selection.
 local function find_venv(path)
-  local root = project_root(path)
-  if root and overrides[root] then return overrides[root] end
+  local chosen = selection(project_root(path))
+  if chosen then
+    local python = vim.fs.joinpath(chosen, bindir, 'python' .. exe)
+    assert(vim.fn.executable(python) == 1, 'Saved Python environment is unavailable: ' .. chosen .. '. Use :PyVenvSet or :PyVenvReset')
+    return chosen
+  end
   return vim.fs.find('.venv', { path = path, upward = true, type = 'directory' })[1]
 end
 
@@ -118,7 +131,7 @@ end
 vim.api.nvim_create_user_command('PyVenvReset', function()
   local root = project_root(here())
   if root then
-    overrides[root] = nil
+    vim.fn.delete(selection_file(root))
     M.restart(root)
   end
 end, { desc = 'Return this project to automatic .venv detection' })
@@ -132,32 +145,73 @@ vim.api.nvim_create_user_command('PyVenvInfo', function()
     'python: ' .. M.python(path),
     'ruff:   ' .. M.ruff(path),
   }
-  if root and overrides[root] then table.insert(lines, 'override: set via :PyVenvSet') end
+  if selection(root) then table.insert(lines, 'override: saved via :PyVenvSet') end
   vim.notify(table.concat(lines, '\n'), vim.log.levels.INFO, { title = 'Python env' })
 end, { desc = 'Report the resolved Python interpreter and ruff binary' })
 
-vim.api.nvim_create_user_command('PyVenvSet', function(opts)
-  local input = vim.fn.expand(opts.args)
+local function set_venv(root, path)
+  local input = vim.fn.expand(path)
   local stat = vim.uv.fs_stat(input)
-  if not stat then return vim.notify('No such path: ' .. opts.args, vim.log.levels.ERROR, { title = 'Python env' }) end
+  if not stat then return vim.notify('No such path: ' .. path, vim.log.levels.ERROR, { title = 'Python env' }) end
 
   -- Accept the venv directory or an interpreter inside it (`<venv>/bin/python`).
   local venv = stat.type == 'directory' and input or vim.fs.dirname(vim.fs.dirname(input))
   if not tool(venv, 'python') then return vim.notify(venv .. ' does not look like a virtualenv', vim.log.levels.ERROR, { title = 'Python env' }) end
 
-  local root = project_root(here())
-  if not root then return vim.notify('Not inside a project - nothing to attach the override to', vim.log.levels.WARN, { title = 'Python env' }) end
-  overrides[root] = vim.fn.fnamemodify(venv, ':p'):gsub('/$', '')
+  venv = vim.fs.normalize(vim.fn.fnamemodify(venv, ':p')):gsub('/$', '')
+  local file = selection_file(root)
+  vim.fn.mkdir(vim.fs.dirname(file), 'p')
+  vim.fn.writefile({ venv }, file)
 
   M.restart(root)
   vim.notify(
-    'venv set to ' .. overrides[root] .. '\nPython servers restarting; restart active kernels/debug sessions separately',
+    'venv saved as ' .. venv .. '\nPython servers restarting; restart active kernels/debug sessions separately',
     vim.log.levels.INFO,
     { title = 'Python env' }
   )
+end
+
+function M.pick()
+  local root = project_root(here())
+  if not root then return vim.notify('Open a file inside a Python project first', vim.log.levels.WARN) end
+  local choices, seen = {}, {}
+  local function add(path)
+    if not path or not tool(path, 'python') then return end
+    local key = vim.uv.fs_realpath(path) or path
+    if seen[key] then return end
+    seen[key] = true
+    table.insert(choices, path)
+  end
+  add(selection(root))
+  add(vim.fs.find('.venv', { path = root, upward = true, type = 'directory' })[1])
+  -- Only immediate children: include any environment name without scanning
+  -- dependency trees or assuming which environment manager created it.
+  for name in vim.fs.dir(root) do
+    add(vim.fs.joinpath(root, name))
+  end
+  add(vim.env.VIRTUAL_ENV)
+  local manual = 'Enter another environment path…'
+  table.insert(choices, manual)
+  vim.ui.select(choices, { prompt = 'Python environment: ' .. vim.fs.basename(root) }, function(choice)
+    if not choice then return end
+    if choice == manual then
+      vim.ui.input({ prompt = 'Environment path: ', default = root .. '/', completion = 'dir' }, function(path)
+        if path and path ~= '' then set_venv(root, path) end
+      end)
+    else
+      set_venv(root, choice)
+    end
+  end)
+end
+
+vim.api.nvim_create_user_command('PyVenvSet', function(opts)
+  if opts.args == '' then return M.pick() end
+  local root = project_root(here())
+  if not root then return vim.notify('Open a file inside a Python project first', vim.log.levels.WARN) end
+  set_venv(root, opts.args)
 end, {
-  nargs = 1,
-  desc = 'Point Python tooling at a specific virtualenv',
+  nargs = '?',
+  desc = 'Pick or specify a virtualenv for this project',
   --- Project venvs first, then ordinary path completion so an interpreter
   --- outside the project still works.
   complete = function(arg_lead)
