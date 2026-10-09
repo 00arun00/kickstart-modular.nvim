@@ -4,10 +4,10 @@ Run with the editor host Python after installing plugins; argv[1] is a uv projec
 with pytest. Its .venv is selected even when Neovim starts outside that project.
 """
 
-import sys
-import time
 import subprocess
+import sys
 import tempfile
+import time
 from pathlib import Path
 
 import pynvim
@@ -50,6 +50,25 @@ def wait(lua, seconds=20):
     )
 
 
+def previews():
+    return n.exec_lua("local wins={}; for _,w in ipairs(vim.api.nvim_list_wins()) do if vim.w[w].test_navigation_preview then wins[#wins+1]=w end end; return wins")
+
+
+def navigate(key, row, status=None):
+    source = n.current.window.handle
+    n.input(key)
+    wait(f"return vim.api.nvim_win_get_cursor({source})[1] == {row}")
+    assert n.current.window.handle == source, "navigation stole source focus"
+    if status:
+        win = wait("for _,w in ipairs(vim.api.nvim_list_wins()) do if vim.w[w].test_navigation_preview then return w end end")
+        config = n.api.win_get_config(win)
+        assert not config["focusable"], config
+        assert status in str(config["title"]), config
+        assert len(previews()) == 1, "stale preview survived navigation"
+        return "\n".join(n.api.buf_get_lines(n.api.win_get_buf(win), 0, -1, False))
+    assert not previews(), "unrun test opened a result preview"
+
+
 try:
     n.ui_attach(120, 35, rgb=True)
     n.exec_lua(
@@ -68,12 +87,29 @@ try:
     wait(
         f"local c = vim.lsp.get_clients({{name='basedpyright',bufnr=0}}); return #c == 1 and c[1].id ~= {old}"
     )
-    # Exercise the actual lazy-loading test mapping, not only the Neotest API.
+    # Navigation must be available before any run or summary action.
+    wait("return vim.fn.maparg(']t', 'n', false, true).buffer == 1")
+    n.current.window.cursor = (1, 0)
+    navigate("]t", 4)
+    navigate("]t", 7)
+    navigate("[t", 4)
+    n.current.window.cursor = (1, 0)
+    # Exercise the actual test mapping, not only the Neotest API.
     n.input(" tf")
     counts = wait(
         "local s = require('neotest').state; for _,id in ipairs(s.adapter_ids()) do local c = s.status_counts(id); if c and c.passed == 1 and c.failed == 1 then return c end end"
     )
     assert counts["total"] == 2, counts
+    navigate("]t", 4, "Passed")
+    assert "assert 1 == 2" in navigate("]f", 7, "Failed")
+    navigate("[t", 4, "Passed")
+    # Previous-failure filtering must not return the current passing test.
+    n.current.window.cursor = (5, 0)
+    wait("for _,w in ipairs(vim.api.nvim_list_wins()) do if vim.w[w].test_navigation_preview then return false end end; return true")
+    navigate("[f", 5)
+    n.current.window.cursor = (8, 0)
+    assert "assert 1 == 2" in navigate("[f", 7, "Failed")
+    navigate("]t", 7)  # End of file: close the preview, do not wrap.
     wait("return #vim.fn.sign_getplaced(vim.api.nvim_get_current_buf(), {group='neotest-status'})[1].signs > 0")
     n.exec_lua("""
       local config = require('neotest.config')
@@ -110,6 +146,10 @@ try:
     n.command("close")
     n.exec_lua("require('neotest').summary.open({enter=true})")
     wait("return vim.bo.filetype == 'neotest-summary'")
+    n.exec_lua("local m=require('neotest.config').summary.mappings; assert(m.next_failed == ']f' and m.prev_failed == '[f')")
+    wait("for i,line in ipairs(vim.api.nvim_buf_get_lines(0,0,-1,false)) do if line:find('test_environment',1,true) then vim.api.nvim_win_set_cursor(0,{i,0}); return true end end")
+    n.input("]f")
+    wait("return vim.api.nvim_get_current_line():find('test_failure_is_reported',1,true)")
     wait("for i,line in ipairs(vim.api.nvim_buf_get_lines(0, 0, -1, false)) do if line:find('test_failure_is_reported', 1, true) then vim.api.nvim_win_set_cursor(0, {i,0}); return true end end")
     for key in ("K", " to"):
         n.input(key)
@@ -124,6 +164,15 @@ try:
     wait("return table.concat(vim.api.nvim_buf_get_lines(0,0,-1,false), '\\n'):find('test session starts',1,true)")
     n.command("close")
     n.exec_lua("require('neotest').summary.close()")
+    # Newly discovered tests work without results; class headings are skipped.
+    n.current.buffer.append(["", "class TestMore:", "    def test_unrun(self):", "        pass", "", "    def test_last(self):", "        pass"])
+    n.command("write")
+    wait("local s=require('neotest').state; for _,id in ipairs(s.adapter_ids()) do if s.status_counts(id).total == 4 then return true end end")
+    n.current.window.cursor = (7, 0)
+    navigate("]t", 11)
+    navigate("]t", 14)
+    navigate("[t", 11)
+    navigate("[f", 7, "Failed")
     # Debug the nearest pytest test through its new mapping and real adapter.
     n.current.window.cursor = (4, 0)
     n.exec_lua("""
@@ -139,6 +188,8 @@ try:
     n.exec_lua("require('dap').clear_breakpoints(); require('dap').continue()")
     wait("return require('dap').session() == nil")
     n.command("edit " + n.funcs.fnameescape(str(program)))
+    assert n.funcs.maparg("]t", "n", False, True).get("buffer") != 1
+    assert not previews(), "preview followed navigation into another buffer"
     n.current.window.cursor = (2, 0)
     n.exec_lua("""
       local dap = require('dap')
@@ -172,13 +223,19 @@ try:
         n.command("edit " + n.funcs.fnameescape(str(unit_file)))
         n.input(" ta")
         n.vars["unit_root"] = str(unit_root)
-        counts = wait("local s = require('neotest').state; for _,id in ipairs(s.adapter_ids()) do if id:find(vim.g.unit_root, 1, true) then local c = s.status_counts(id); if c and c.passed == 2 and c.failed == 1 then return c end end end")
+        counts = wait("local s = require('neotest').state; for _,id in ipairs(s.adapter_ids()) do if id == 'neotest-python:' .. vim.g.unit_root then local c = s.status_counts(id); if c and c.passed == 2 and c.failed == 1 then return c end end end")
         assert counts["total"] == 3, counts
+        wait("return vim.fn.maparg(']f', 'n', false, true).buffer == 1")
+        n.current.window.cursor = (1, 0)
+        report = navigate("]f", 5, "Failed")
+        assert "1 != 2" in report, report
+        assert "Ran 2 tests" not in report, "automatic preview included the full unittest log"
+        navigate("[t", 3, "Passed")
         # Change an existing test and add one outside Neovim: refresh must run both.
         unit_file.write_text(unit_file.read_text().replace("self.assertEqual(1, 2)", "self.assertEqual(1, 1)"))
         (unit_root / "tests" / "test_new.py").write_text("import unittest\nclass New(unittest.TestCase):\n    def test_new(self):\n        self.assertTrue(True)\n")
         n.input(" ta")
-        counts = wait("local s = require('neotest').state; for _,id in ipairs(s.adapter_ids()) do if id:find(vim.g.unit_root, 1, true) then local c = s.status_counts(id); if c and c.passed == 4 and c.failed == 0 and c.running == 0 then return c end end end")
+        counts = wait("local s = require('neotest').state; for _,id in ipairs(s.adapter_ids()) do if id == 'neotest-python:' .. vim.g.unit_root then local c = s.status_counts(id); if c and c.passed == 4 and c.failed == 0 and c.running == 0 then return c end end end")
         assert counts["total"] == 4, counts
 
     print(

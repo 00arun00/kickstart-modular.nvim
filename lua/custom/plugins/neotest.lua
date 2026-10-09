@@ -3,6 +3,7 @@
 return {
   {
     'nvim-neotest/neotest',
+    ft = 'python',
     dependencies = {
       'nvim-neotest/neotest-python',
       'nvim-neotest/nvim-nio',
@@ -53,9 +54,10 @@ return {
         icons = { passed = '', failed = '' },
         highlights = { passed = 'DiagnosticOk', failed = 'DiagnosticError' },
         status = { signs = true, virtual_text = false },
-        summary = { mappings = { short = { 'o', 'O', 'K', '<leader>to' }, output = 'go', prev_failed = '[f' } },
+        summary = { mappings = { short = { 'o', 'O', 'K', '<leader>to' }, output = 'go', prev_failed = '[f', next_failed = ']f' } },
         adapters = { adapter },
         consumers = {
+          navigation = require 'custom.navigation.tests',
           output_style = require 'custom.navigation.test_output',
           project = function(client)
             return {
@@ -63,8 +65,13 @@ return {
                 -- Neotest has no public refresh consumer. Await discovery before
                 -- running so files added outside the editor join this run too.
                 root = vim.uv.fs_realpath(root) or root
-                client:_update_positions(root)
-                require('neotest').run.run(root)
+                client:get_adapters() -- Ensure the client is started before registering this root.
+                client:_update_adapters(root)
+                -- Environment roots (e.g. a nested .venv) need not be adapter roots.
+                local adapter_id = client:get_adapter(adapter.root(root) or root)
+                if not adapter_id then return vim.notify('No test adapter found for ' .. root, vim.log.levels.WARN) end
+                client:_update_positions(root, { adapter = adapter_id })
+                require('neotest').run.run { root, adapter = adapter_id }
               end, 1),
             }
           end,
