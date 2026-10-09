@@ -154,6 +154,8 @@ output and the summary retain results when another indicator occupies the slot.
 | `<leader>ts` | Toggle test summary tree |
 | `<leader>to` / `<leader>tO` | Open test output / output panel |
 | `<leader>tl` / `<leader>tx` | Rerun last / stop tests |
+| `[t` / `]t` | Previous / next test in this buffer, with result preview |
+| `[f` / `]f` | Previous / next failed test in this buffer, with result preview |
 | `<leader>db` / `<leader>dB` | Toggle breakpoint / conditional breakpoint |
 | `<F5>` or `<leader>dc` | Start or continue debugger |
 | `<F10>` / `<F11>` / `<F12>` | Step over / into / out |
@@ -168,9 +170,19 @@ Parametrized cases remain grouped under their function. File/class entries fall
 back to the complete run log when no per-test report exists. The unittest adapter
 does not supply per-test reports, so its output also uses the full-log fallback. In the Neotest
 summary, select a test and press `K`, `o`, or `<leader>to` for that test's output;
-`O` also shows the per-test report; `go` explicitly opens the full run log. `[f` jumps to the previous failed test. Close the popup with `:close`. `<leader>tO` toggles
+`O` also shows the per-test report; `go` explicitly opens the full run log. `[f` and `]f` jump to the previous and next failure in the summary. Close the popup with `:close`. `<leader>tO` toggles
 the full output panel. Available logs depend on what the test runner captures;
 pytest normally includes captured stdout/stderr for failures, not passing tests.
+
+In discovered test buffers, `[t` / `]t` visit individual test definitions and
+`[f` / `]f` visit failures from the latest results. They stay in the current file,
+skip class headings, and stop at the first/last matching test without wrapping.
+All four show a non-focused result preview when a result exists. Moving the cursor,
+entering Insert mode, or leaving the window dismisses it; another jump replaces it.
+Unrun tests have no popup. When a short report is unavailable, the preview shows
+status and available error details rather than the full run log. Use `<leader>to`
+to enter a scrollable report. Outside test buffers, native tag navigation with
+`[t` / `]t` is preserved. Parametrized cases still share their test definition.
 
 Start debugging from a `.py` file. The launch picker offers current-file and
 pytest-current-file configurations. For custom modules/arguments, use a project
