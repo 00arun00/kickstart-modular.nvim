@@ -27,6 +27,7 @@ local function open_file(ctx, path, line)
   path = absolute(ctx, path)
   if vim.fn.isdirectory(path) == 1 then return M.dispatch(ctx, 'browse', path) end
   local b = vim.fn.bufadd(path)
+  vim.bo[b].buflisted = true
   vim.fn.bufload(b)
   vim.api.nvim_win_set_buf(ctx.win, b)
   ui.restore_options(ctx)

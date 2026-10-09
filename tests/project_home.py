@@ -265,6 +265,7 @@ if ok then theme.setup({flavour='mocha',compile_path=vim.fn.stdpath('state')..'/
             action('find')
             n.exec_lua("ph_input.cb('docs/guide.md')")
             check(Path(n.current.buffer.name) == project / 'docs/guide.md', 'find fallback opens project-relative file')
+            check(n.current.buffer.options['buflisted'], 'opened project file is listed for test signs')
             home()
             action('search')
             n.exec_lua("ph_input.cb('local value')")

@@ -35,7 +35,9 @@ assert(not sessions.inspect(global, false, root .. '/a'), 'global snapshot canno
 local original_tabs = vim.api.nvim_list_tabpages()
 vim.cmd 'tabnew'
 local target = vim.api.nvim_get_current_tabpage()
+vim.bo[vim.fn.bufnr(root .. '/a/three.lua')].buflisted = false
 assert(sessions.restore(project, { root = root .. '/a' }))
+assert(vim.bo.buflisted, 'restored files must be listed for test signs and buffer navigation')
 assert(#vim.api.nvim_list_tabpages() == 6, 'project replaces target and adds one tab')
 for _, tab in ipairs(original_tabs) do
   assert(vim.api.nvim_tabpage_is_valid(tab), 'unrelated tabs preserved')
