@@ -47,8 +47,8 @@ to every buffer; servers still need the right filetype, project, and executable.
 | Harper LSP                     | Prose grammar/spelling/style in Markdown and gitcommit          | Diagnostics and `gra`                                     |
 | markdown-oxide LSP             | Markdown links, navigation, backlinks, rename                   | LSP navigation/rename in matching roots                   |
 | lua_ls and StyLua              | Lua analysis and formatting capability                          | LSP diagnostics; see formatting caveat below              |
-| neotest + neotest-python       | pytest runner, diagnostics, quickfix, output, summary           | `<Space>pt`, `<Space>pf`, `<Space>ps`                     |
-| nvim-dap + Python/DAP UI       | Debug a failing test or script                                  | `<Space>pd`, `<F5>`, `<Space>db`                          |
+| neotest + neotest-python       | pytest/unittest runner, diagnostics, quickfix, output, summary           | `<Space>tn`, `<Space>tf`, `<Space>ts`                     |
+| nvim-dap + Python/DAP UI       | Debug a failing test or script                                  | `<Space>td`, `<F5>`, `<Space>db`                          |
 | Gitsigns                       | Review changes and turn hunks into a worklist                   | `<Space>hp`, `<Space>hq`, `<Space>hQ`                     |
 | todo-comments                  | Find TODO/FIXME-style comments                                  | `:TodoQuickFix`, `:TodoLocList`, `:TodoTelescope`         |
 | Mason + tool installer         | Install language servers and executables                        | `:Mason`                                                  |
@@ -456,14 +456,15 @@ session, test runs or Git/search exports may activate another list; use
 
 ### Failing test → diagnosis → debug → rerun
 
-1. `<Space>pt` runs the nearest test; `<Space>pf` runs the test file.
-2. `<Space>ps` shows summary; `<Space>po` shows the selected test's output.
+1. `<Space>tn` runs the nearest test; `<Space>tf` runs the test file.
+2. `<Space>ts` shows summary; `<Space>to` shows the selected test's output.
 3. `:copen` opens the failure worklist. The installed neotest defaults enable
    diagnostics and quickfix, but do not automatically open quickfix.
-4. `<Space>pd` debugs the nearest test; `<Space>db` sets a breakpoint.
-5. `<Space>pl` reruns the last test. `<Space>pa` runs the project suite.
+4. `<Space>td` debugs the nearest test; `<Space>db` sets a breakpoint.
+5. `<Space>tl` reruns the last test. `<Space>ta` runs the project suite.
 
-The adapter must be able to collect tests and use the project's pytest. A failed
+The adapter must be able to collect tests using the selected project interpreter
+and its test runner. A failed
 collection or missing dependency is different from an assertion failure; inspect
 output before treating a result as a source-level fix. A test run can populate
 quickfix even when you were previously using it for Ruff.

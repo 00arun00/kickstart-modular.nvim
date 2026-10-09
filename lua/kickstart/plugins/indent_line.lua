@@ -8,7 +8,7 @@ return {
   -- See `:help ibl`
   main = 'ibl',
   keys = {
-    { '<leader>ti', '<cmd>IBLToggle<CR>', desc = '[T]oggle [I]ndentation guides' },
+    { '<leader>Ti', '<cmd>IBLToggle<CR>', desc = '[T]oggle [I]ndentation guides' },
   },
   ---@module 'ibl'
   ---@type ibl.config
