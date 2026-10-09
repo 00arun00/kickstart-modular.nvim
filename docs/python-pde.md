@@ -33,10 +33,19 @@ No project dependencies are installed automatically on opening a file.
 
 ## Environment selection
 
+Use `<leader>pse` or `:PyVenvSet` without arguments to open the environment picker
+(using Telescope's existing UI-select integration). It lists the saved selection,
+nearest `.venv`, environments directly inside the project (including names such as
+`.test-venv`), and an activated shell environment when available. Choose
+“Enter another environment path…” for environments elsewhere; path completion is
+available. Selecting an entry saves it for the project where you opened the picker.
+Use `<leader>pi` for environment info and `<leader>pr` to reset automatic detection.
+
 The nearest ancestor `.venv` wins, including when Neovim was launched elsewhere.
 `:PyVenvInfo` shows the resolved paths. `:checkhealth custom.python` checks the host, project dependencies, and Molten registration. `:PyVenvSet /path/to/venv` overrides the
 current project; `:PyVenvReset` returns to automatic detection. Overrides are
-session-local. Both commands restart only that project's Python LSP clients.
+saved locally across sessions. Both commands restart only that project's Python
+LSP clients in the current editor.
 Stop and reinitialize active notebook kernels after changing environments.
 
 The shared Neovim Python host is separate from project Python. Each notebook

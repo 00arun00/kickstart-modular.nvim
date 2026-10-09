@@ -117,6 +117,8 @@ return {
   },
   {
     'folke/which-key.nvim',
-    opts = function(_, opts) vim.list_extend(opts.spec, { { '<leader>j', group = 'notebook' }, { '<leader>p', group = 'python' } }) end,
+    opts = function(_, opts)
+      vim.list_extend(opts.spec, { { '<leader>j', group = 'notebook' }, { '<leader>p', group = 'python' }, { '<leader>ps', group = 'set' } })
+    end,
   },
 }
