@@ -189,16 +189,19 @@ pytest-current-file configurations. For custom modules/arguments, use a project
 `.vscode/launch.json` as supported by nvim-dap. Notebook cell debugging is not
 part of this workflow; move code into a Python module and debug/test it there.
 
-To rerun the real debugger/test checks using the disposable uv project:
+To rerun the independent Python workflows with disposable projects and editors:
 
 ```sh
-~/.local/share/nvim/python/bin/python tests/python_tools.py '/tmp/test project'
+make test-setup
+make test SUITE=all FILE=python_tools
 ```
 
-This test creates `test_pde_smoke.py` (one intentionally failing test) and
-`pde_debug.py`, then verifies LSP interpreter selection/restart, both pytest
-results, a debugpy breakpoint, and the running debuggee's interpreter. A second
-disposable project verifies unittest pass/fail results without pytest installed.
+Separate cases verify LSP environment switching and import resolution, pytest
+execution/output, unittest execution/rediscovery without pytest installed, and
+debugpy breakpoints/interpreters for both a file and the nearest test. The pytest
+fixture includes an intentional failure whose reporting is asserted. An extra
+LSP case deliberately delays BasedPyright while other clients initialize.
+See [test setup, diagnostics, and stability runs](testing.md#python-workflow-regression-tests).
 
 
 ## Variable explorer
