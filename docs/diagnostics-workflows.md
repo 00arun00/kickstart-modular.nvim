@@ -512,36 +512,66 @@ for the review step.
 
 ## Where Trouble fits
 
-Trouble is an optional persistent view over diagnostics, LSP results, quickfix,
-and location lists. It adds grouping, filtering, sorting, previews, and multiple
-views. It does not run Ruff or make a filtered view into a batch fix automatically.
-Its diagnostics view has the same underlying coverage limits as Neovim's store.
+Trouble provides persistent views over diagnostics, LSP results, quickfix, and
+location lists. It adds grouping, filtering, sorting, and previews. It does not
+run Ruff or expand the coverage of Neovim's diagnostic store.
 
-If you later choose to install it, this minimal spec belongs in
-`lua/custom/plugins/trouble.lua`; this guide has not installed it:
+| Shortcut | Action |
+| --- | --- |
+| `<Space>xx` | Toggle all reported diagnostics |
+| `<Space>xX` | Toggle current-buffer diagnostics |
+| `<Space>xQ` | Toggle quickfix |
+| `<Space>xL` | Toggle the location list |
+| `<Space>cl` | Toggle LSP results on the right |
+| `<Space>cs` | Toggle document symbols on the right |
+| Telescope `Ctrl-t` | Send marked entries, or current results when nothing is marked, to Trouble |
+| Trouble `Ctrl-t` | Search the filtered worklist in Telescope |
+| Telescope `Alt-t` / macOS `Option-t` | Open the selection in a Neovim tab |
 
-```lua
-return {
-  'folke/trouble.nvim',
-  cmd = 'Trouble',
-  opts = {},
-}
-```
+Telescope keeps `Ctrl-q` / `Alt-q` for quickfix. `Ctrl-g` is no longer mapped
+for this integration. On macOS, Ghostty must forward Option-T as Meta-T; the
+terminal configuration can use `keybind = alt+t=esc:t`. Command-T remains the
+terminal's own new-tab shortcut.
 
-Then the documented commands are:
+Press `Ctrl-t` in Trouble after applying `gb` / `gs` to search only the remaining
+items in Telescope. Folded items are included. Search matches message, path,
+severity, producer, and rule code when available. Use Tab to mark entries, then
+`Ctrl-t` to return the selection (or all matching results when none are marked).
+The return creates a separate snapshot worklist, preserving diagnostic metadata
+for further filtering. The original live view stays available and quickfix is
+unchanged. Repeating the round trip works on the current snapshot; rerun the
+original search/check to collect fresh results or updated locations.
+
+Leader shortcuts open Trouble without stealing focus; Telescope transfers focus
+to the resulting Trouble worklist. Use the existing `Ctrl-j` / `Ctrl-l`
+window navigation to enter the panel, depending on its position.
+
+Inside Trouble, `gb` toggles current-buffer filtering and `gs` cycles severity
+(errors, warnings, info, hints, all). We use `gs` instead of the upstream `s`
+shortcut to avoid mini.surround's prefix. `Enter` jumps, `o` jumps and closes,
+`p` previews, `P` toggles automatic preview, `q` closes, and `?` shows help.
+Use `za`, `zM`, and `zR` to toggle, close, and open folds.
+
+For ad hoc filters after installation:
 
 ```vim
-:Trouble diagnostics toggle
-:Trouble diagnostics toggle filter.buf=0
-:Trouble qflist toggle
-:Trouble loclist toggle
+:Trouble diagnostics filter.severity=vim.diagnostic.severity.ERROR
+:Trouble diagnostics filter = { ["item.source"] = "ruff", code = "F401" }
+:Trouble todo filter = {tag = {TODO,FIX,FIXME}}
 ```
 
-Use Telescope to select a task, quickfix to store its actual scope, and Trouble
-to keep a readable view visible. A Trouble display filter does not automatically
-filter the underlying quickfix list consumed by `:cfdo`. Consult the
-[Trouble documentation](https://github.com/folke/trouble.nvim) when configuring
-custom grouping or keybindings.
+Inspect actual producer names with `:lua vim.print(vim.diagnostic.get(0))`.
+Trouble's `source` is the result source (`diagnostics`); `item.source` identifies
+the diagnostic producer, such as Ruff or basedpyright. The current-buffer view
+follows the active source buffer; add `pinned=true` to bind a view to its opening
+buffer. All-diagnostics views can include multiple projects; they are not
+implicitly restricted to the current project root.
+
+Use Telescope to select a task, quickfix to store its actual batch scope, and
+Trouble to keep a readable view visible. A Trouble display filter does not
+filter the underlying quickfix list consumed by `:cfdo`. See the
+[Trouble documentation](https://github.com/folke/trouble.nvim) for custom modes,
+producer/path filters, and grouping.
 
 ## Practice session
 
