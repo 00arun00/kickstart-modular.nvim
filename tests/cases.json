@@ -264,15 +264,6 @@
       "timeout": 90
     },
     {
-      "file": "tests/python_tools.py",
-      "language": "python",
-      "suite": "kernel",
-      "timeout": 240,
-      "args": [
-        "{project}"
-      ]
-    },
-    {
       "file": "tests/variable_values.py",
       "language": "python",
       "suite": "kernel",

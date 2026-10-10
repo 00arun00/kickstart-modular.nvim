@@ -108,6 +108,59 @@ log location, including named stages where the script records them.
 they need interactive/platform-specific setup. `tests/cases.json` lists these
 under `manual`, with reasons. Screenshot capture utilities are also not tests.
 
+## Python workflow regression tests
+
+`tests/python/test_python_tools.py` replaces the former `tests/python_tools.py`
+sequence with independent LSP, pytest, unittest, debug-file, and debug-test cases.
+Each case starts its own full-config Neovim in a process group owned by the test
+harness. An LSP failure cannot prevent the debugger cases from running. These
+cases need the locked `.test-venv` and installed editor/host tools; they do not
+need the scientific packages in `.test-kernel`.
+
+```sh
+make test SUITE=all FILE=python_tools
+make test SUITE=fast FILE='test_test_navigation or test_test_output'
+```
+
+The LSP case switches between two actual environments and requests an import's
+definition to verify the server uses the selected environment. `lsp-delayed`
+holds BasedPyright startup behind a release file while two unrelated clients
+initialize, deterministically exercising the former client-count race.
+Neotest cases register a test-only consumer before opening a Python buffer and
+await discovery and new, non-partial results for the expected adapter/test IDs.
+The pytest case repeats an identical run to reject stale passing results.
+Debugger cases await the expected source frame and evaluate `sys.executable`.
+
+Detailed navigation and popup contracts use controlled results and explicitly
+drained callbacks in the fast suite; the pytest workflow retains a real mapping,
+execution, navigation preview, and failure-output smoke check. Gutter priority
+is covered separately by `test_statuscolumn.py`.
+
+Every workflow saves `editor-state.json` beside `output.log`, including the last
+wait, named LSP clients, discovery/run observations, notifications, and debugger
+state. LSP, Neotest, and DAP logs live below that case's `state/` directory. RPC
+errors and assertion failures also produce this snapshot, not only timeouts.
+The outer process timeout still kills all descendants if RPC itself hangs.
+
+For a stability check, run independent invocations and stop at the first failure;
+do not retry failures into a passing report:
+
+```sh
+for run in $(seq 1 30); do
+  make test SUITE=all FILE='python_tools or test_test_navigation or test_test_output' || exit 1
+done
+```
+
+Record the run count, OS/Neovim version, and dependency-revision reports with the
+result. Repetition is useful evidence, not a guarantee about every scheduler or
+platform. The startup gate and controlled callback ordering cover specific races
+without relying on luck to reproduce them.
+
+The GitHub Actions kernel job runs ten additional rounds of these workflow and
+UI cases on Ubuntu, stopping at the first failure. Each round has a separate
+`python-tools-stability-N.xml` report, included with the ordinary CI artifacts
+and summary. These are additional executions, not retries that erase failures.
+
 ## CI
 
 Pull requests and pushes to `master` run one workflow, with separate Formatting,
