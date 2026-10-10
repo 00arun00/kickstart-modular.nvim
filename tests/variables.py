@@ -229,7 +229,16 @@ print('output intact')
             "return require('custom.python.notebook').ready[...]", kernel
         )
     )
-    assert json.loads(Path(registry).read_text())["generation"] != old_generation
+    # Molten readiness and the launch registry have separate lifecycles.
+    # Require a published new generation before inspecting the restarted kernel.
+    def restarted_generation():
+        try:
+            value = json.loads(Path(registry).read_text())
+        except (FileNotFoundError, json.JSONDecodeError):
+            return False
+        return value["generation"] != old_generation
+
+    wait(restarted_generation)
     assert "error" in snapshot(), snapshot()
     assert not any(v["name"] == "tensor" for v in open_explorer(first)["entries"])
     # Stopping the source kernel cannot refresh from the other notebook's kernel.
