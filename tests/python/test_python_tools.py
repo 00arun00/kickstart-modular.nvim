@@ -27,13 +27,18 @@ def test_python_tools(scenario, test_run_dir):
         tempfile.mkdtemp(prefix=f"python-tools-{scenario}-", dir=test_run_dir)
     )
     # Keep projects out of the checkout: its pyproject and .git change discovery.
-    with tempfile.TemporaryDirectory(prefix="python-tools-project-") as directory:
+    with (
+        tempfile.TemporaryDirectory(prefix="python-tools-project-") as directory,
+        tempfile.TemporaryDirectory(prefix="python-tools-config-") as config,
+    ):
         project = Path(directory).resolve()
         (project / "pyproject.toml").write_text(
             '[project]\nname="fixture"\nversion="0.0.0"\n'
         )
         (project / ".venv").symlink_to(ROOT / ".test-venv", target_is_directory=True)
-        env = environment(folder, folder / "config")
+        # Keep the config symlink outside the uploaded artifact tree; otherwise
+        # upload-artifact can follow it back into the checkout and its results.
+        env = environment(folder, Path(config))
         env["PYTHON_TOOLS_ARTIFACTS"] = str(folder)
         run_process(
             [
