@@ -209,6 +209,18 @@ return {
           filetypes = { 'markdown', 'gitcommit' },
         },
 
+        -- Spelling in comments, strings and identifier definitions. Explicitly
+        -- include cpp: the pinned lspconfig defaults do not list it yet.
+        -- Harper handles prose; use gra for suggestions/dictionary actions and
+        -- the language server's grn to rename identifiers across references.
+        codebook = {
+          filetypes = { 'python', 'lua', 'cpp', 'rust' },
+          exit_timeout = 1000, -- Bound shutdown when toggling spelling off.
+          init_options = {
+            diagnosticSeverity = 'information',
+          },
+        },
+
         -- Special Lua Config, as recommended by neovim help docs
         lua_ls = {
           on_init = function(client)
@@ -264,6 +276,15 @@ return {
         vim.lsp.config(name, server)
         vim.lsp.enable(name)
       end
+
+      -- Session-wide switch; the server loop above enables spelling on startup.
+      local function toggle_codebook()
+        local enabled = not vim.lsp.is_enabled 'codebook'
+        vim.lsp.enable('codebook', enabled)
+        vim.notify('Codebook spelling: ' .. (enabled and 'on' or 'off'), vim.log.levels.INFO)
+      end
+      vim.api.nvim_create_user_command('CodebookToggle', toggle_codebook, { desc = 'Toggle Codebook spelling for this session' })
+      vim.keymap.set('n', '<leader>Ts', toggle_codebook, { desc = '[T]oggle code [s]pelling' })
     end,
   },
 }
