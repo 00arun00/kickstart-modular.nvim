@@ -45,6 +45,7 @@ to every buffer; servers still need the right filetype, project, and executable.
 | Conform                        | Explicit formatting; Python import organization then formatting | `<Space>f`, `:ConformInfo`                                |
 | nvim-lint + markdownlint-cli2  | Markdown structural/style diagnostics                           | Runs on buffer enter, after save, and leaving insert mode |
 | Harper LSP                     | Prose grammar/spelling/style in Markdown and gitcommit          | Diagnostics and `gra`                                     |
+| Codebook LSP                   | Spelling in Python, Lua, C++, and Rust comments, strings, and definitions | Diagnostics and `gra`                              |
 | markdown-oxide LSP             | Markdown links, navigation, backlinks, rename                   | LSP navigation/rename in matching roots                   |
 | lua_ls and StyLua              | Lua analysis and formatting capability                          | LSP diagnostics; see formatting caveat below              |
 | neotest + neotest-python       | pytest/unittest runner, diagnostics, quickfix, output, summary           | `<Space>tn`, `<Space>tf`, `<Space>ts`                     |
@@ -60,6 +61,20 @@ is not enabled; Telescope is your picker. There is no configured Python nvim-lin
 pipeline: Ruff already supplies Python diagnostics through LSP.
 
 ### Configuration details that affect workflow
+
+- Codebook is installed automatically through Mason (`:MasonInstall codebook`
+  to install manually). It checks while typing and reports informational
+  diagnostics. `<Space>Ts` or `:CodebookToggle` toggles Codebook for the whole
+  session, stopping its servers when off and reattaching when on. It defaults
+  to on each time Neovim starts; other language servers and Harper are unaffected.
+  Use `gra` on a spelling diagnostic for corrections or dictionary
+  actions. Use `grn` through a language server that supports rename when changing
+  an identifier and its references; a spelling replacement is not a refactor.
+- Codebook downloads dictionaries on first use, then checks locally. Project
+  vocabulary lives in `codebook.toml` or `.codebook.toml`; its dictionary actions
+  can add accepted words. C++ is explicitly enabled because the pinned
+  nvim-lspconfig defaults omit `cpp`; upstream labels its C++ support as needing
+  more testing. Harper continues to handle Markdown and commit messages.
 
 - `<Space>q` calls `vim.diagnostic.setloclist()`. Its description says “Quickfix,”
   but it creates a **location list for the current window's buffer**.
