@@ -144,6 +144,15 @@ diagnostic/breakpoint priority, and restoration after those overlays are removed
 Each runs its own pytest fixture and waits for fresh results before checking UI
 state. They run once in the ordinary Editor suite.
 
+Three more isolated Editor cases cover the remaining live UI contracts:
+`navigation-lifecycle` uses mappings before any run, saves new class tests, and
+navigates their real discovered positions without running them; `output-style`
+checks passing and failing popup borders, titles, and highlights through the
+configured consumer; `unittest-preview` reads actual passing/failing navigation
+previews without pytest installed and checks cleanup on a buffer switch. Summary
+reports also assert the live failure styling. Controlled fast tests complement
+these cases rather than substituting for their configuration and event wiring.
+
 Every workflow saves `editor-state.json` beside `output.log`, including the last
 wait, named LSP clients, discovery/run observations, notifications, and debugger
 state. LSP, Neotest, and DAP logs live below that case's `state/` directory. RPC

@@ -198,6 +198,113 @@ def completed_pytest(editor, project):
     return source
 
 
+def navigate(editor, key, row, status=None):
+    """Use the real mapping and inspect its window without taking source focus."""
+    source = editor.nvim.current.window.handle
+    editor.key(key)
+    editor.wait(
+        "navigation reaches source row",
+        "local win,row=...; return vim.api.nvim_win_get_cursor(win)[1]==row",
+        source,
+        row,
+    )
+    if status:
+        editor.wait(
+            "navigation result preview",
+            "for _,w in ipairs(vim.api.nvim_list_wins()) do if vim.w[w].test_navigation_preview then return w end end",
+        )
+    windows = editor.lua(
+        "local r={}; for _,w in ipairs(vim.api.nvim_list_wins()) do if vim.w[w].test_navigation_preview then r[#r+1]=w end end; return r"
+    )
+    assert editor.nvim.current.window.handle == source, "preview stole source focus"
+    assert len(windows) == (1 if status else 0), windows
+    if not status:
+        return ""
+    win = windows[0]
+    config = editor.nvim.api.win_get_config(win)
+    assert not config["focusable"], config
+    assert status in str(config["title"]), config
+    return "\n".join(
+        editor.nvim.api.buf_get_lines(editor.nvim.api.win_get_buf(win), 0, -1, False)
+    )
+
+
+def navigation_lifecycle(editor, project):
+    source = pytest_file(project)
+    editor.observe_runs()
+    editor.edit(source)
+    editor.wait(
+        "navigation available before any run or summary",
+        "return vim.fn.maparg(']t','n',false,true).buffer==1",
+    )
+    editor.nvim.current.window.cursor = (1, 0)
+    navigate(editor, "]t", 4)
+    navigate(editor, "]t", 7)
+    navigate(editor, "[t", 4)
+    assert editor.lua("return _G.test_runs.serial") == 0
+    editor.run(
+        " tf",
+        project,
+        {
+            str(source) + "::test_environment": "passed",
+            str(source) + "::test_failure_is_reported": "failed",
+        },
+    )
+    # Real BufWritePost discovery must update positions without another run.
+    editor.nvim.current.buffer.append(
+        [
+            "",
+            "class TestMore:",
+            "    def test_unrun(self):",
+            "        pass",
+            "",
+            "    def test_last(self):",
+            "        pass",
+        ]
+    )
+    editor.nvim.command("write")
+    editor.discovered(
+        project,
+        {
+            str(source) + "::TestMore::test_unrun": "none",
+            str(source) + "::TestMore::test_last": "none",
+        },
+    )
+    editor.nvim.current.window.cursor = (7, 0)
+    navigate(editor, "]t", 11)
+    navigate(editor, "]t", 14)
+    navigate(editor, "[t", 11)
+    assert "assert 1 == 2" in navigate(editor, "[f", 7, "Failed")
+    navigate(editor, "]t", 11)  # An unrun test clears the previous result preview.
+    assert editor.lua("return _G.test_runs.serial") == 1
+
+
+def assert_output_style(editor, status):
+    editor.lua(
+        """
+      local status=...
+      local c=vim.api.nvim_win_get_config(0)
+      local highlight=status=='Passed' and 'DiagnosticOk' or 'DiagnosticError'
+      assert(c.border[1][2]==highlight, vim.inspect(c))
+      assert(c.title[1][1]:find(status,1,true), vim.inspect(c))
+      assert(vim.tbl_contains(vim.split(vim.wo.winhighlight, ','), 'Normal:NormalFloat'), vim.wo.winhighlight)
+    """,
+        status,
+    )
+
+
+def output_style(editor, project):
+    completed_pytest(editor, project)
+    source_window = editor.nvim.current.window.handle
+    for row, status in ((4, "Passed"), (7, "Failed")):
+        editor.nvim.current.window.cursor = (row, 0)
+        editor.key(" to")
+        editor.wait("styled output popup", "return vim.bo.filetype=='neotest-output'")
+        assert_output_style(editor, status)
+        editor.nvim.command("close")
+        assert editor.nvim.current.window.handle == source_window
+
+
 def summary_row(editor, name):
     editor.wait(
         "summary row " + name,
@@ -245,6 +352,7 @@ def summary_output(editor, project):
     assert editor.nvim.current.window.handle == summary_window
     for key in ("K", " to"):
         text = output_text(editor, key, "assert 1 == 2")
+        assert_output_style(editor, "Failed")
         assert "test session starts" not in text and "test_environment" not in text, (
             text
         )
@@ -308,7 +416,7 @@ def real_gutter(editor, project):
     editor.wait("real passing result returns after collision", passed)
 
 
-def unittest_run(editor, project):
+def completed_unittest(editor, project):
     (project / ".venv").unlink()
     python = venv(project / ".venv")
     subprocess.run(
@@ -340,6 +448,33 @@ def unittest_run(editor, project):
     results = editor.results(project, expected, baseline)
     report = str(results[str(source) + "::Example::test_bad"].get("errors"))
     assert "1 != 2" in report and "Ran 2 tests" not in report, report
+    return source, expected
+
+
+def unittest_preview(editor, project):
+    completed_unittest(editor, project)
+    editor.wait(
+        "unittest navigation installed",
+        "return vim.fn.maparg(']f','n',false,true).buffer==1",
+    )
+    editor.nvim.current.window.cursor = (1, 0)
+    report = navigate(editor, "]f", 5, "Failed")
+    assert "1 != 2" in report, report
+    assert "Ran 2 tests" not in report and "test_ok" not in report, report
+    navigate(editor, "[t", 3, "Passed")
+    # Switching to a non-test buffer must close the rendered preview.
+    program = project / "program.py"
+    program.write_text("value = 1\n")
+    editor.edit(program)
+    assert editor.nvim.funcs.maparg("]t", "n", False, True).get("buffer") != 1
+    assert not editor.lua(
+        "for _,w in ipairs(vim.api.nvim_list_wins()) do if vim.w[w].test_navigation_preview then return true end end; return false"
+    )
+
+
+def unittest_run(editor, project):
+    source, expected = completed_unittest(editor, project)
+    tests = source.parent
     # Change one existing result and add a file outside Neovim. Every expected
     # test must complete in this new run, including the unchanged passing test.
     source.write_text(
@@ -424,6 +559,9 @@ if __name__ == "__main__":
         else:
             {
                 "pytest": pytest_run,
+                "navigation-lifecycle": navigation_lifecycle,
+                "output-style": output_style,
+                "unittest-preview": unittest_preview,
                 "summary-output": summary_output,
                 "file-output": file_output,
                 "real-gutter": real_gutter,
