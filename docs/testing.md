@@ -108,6 +108,76 @@ log location, including named stages where the script records them.
 they need interactive/platform-specific setup. `tests/cases.json` lists these
 under `manual`, with reasons. Screenshot capture utilities are also not tests.
 
+## Python workflow regression tests
+
+`tests/python/test_python_tools.py` replaces the former `tests/python_tools.py`
+sequence with independent LSP, pytest, unittest, debug-file, and debug-test cases.
+Each case starts its own full-config Neovim in a process group owned by the test
+harness. An LSP failure cannot prevent the debugger cases from running. These
+cases need the locked `.test-venv` and installed editor/host tools; they do not
+need the scientific packages in `.test-kernel`.
+
+```sh
+make test SUITE=all FILE=python_tools
+make test SUITE=fast FILE='test_test_navigation or test_test_output'
+```
+
+The LSP case switches between two actual environments and requests an import's
+definition to verify the server uses the selected environment. `lsp-delayed`
+holds BasedPyright startup behind a release file while two unrelated clients
+initialize, deterministically exercising the former client-count race.
+Neotest cases register a test-only consumer before opening a Python buffer and
+await discovery and new, non-partial results for the expected adapter/test IDs.
+The pytest case repeats an identical run to reject stale passing results.
+Debugger cases await the expected source frame and evaluate `sys.executable`.
+
+Detailed navigation and popup contracts use controlled results and explicitly
+drained callbacks in the fast suite; the pytest workflow retains a real mapping,
+execution, navigation preview, and failure-output smoke check. Gutter priority
+is covered separately by `test_statuscolumn.py`.
+
+Three additional full-config integration cases preserve the UI connections:
+`summary-output` navigates to a real failed test in the summary and opens its
+isolated report with both `K` and `<leader>to`; `file-output` checks that a summary
+file row opens the complete run log; `real-gutter` checks actual Neotest signs,
+diagnostic/breakpoint priority, and restoration after those overlays are removed.
+Each runs its own pytest fixture and waits for fresh results before checking UI
+state. They run once in the ordinary Editor suite.
+
+Three more isolated Editor cases cover the remaining live UI contracts:
+`navigation-lifecycle` uses mappings before any run, saves new class tests, and
+navigates their real discovered positions without running them; `output-style`
+checks passing and failing popup borders, titles, and highlights through the
+configured consumer; `unittest-preview` reads actual passing/failing navigation
+previews without pytest installed and checks cleanup on a buffer switch. Summary
+reports also assert the live failure styling. Controlled fast tests complement
+these cases rather than substituting for their configuration and event wiring.
+
+Every workflow saves `editor-state.json` beside `output.log`, including the last
+wait, named LSP clients, discovery/run observations, notifications, and debugger
+state. LSP, Neotest, and DAP logs live below that case's `state/` directory. RPC
+errors and assertion failures also produce this snapshot, not only timeouts.
+The outer process timeout still kills all descendants if RPC itself hangs.
+
+For an optional stability investigation, run independent invocations and stop at
+the first failure; do not retry failures into a passing report:
+
+```sh
+for run in $(seq 1 30); do
+  make test SUITE=all FILE='python_tools or test_test_navigation or test_test_output' || exit 1
+done
+```
+
+Record the run count, OS/Neovim version, and dependency-revision reports with the
+result. Repetition is useful evidence, not a guarantee about every scheduler or
+platform. The startup gate and controlled callback ordering cover specific races
+without relying on luck to reproduce them.
+
+Routine CI runs each case once in its assigned suite: navigation and popup
+contracts in Fast, LSP and test-runner workflows in Editor, and debugger workflows
+in Kernel. The delayed-startup case remains part of the ordinary Editor suite;
+repeated stability runs are reserved for investigations.
+
 ## CI
 
 Pull requests and pushes to `master` run one workflow, with separate Formatting,
