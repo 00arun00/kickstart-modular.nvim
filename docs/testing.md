@@ -142,8 +142,8 @@ state. LSP, Neotest, and DAP logs live below that case's `state/` directory. RPC
 errors and assertion failures also produce this snapshot, not only timeouts.
 The outer process timeout still kills all descendants if RPC itself hangs.
 
-For a stability check, run independent invocations and stop at the first failure;
-do not retry failures into a passing report:
+For an optional stability investigation, run independent invocations and stop at
+the first failure; do not retry failures into a passing report:
 
 ```sh
 for run in $(seq 1 30); do
@@ -156,10 +156,10 @@ result. Repetition is useful evidence, not a guarantee about every scheduler or
 platform. The startup gate and controlled callback ordering cover specific races
 without relying on luck to reproduce them.
 
-The GitHub Actions kernel job runs ten additional rounds of these workflow and
-UI cases on Ubuntu, stopping at the first failure. Each round has a separate
-`python-tools-stability-N.xml` report, included with the ordinary CI artifacts
-and summary. These are additional executions, not retries that erase failures.
+Routine CI runs each case once in its assigned suite: navigation and popup
+contracts in Fast, LSP and test-runner workflows in Editor, and debugger workflows
+in Kernel. The delayed-startup case remains part of the ordinary Editor suite;
+repeated stability runs are reserved for investigations.
 
 ## CI
 

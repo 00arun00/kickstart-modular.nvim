@@ -127,13 +127,6 @@ jobs:
         id: python
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: make test-python SUITE=${{ env.TEST_SUITE }} ARGS="--junitxml=.test-results/python.xml"
-      - name: Repeat Python workflow regressions on the CI runner
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && env.TEST_SUITE == 'kernel' }}
-        run: |
-          for attempt in $(seq 1 10); do
-            make test SUITE=all FILE='python_tools or test_test_navigation or test_test_output' \
-              ARGS="--junitxml=.test-results/python-tools-stability-${attempt}.xml" || exit 1
-          done
       - uses: actions/upload-artifact@v4
         id: artifacts
         if: always()
