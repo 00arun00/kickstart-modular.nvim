@@ -183,6 +183,131 @@ def pytest_run(editor, project):
     assert "test_environment" not in text and "test session starts" not in text, text
 
 
+def completed_pytest(editor, project):
+    source = pytest_file(project)
+    editor.observe_runs()
+    editor.edit(source)
+    editor.run(
+        " tf",
+        project,
+        {
+            str(source) + "::test_environment": "passed",
+            str(source) + "::test_failure_is_reported": "failed",
+        },
+    )
+    return source
+
+
+def summary_row(editor, name):
+    editor.wait(
+        "summary row " + name,
+        """
+      local name=...
+      if vim.bo.filetype~='neotest-summary' then return false end
+      for i,line in ipairs(vim.api.nvim_buf_get_lines(0,0,-1,false)) do
+        if line:find(name,1,true) then
+          vim.api.nvim_win_set_cursor(0,{i,0}); return true
+        end
+      end
+    """,
+        name,
+    )
+
+
+def output_text(editor, key, marker):
+    editor.key(key)
+    editor.wait(
+        "output contains " + marker,
+        """
+      local marker=...
+      if vim.bo.filetype~='neotest-output' then return false end
+      return table.concat(vim.api.nvim_buf_get_lines(0,0,-1,false),'\\n'):find(marker,1,true)
+    """,
+        marker,
+    )
+    return "\n".join(editor.nvim.current.buffer[:])
+
+
+def summary_output(editor, project):
+    completed_pytest(editor, project)
+    editor.lua("require('neotest').summary.open({enter=true})")
+    summary_row(editor, "test_environment")
+    editor.lua("""
+      local mappings=require('neotest.config').summary.mappings
+      assert(mappings.next_failed==']f' and mappings.prev_failed=='[f')
+    """)
+    summary_window = editor.nvim.current.window.handle
+    editor.key("]f")
+    editor.wait(
+        "summary next failure selected",
+        "return vim.api.nvim_get_current_line():find('test_failure_is_reported',1,true)",
+    )
+    assert editor.nvim.current.window.handle == summary_window
+    for key in ("K", " to"):
+        text = output_text(editor, key, "assert 1 == 2")
+        assert "test session starts" not in text and "test_environment" not in text, (
+            text
+        )
+        editor.nvim.command("close")
+        editor.wait(
+            "return to summary selection",
+            "return vim.bo.filetype=='neotest-summary' and vim.api.nvim_get_current_line():find('test_failure_is_reported',1,true)",
+        )
+        assert editor.nvim.current.window.handle == summary_window
+
+
+def file_output(editor, project):
+    source = completed_pytest(editor, project)
+    editor.lua("require('neotest').summary.open({enter=true})")
+    summary_row(editor, source.name)
+    text = output_text(editor, " to", "test session starts")
+    assert "test_failure_is_reported" in text and "assert 1 == 2" in text, text
+
+
+def real_gutter(editor, project):
+    completed_pytest(editor, project)
+    editor.wait(
+        "real Neotest passing sign",
+        """
+      local signs=vim.fn.sign_getplaced(vim.api.nvim_get_current_buf(),{group='neotest-status'})[1].signs
+      for _,sign in ipairs(signs) do
+        if sign.lnum==4 then return true end
+      end
+      return false
+    """,
+    )
+    editor.lua("""
+      _G.gutter_indicator=function()
+        vim.cmd('redraw!')
+        return vim.api.nvim_eval_statusline(vim.wo.statuscolumn,{use_statuscol_lnum=4}).str
+      end
+    """)
+    passed = "return _G.gutter_indicator():find(require('neotest.config').icons.passed,1,true)"
+    editor.wait("passing result visible in gutter", passed)
+    editor.lua("""
+      _G.gutter_ns=vim.api.nvim_create_namespace('real-neotest-collision')
+      vim.diagnostic.set(_G.gutter_ns,0,{{lnum=3,col=0,message='fixture',severity=vim.diagnostic.severity.ERROR}})
+    """)
+    editor.wait(
+        "diagnostic takes priority over result",
+        """
+      local rendered=_G.gutter_indicator()
+      local icon=vim.diagnostic.config().signs.text[vim.diagnostic.severity.ERROR]
+      return rendered:find(icon,1,true) and not rendered:find(require('neotest.config').icons.passed,1,true)
+    """,
+    )
+    editor.lua("require('dap.breakpoints').set({}, ..., 4)", editor.buffer)
+    editor.wait(
+        "breakpoint takes priority over diagnostic",
+        """
+      local icon=vim.fn.sign_getdefined('DapBreakpoint')[1].text:gsub('%s','')
+      return _G.gutter_indicator():find(icon,1,true)
+    """,
+    )
+    editor.lua("require('dap.breakpoints').clear(); vim.diagnostic.reset(_G.gutter_ns)")
+    editor.wait("real passing result returns after collision", passed)
+
+
 def unittest_run(editor, project):
     (project / ".venv").unlink()
     python = venv(project / ".venv")
@@ -299,6 +424,9 @@ if __name__ == "__main__":
         else:
             {
                 "pytest": pytest_run,
+                "summary-output": summary_output,
+                "file-output": file_output,
+                "real-gutter": real_gutter,
                 "unittest": unittest_run,
                 "debug-file": debug_file,
                 "debug-test": debug_test,

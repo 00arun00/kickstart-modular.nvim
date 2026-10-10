@@ -136,6 +136,14 @@ drained callbacks in the fast suite; the pytest workflow retains a real mapping,
 execution, navigation preview, and failure-output smoke check. Gutter priority
 is covered separately by `test_statuscolumn.py`.
 
+Three additional full-config integration cases preserve the UI connections:
+`summary-output` navigates to a real failed test in the summary and opens its
+isolated report with both `K` and `<leader>to`; `file-output` checks that a summary
+file row opens the complete run log; `real-gutter` checks actual Neotest signs,
+diagnostic/breakpoint priority, and restoration after those overlays are removed.
+Each runs its own pytest fixture and waits for fresh results before checking UI
+state. They run once in the ordinary Editor suite.
+
 Every workflow saves `editor-state.json` beside `output.log`, including the last
 wait, named LSP clients, discovery/run observations, notifications, and debugger
 state. LSP, Neotest, and DAP logs live below that case's `state/` directory. RPC
