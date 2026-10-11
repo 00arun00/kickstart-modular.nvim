@@ -45,8 +45,15 @@ return {
       notifier = { enabled = true },
     },
     keys = {
-      { '<leader>gg', function() Snacks.lazygit() end, desc = 'Toggle Lazygit' },
-      { '<leader>gf', function() Snacks.lazygit.log_file() end, desc = 'LazyGit Current File History' },
+      {
+        '<leader>gb',
+        function() require('custom.navigation.blame').snacks() end,
+        desc = 'Git Blame Line History (Snacks)',
+      },
+      { '<leader>gB', function() require('custom.navigation.blame').gitsigns(false) end, desc = 'Git Blame File (Gitsigns)' },
+      { '<leader>TB', function() require('custom.navigation.blame').gitsigns(true) end, desc = 'Toggle Git Blame File (Gitsigns)' },
+      { '<leader>gg', function() require('custom.navigation.lazygit').open() end, desc = 'Toggle Lazygit' },
+      { '<leader>gf', function() require('custom.navigation.lazygit').open(true) end, desc = 'LazyGit Current File History' },
     },
   },
 }
