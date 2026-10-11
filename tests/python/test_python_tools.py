@@ -22,6 +22,7 @@ from harness import ROOT, environment, run_process
         pytest.param("navigation-lifecycle", marks=pytest.mark.integration),
         pytest.param("output-style", marks=pytest.mark.integration),
         pytest.param("summary-output", marks=pytest.mark.integration),
+        pytest.param("summary-output-delayed-focus", marks=pytest.mark.integration),
         pytest.param("file-output", marks=pytest.mark.integration),
         pytest.param("real-gutter", marks=pytest.mark.integration),
         pytest.param("debug-file", marks=pytest.mark.kernel),

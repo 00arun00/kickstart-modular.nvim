@@ -57,6 +57,7 @@ return {
         summary = { mappings = { short = { 'o', 'O', 'K', '<leader>to' }, output = 'go', prev_failed = '[f', next_failed = ']f' } },
         adapters = { adapter },
         consumers = {
+          summary_selection = require 'custom.navigation.test_summary',
           navigation = require 'custom.navigation.tests',
           output_style = require 'custom.navigation.test_output',
           project = function(client)
