@@ -8,6 +8,54 @@ return {
     ---@module 'snacks'
     ---@type snacks.Config
     opts = {
+      gh = {},
+      picker = {
+        enabled = true,
+        -- Telescope continues to own shared selection menus and search mappings.
+        ui_select = false,
+        sources = {
+          -- Show cached matches immediately, then search GitHub after a pause.
+          -- Ctrl+g in the input still switches to explicit GitHub search.
+          gh_issue = {
+            on_show = function(picker) require('custom.navigation.gh_search').setup(picker) end,
+            on_close = function(picker) require('custom.navigation.gh_search').close(picker) end,
+            finder = function(opts, ctx) return require('custom.navigation.gh_search').finder(opts, ctx) end,
+            filter = { transform = function(picker, filter) require('custom.navigation.gh_search').transform(picker, filter) end },
+            live = false,
+            -- Limit each GitHub request, not the merged local/remote list.
+            gh_search_limit = 100,
+            limit = math.huge,
+            limit_live = math.huge,
+            matcher = { ignorecase = true, smartcase = false },
+          },
+          gh_pr = {
+            on_show = function(picker) require('custom.navigation.gh_search').setup(picker) end,
+            on_close = function(picker) require('custom.navigation.gh_search').close(picker) end,
+            finder = function(opts, ctx) return require('custom.navigation.gh_search').finder(opts, ctx) end,
+            filter = { transform = function(picker, filter) require('custom.navigation.gh_search').transform(picker, filter) end },
+            live = false,
+            gh_search_limit = 100,
+            limit = math.huge,
+            limit_live = math.huge,
+            matcher = { ignorecase = true, smartcase = false },
+          },
+        },
+        win = {
+          input = {
+            keys = {
+              ['<c-t>'] = false,
+              ['<a-t>'] = { 'tab', mode = { 'n', 'i' } },
+            },
+          },
+          list = {
+            keys = {
+              ['<c-t>'] = false,
+              ['<a-t>'] = 'tab',
+            },
+          },
+        },
+      },
+
       -- Renders images, mermaid diagrams and latex math inline using the kitty
       -- graphics protocol, which ghostty supports natively.
       -- Requires `imagemagick`. Latex math in markdown is compiled as a real
@@ -38,13 +86,14 @@ return {
         configure = true,
       },
 
-      -- Only the `image` and `notifier` modules are enabled.
-      -- `snacks.nvim` is a collection of independent modules and
-      -- every other one stays off, so this does not
-      -- turn into a second plugin framework alongside kickstart.
+      -- Other Snacks features are opt-in; GitHub uses its dedicated picker.
       notifier = { enabled = true },
     },
     keys = {
+      { '<leader>gi', function() Snacks.picker.gh_issue() end, desc = 'GitHub Issues (Open)' },
+      { '<leader>gI', function() Snacks.picker.gh_issue { state = 'all' } end, desc = 'GitHub Issues (All)' },
+      { '<leader>gp', function() Snacks.picker.gh_pr() end, desc = 'GitHub Pull Requests (Open)' },
+      { '<leader>gP', function() Snacks.picker.gh_pr { state = 'all' } end, desc = 'GitHub Pull Requests (All)' },
       {
         '<leader>gb',
         function() require('custom.navigation.blame').snacks() end,
