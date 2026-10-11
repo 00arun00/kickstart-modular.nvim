@@ -67,10 +67,18 @@ return {
                 -- running so files added outside the editor join this run too.
                 root = vim.uv.fs_realpath(root) or root
                 client:get_adapters() -- Ensure the client is started before registering this root.
-                client:_update_adapters(root)
                 -- Environment roots (e.g. a nested .venv) need not be adapter roots.
-                local adapter_id = client:get_adapter(adapter.root(root) or root)
-                if not adapter_id then return vim.notify('No test adapter found for ' .. root, vim.log.levels.WARN) end
+                local adapter_root = adapter.root(root) or root
+                client:_update_adapters(adapter_root)
+
+                -- Match the registered owner explicitly. A path lookup can
+                -- select another adapter that also discovered these files.
+                -- This ID format follows the pinned Neotest implementation.
+                local adapter_id = adapter.name .. ':' .. adapter_root
+                if not vim.tbl_contains(client:get_adapters(), adapter_id) then
+                  return vim.notify('No registered test adapter found for ' .. adapter_root, vim.log.levels.WARN)
+                end
+
                 client:_update_positions(root, { adapter = adapter_id })
                 require('neotest').run.run { root, adapter = adapter_id }
               end, 1),
