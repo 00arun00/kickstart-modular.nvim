@@ -534,8 +534,10 @@ terminal configuration can use `keybind = alt+t=esc:t`. Command-T remains the
 terminal's own new-tab shortcut.
 
 Press `Ctrl-t` in Trouble after applying `gb` / `gs` to search only the remaining
-items in Telescope. Folded items are included. Search matches message, path,
-severity, producer, and rule code when available. Use Tab to mark entries, then
+items in Telescope. Folded items are included; rows or groups removed with `dd`
+are excluded, including on repeated snapshot round trips. Deleting a row does
+not suppress its underlying diagnostic: refreshing the live view can restore it.
+Search matches message, path, severity, producer, and rule code when available. Use Tab to mark entries, then
 `Ctrl-t` to return the selection (or all matching results when none are marked).
 The return creates a separate snapshot worklist, preserving diagnostic metadata
 for further filtering. The original live view stays available and quickfix is

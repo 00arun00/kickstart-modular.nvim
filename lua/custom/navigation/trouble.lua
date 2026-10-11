@@ -63,12 +63,10 @@ end
 
 function M.to_telescope(view)
   local items = {}
-  -- Section items have already passed both mode and interactive filters.
-  -- Include folded results too: collapsing a file is not a selection filter.
-  for _, section in ipairs(view.sections) do
-    for _, item in ipairs(section.items) do
-      items[#items + 1] = snapshot(item)
-    end
+  -- Flatten the remaining tree: deleted rows/groups are absent, while folded
+  -- descendants remain included. Section item arrays still contain deletions.
+  for _, item in ipairs(view:flatten()) do
+    items[#items + 1] = snapshot(item)
   end
   if #items == 0 then
     vim.notify('No Trouble results to send to Telescope', vim.log.levels.INFO)
