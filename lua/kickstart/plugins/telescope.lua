@@ -62,6 +62,18 @@ return {
       -- [[ Configure Telescope ]]
       -- See `:help telescope` and `:help telescope.setup()`
       require('telescope').setup {
+        defaults = {
+          mappings = {
+            i = {
+              ['<C-t>'] = function(buf) require('custom.navigation.trouble').to_trouble(buf) end,
+              ['<M-t>'] = require('telescope.actions').select_tab,
+            },
+            n = {
+              ['<C-t>'] = function(buf) require('custom.navigation.trouble').to_trouble(buf) end,
+              ['<M-t>'] = require('telescope.actions').select_tab,
+            },
+          },
+        },
         -- You can put your default mappings / updates / etc. in here
         --  All the info you're looking for is in `:help telescope.setup()`
         --

@@ -115,6 +115,12 @@
       "timeout": 60
     },
     {
+      "file": "tests/trouble.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 60
+    },
+    {
       "file": "tests/venv.lua",
       "language": "lua",
       "suite": "integration",

@@ -136,9 +136,15 @@ drained callbacks in the fast suite; the pytest workflow retains a real mapping,
 execution, navigation preview, and failure-output smoke check. Gutter priority
 is covered separately by `test_statuscolumn.py`.
 
-Three additional full-config integration cases preserve the UI connections:
+Four additional full-config integration cases preserve the UI connections:
 `summary-output` navigates to a real failed test in the summary and opens its
-isolated report with both `K` and `<leader>to`; `file-output` checks that a summary
+isolated report with both `K` and `<leader>to`; `summary-output-delayed-focus`
+delivers a source focus event while that report is open, waits for the real
+summary redraw, and checks that the selected failure survives. It also checks
+that following resumes when returning to the source. The summary renderer
+suppresses automatic cursor placement while a Neotest output popup has focus;
+results and mappings still refresh. This covers queued follow updates without
+extending timeouts. `file-output` checks that a summary
 file row opens the complete run log; `real-gutter` checks actual Neotest signs,
 diagnostic/breakpoint priority, and restoration after those overlays are removed.
 Each runs its own pytest fixture and waits for fresh results before checking UI

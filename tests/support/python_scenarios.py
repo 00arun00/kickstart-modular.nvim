@@ -335,8 +335,9 @@ def output_text(editor, key, marker):
     return "\n".join(editor.nvim.current.buffer[:])
 
 
-def summary_output(editor, project):
-    completed_pytest(editor, project)
+def summary_output(editor, project, delayed_focus=False):
+    source = completed_pytest(editor, project)
+    source_window = editor.nvim.current.window.handle
     editor.lua("require('neotest').summary.open({enter=true})")
     summary_row(editor, "test_environment")
     editor.lua("""
@@ -356,12 +357,49 @@ def summary_output(editor, project):
         assert "test session starts" not in text and "test_environment" not in text, (
             text
         )
+        if delayed_focus:
+            summary_buffer = editor.nvim.api.win_get_buf(summary_window)
+            tick = editor.nvim.api.buf_get_changedtick(summary_buffer)
+            # Deliver a source focus event after the output has taken focus.
+            # This exercises the real follow listener and queued canvas render.
+            editor.lua(
+                """
+              local source = ...
+              vim.api.nvim_win_call(source, function()
+                vim.api.nvim_exec_autocmds('CursorHold', {buffer=0})
+              end)
+            """,
+                source_window,
+            )
+            editor.wait(
+                "summary redraw after delayed source focus",
+                "local buf,tick=...; return vim.api.nvim_buf_get_changedtick(buf)>tick",
+                summary_buffer.number,
+                tick,
+            )
+            assert editor.nvim.current.buffer.options["filetype"] == "neotest-output"
         editor.nvim.command("close")
         editor.wait(
             "return to summary selection",
             "return vim.bo.filetype=='neotest-summary' and vim.api.nvim_get_current_line():find('test_failure_is_reported',1,true)",
         )
         assert editor.nvim.current.window.handle == summary_window
+
+    if delayed_focus:
+        # Suppressing the popup-time cursor move must not disable normal follow.
+        editor.nvim.api.set_current_win(source_window)
+        editor.lua("vim.api.nvim_exec_autocmds('CursorHold', {buffer=0})")
+        editor.wait(
+            "summary follows source again",
+            """
+          local win, name = ...
+          local row = vim.api.nvim_win_get_cursor(win)[1]
+          local buf = vim.api.nvim_win_get_buf(win)
+          return vim.api.nvim_buf_get_lines(buf,row-1,row,false)[1]:find(name,1,true)
+        """,
+            summary_window,
+            source.name,
+        )
 
 
 def file_output(editor, project):
@@ -563,6 +601,9 @@ if __name__ == "__main__":
                 "output-style": output_style,
                 "unittest-preview": unittest_preview,
                 "summary-output": summary_output,
+                "summary-output-delayed-focus": lambda e, p: summary_output(
+                    e, p, delayed_focus=True
+                ),
                 "file-output": file_output,
                 "real-gutter": real_gutter,
                 "unittest": unittest_run,
