@@ -90,6 +90,11 @@ return {
       notifier = { enabled = true },
     },
     keys = {
+      { '<leader>Ss', function() require('custom.navigation.scratch').choose() end, desc = 'Scratch: choose scope' },
+      { '<leader>Sb', function() require('custom.navigation.scratch').toggle 'branch' end, desc = 'Scratch: current branch' },
+      { '<leader>Sp', function() require('custom.navigation.scratch').toggle 'project' end, desc = 'Scratch: current project' },
+      { '<leader>Sg', function() require('custom.navigation.scratch').toggle 'global' end, desc = 'Scratch: global' },
+      { '<leader>Sf', function() require('custom.navigation.scratch').find() end, desc = 'Scratch: find saved notes' },
       { '<leader>gi', function() Snacks.picker.gh_issue() end, desc = 'GitHub Issues (Open)' },
       { '<leader>gI', function() Snacks.picker.gh_issue { state = 'all' } end, desc = 'GitHub Issues (All)' },
       { '<leader>gp', function() Snacks.picker.gh_pr() end, desc = 'GitHub Pull Requests (Open)' },
