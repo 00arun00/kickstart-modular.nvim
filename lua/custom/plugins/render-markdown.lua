@@ -8,6 +8,22 @@ return {
     ---@module 'render-markdown'
     ---@type render.md.UserConfig
     opts = {
+      -- Color only the icons: no scope_highlight on the task text.
+      checkbox = {
+        unchecked = { icon = '󰄱 ', highlight = 'MarkdownTaskPending' },
+        checked = { icon = '󰄲 ', highlight = 'MarkdownTaskDone' },
+        custom = {
+          todo = { raw = '[-]', rendered = '󰦖 ', highlight = 'MarkdownTaskActive' },
+          partial = { raw = '[/]', rendered = '󰪡 ', highlight = 'MarkdownTaskActive' },
+          quarter = { raw = '[1]', rendered = '󰪟 ', highlight = 'MarkdownTaskQuarter' },
+          half = { raw = '[2]', rendered = '󰪡 ', highlight = 'MarkdownTaskHalf' },
+          three_quarters = { raw = '[3]', rendered = '󰪣 ', highlight = 'MarkdownTaskThreeQuarters' },
+          deferred = { raw = '[>]', rendered = '󰃰 ', highlight = 'MarkdownTaskDeferred' },
+          blocked = { raw = '[!]', rendered = '󰍁 ', highlight = 'MarkdownTaskBlocked' },
+          question = { raw = '[?]', rendered = '󰆆 ', highlight = 'MarkdownTaskQuestion' },
+          cancelled = { raw = '[~]', rendered = '󰅚 ', highlight = 'MarkdownTaskPending' },
+        },
+      },
       -- Rendering latex here would need `pylatexenc` and only produces unicode
       -- approximations. Math is left to `snacks.nvim`, which renders it as an
       -- actual image, so keeping this off avoids rendering formulas twice.
