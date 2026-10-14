@@ -23,6 +23,10 @@ return {
   ---@type Gitsigns.Config
   ---@diagnostic disable-next-line: missing-fields
   opts = {
+    current_line_blame = true,
+    current_line_blame_opts = {
+      delay = 200, -- Milliseconds to wait after cursor movement before showing blame.
+    },
      on_attach = function(bufnr)
       local gitsigns = require 'gitsigns'
 
