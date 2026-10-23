@@ -24,6 +24,13 @@ return {
   ---@diagnostic disable-next-line: missing-fields
   opts = {
     current_line_blame = true,
+    current_line_blame_formatter = function(name, info)
+      local formatter = require 'gitsigns.blame_formatter'
+      return {
+        { formatter.expand_string('  <author>, <author_time:%R> | <summary> ', name, info, { self_author_text = 'You' }), 'CustomBlameAccent' },
+      }
+    end,
+    current_line_blame_formatter_nc = function(_, info) return { { '  ' .. info.author .. ' ', 'CustomBlameAccent' } } end,
     current_line_blame_opts = {
       delay = 200, -- Milliseconds to wait after cursor movement before showing blame.
     },
