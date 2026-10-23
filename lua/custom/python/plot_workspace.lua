@@ -251,7 +251,7 @@ function M.open(opts)
         end
       end
       local input = folder .. '/input.json'
-      vim.fn.writefile({ vim.json.encode { data = data.plot, settings = s.settings } }, input)
+      vim.fn.writefile({ vim.json.encode { data = data.plot, settings = s.settings, palette = require('custom.theme').palette() } }, input)
       s.job = vim.system(
         { opts.python, vim.fs.dirname(opts.helper) .. '/render-plot.py', input, folder },
         { text = true, timeout = 30000 },
@@ -444,6 +444,17 @@ function M.open(opts)
       if s.job then s.job:kill(15) end
       s.serial = s.serial + 1
       if active == s then active = nil end
+    end,
+  })
+  local theme_revision = 0
+  api.nvim_create_autocmd('ColorScheme', {
+    group = api.nvim_create_augroup('python-plot-theme', { clear = true }),
+    callback = function()
+      theme_revision = theme_revision + 1
+      local revision = theme_revision
+      vim.defer_fn(function()
+        if revision == theme_revision and active == s and api.nvim_buf_is_valid(buf) and s.schema then change() end
+      end, 250)
     end,
   })
   api.nvim_create_autocmd('VimResized', {

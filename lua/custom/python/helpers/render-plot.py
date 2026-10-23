@@ -2,6 +2,7 @@
 
 import json
 import math
+import re
 import sys
 import textwrap
 from pathlib import Path
@@ -9,7 +10,34 @@ from pathlib import Path
 import vl_convert as vlc
 
 
-def specification(data, settings):
+def theme_colors(palette=None):
+    colors = {
+        "mantle": "#181825",
+        "text": "#cdd6f4",
+        "subtext0": "#a6adc8",
+        "surface0": "#313244",
+        "overlay1": "#585b70",
+        "blue": "#89b4fa",
+        "lavender": "#cba6f7",
+        "green": "#a6e3a1",
+        "peach": "#fab387",
+        "yellow": "#f9e2af",
+        "teal": "#94e2d5",
+        "red": "#f38ba8",
+        "sky": "#89dceb",
+    }
+    for key, value in (palette or {}).items():
+        if (
+            key in colors
+            and isinstance(value, str)
+            and re.fullmatch(r"#[0-9a-fA-F]{6}", value)
+        ):
+            colors[key] = value
+    return colors
+
+
+def specification(data, settings, palette=None):
+    colors = theme_colors(palette)
     style = data["style"]
     tooltip = [
         {
@@ -24,7 +52,7 @@ def specification(data, settings):
         "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
         "width": 880,
         "height": 440,
-        "background": "#181825",
+        "background": colors["mantle"],
         "padding": 24,
         "title": {
             "text": textwrap.wrap(settings.get("title") or "Variable plot", 75),
@@ -37,37 +65,37 @@ def specification(data, settings):
             "font": "Arial",
             "view": {"stroke": None},
             "axis": {
-                "labelColor": "#bac2de",
-                "titleColor": "#cdd6f4",
-                "gridColor": "#313244",
-                "domainColor": "#585b70",
-                "tickColor": "#585b70",
+                "labelColor": colors["subtext0"],
+                "titleColor": colors["text"],
+                "gridColor": colors["surface0"],
+                "domainColor": colors["overlay1"],
+                "tickColor": colors["overlay1"],
                 "labelFontSize": 12,
                 "titleFontSize": 13,
                 "titlePadding": 14,
             },
             "title": {
-                "color": "#cdd6f4",
+                "color": colors["text"],
                 "fontSize": 22,
-                "subtitleColor": "#a6adc8",
+                "subtitleColor": colors["subtext0"],
                 "subtitleFontSize": 12,
             },
             "legend": {
-                "labelColor": "#cdd6f4",
-                "titleColor": "#bac2de",
+                "labelColor": colors["text"],
+                "titleColor": colors["subtext0"],
                 "orient": "top",
                 "labelLimit": 250,
             },
             "range": {
                 "category": [
-                    "#89b4fa",
-                    "#f5c2e7",
-                    "#a6e3a1",
-                    "#fab387",
-                    "#cba6f7",
-                    "#f9e2af",
-                    "#94e2d5",
-                    "#f38ba8",
+                    colors["blue"],
+                    colors["sky"],
+                    colors["green"],
+                    colors["peach"],
+                    colors["lavender"],
+                    colors["yellow"],
+                    colors["teal"],
+                    colors["red"],
                 ]
             },
         },
@@ -168,7 +196,8 @@ def render(payload, folder):
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
     data, settings = payload["data"], payload["settings"]
-    spec = specification(data, settings)
+    colors = theme_colors(payload.get("palette"))
+    spec = specification(data, settings, colors)
     base = folder / "plot"
     base.with_suffix(".json").write_text(json.dumps(spec, ensure_ascii=False))
     base.with_suffix(".svg").write_text(vlc.vegalite_to_svg(spec))
@@ -182,7 +211,13 @@ def render(payload, folder):
     )
     bundle = vlc.javascript_bundle()
     html = (
-        '<!doctype html><meta charset="utf-8"><title>Notebook plot</title><style>body{background:#181825;color:#cdd6f4;font:14px sans-serif;margin:24px}#chart{max-width:100%}p{color:#a6adc8}</style><p>Scroll to zoom · drag to pan · double-click to reset. Chart and data are embedded locally.</p><div id="chart"></div><script>'
+        '<!doctype html><meta charset="utf-8"><title>Notebook plot</title><style>body{background:'
+        + colors["mantle"]
+        + ";color:"
+        + colors["text"]
+        + ";font:14px sans-serif;margin:24px}#chart{max-width:100%}p{color:"
+        + colors["subtext0"]
+        + '}</style><p>Scroll to zoom · drag to pan · double-click to reset. Chart and data are embedded locally.</p><div id="chart"></div><script>'
         + bundle
         + "</script><script>const spec="
         + encoded
