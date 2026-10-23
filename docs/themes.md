@@ -1,58 +1,131 @@
 # Shared themes
 
-`Space T t` opens the fuzzy theme picker. Moving through results previews only
-Neovim (including its statusline, custom highlights, and open plot/image UI).
-Enter remembers the selected variant and publishes matching colours to Ghostty,
-tmux, and SessionX/fzf. Cancelling restores the Neovim theme without publishing.
+`:ThemePicker` (also mapped to `Space T t`) opens the fuzzy theme picker. Moving
+through results previews only Neovim, including the statusline, custom highlights,
+and open plot/image UI.
+Enter remembers the selected variant. Cancelling restores the original theme.
 
-The latest confirmed choice is shared through `stdpath('state')/theme-choice`.
-New Neovim instances restore it on startup. Existing instances pull it on
-`FocusGained` and before opening the picker. tmux focus events are enabled by the
-shared configuration. A picker in progress is not interrupted by a focus event.
+The latest confirmed choice is stored in `stdpath('state')/theme-choice`. New
+Neovim instances restore it on startup. Existing instances pull it on focus and
+before opening the picker. A picker in progress is not interrupted by a focus
+event. Instances using different state directories have independent choices.
 
-## Terminal integration
+## Opt-in terminal setup
 
-`lua/custom/theme_sync.lua` exports the palette into
-`stdpath('state')/terminal-theme/`:
+The Neovim picker works without terminal integration. No external config is
+changed until setup is explicitly installed.
 
-- `ghostty.conf`: foreground, background, selections, cursor, window appearance,
-  and the active theme's 16 ANSI colours. Ghostty includes this file after its
-  ordinary settings and reloads via SIGUSR2 (requires Ghostty 1.2 or newer).
-- `tmux.conf`: recolours the captured status formats and window/popup/message
-  styles. Existing window labels, session names, and zoom behavior are retained.
-  It also refreshes SessionX's cached fzf arguments, so inherited dark colours
-  from older shells cannot override SessionX's selected palette.
-- `fzf.conf`: colour options read on every fzf launch through
-  `FZF_DEFAULT_OPTS_FILE`. Shell layout/key options remain in `.zshrc`.
-- `templates.json`: original tmux formats, SessionX options, and fzf layout
-  options captured when the integration was installed.
-- `enabled`: opt-in marker. Without this file the external integration is inert,
-  including in isolated tests.
+| Command | Behavior |
+| --- | --- |
+| `:ThemeSyncSetup` | Read-only detection and preview of exact config additions |
+| `:ThemeSyncSetup!` | Back up configs, install managed blocks, and apply the current palette |
+| `:ThemeSyncStatus` | Show enabled integrations, config paths, and backup location |
+| `:ThemeSyncUninstall` | Preview removal and check for conflicts |
+| `:ThemeSyncUninstall!` | Remove managed wiring, restore captured tmux settings, and reload Ghostty |
 
-On this machine Ghostty's config, the end of `.tmux.conf`, and `.zshrc` contain
-these links. Existing shells need `source ~/.zshrc` once after installation;
-new shells inherit the setup automatically. Restart already-running Neovim
-instances once to load the new picker code. Theme changes thereafter need no
-manual reload. The newest confirmed selection wins globally.
+After installation, confirmed picker choices update the enabled terminal apps.
+Previews remain inside Neovim. Open a new shell or source its config once to
+activate the fzf wrapper. The wrapper reads the latest palette each time `fzf`
+is invoked; it preserves existing option variables and explicit command-line
+arguments. It replaces any existing shell function named `fzf`. Programs that
+bypass shell functions with `command fzf` do not use that wrapper; SessionX has
+its own integration.
 
-Original external configs were backed up under
-`~/.local/state/nvim/terminal-theme/backup-20261023-232303/`.
-To disable publication, remove the `enabled` marker. To revert external wiring,
-restore the backed-up Ghostty/tmux/zsh configs and reload those applications.
-The marker alone stops future publication but leaves the last exported palette
-active. If changing the tmux layout later, update `templates.json` so publishing
-a theme retains that new layout.
+Detection supports:
 
-Plot snapshots use the active palette for background, labels, grids, and series.
-Open editor plots redraw on theme changes. Previously exported files and browser
-pages remain independent snapshots.
+- **macOS and Linux.** Windows skips external integration; Neovim themes still work.
+- **Ghostty >= 1.2:** executable on `PATH`, or the standard system/user macOS app
+  bundle. Setup considers the XDG config and native macOS config locations.
+  Multiple existing configs require an explicit path. Ghostty reloads via
+  `pkill -USR2 -x ghostty`; if `pkill` is unavailable, the file is updated but
+  Ghostty must be reloaded manually. Signals are not sent to unsupported versions.
+- **tmux >= 3.2:** a running server is required to capture its actual status
+  layout. Setup considers `~/.tmux.conf` and the XDG tmux config. The captured
+  server socket is remembered for publication and uninstall. Separate tmux
+  servers are not enumerated or modified automatically.
+- **SessionX:** enabled only when the expected cached fzf option declaration is
+  detected on that tmux server. Otherwise tmux still works without SessionX.
+- **fzf with bash or zsh:** setup adds a wrapper to `.bashrc` or
+  `${ZDOTDIR:-$HOME}/.zshrc`. Other shells are skipped. Bash login sessions must
+  source `.bashrc` or use a custom shell config path.
+
+Missing apps and ambiguous paths are reported and skipped. Install dependencies,
+start tmux, or specify paths, then preview again. Re-running setup after a
+successful install is a no-op; uninstall first to change the integration set.
+
+To override detection, set this before running setup (only include needed keys):
+
+```lua
+vim.g.theme_sync = {
+  ghostty = true, -- false disables this integration
+  tmux = true,
+  fzf = true,
+  ghostty_config = '/path/to/ghostty/config',
+  tmux_config = '/path/to/tmux.conf',
+  shell = 'zsh', -- or bash
+  shell_config = '/path/to/.zshrc',
+}
+```
+
+Paths are expanded and symlinked dotfiles retain their links. Ghostty include
+files and tmux source files are appended after existing configuration so the
+selected palette wins. The installer preserves status labels, format conditions,
+and commands. Embedded tmux colour styles are normalized to semantic palette
+roles rather than assuming the previous theme was Catppuccin.
+
+## Backups and uninstall
+
+Setup stores complete original config files in a private, timestamped directory
+under `stdpath('state')/terminal-theme/backup-*`. Its manifest records actual
+paths, managed blocks, and original tmux settings. A failed install rolls back
+config edits. Backups are retained after uninstall.
+
+Uninstall removes only its own blocks and preserves later edits elsewhere in
+the files. If a managed block or a config symlink was changed, uninstall stops
+before modifying anything and reports the affected file and backup. Restore the
+managed block from that installation's manifest (or reconcile the file manually)
+and retry. It does not overwrite your intervening edits with a whole-file backup.
+Files created by setup are removed only if no user content remains.
+
+Uninstall leaves the Neovim picker and saved selection available. Restart shells
+(or `unset -f fzf`) to remove their already-loaded wrapper. Ghostty reads the
+remaining configuration; tmux restores settings captured at installation, not
+factory defaults. If its server is unavailable, restart/reload tmux normally.
+
+The earlier manual installation is supported: setup adopts its exact generated
+file links and replaces them with managed blocks. Earlier backups are retained.
+Uninstall then removes those links too; it does not reintroduce the manual setup.
+
+## Generated state
+
+`lua/custom/theme_sync.lua` exports into `stdpath('state')/terminal-theme/`:
+
+- `ghostty.conf`: background, foreground, selections, cursor, window appearance,
+  and the active theme's 16 ANSI colours.
+- `tmux.conf`: status/window/popup styles, focus events, and compatible SessionX
+  arguments. Explicit SessionX colours override old inherited fzf colours.
+- `fzf.conf`: colour arguments consumed by the managed shell wrapper.
+- `templates.json`: captured tmux formats and fzf options.
+- `installation.json`: detected targets and uninstall/backup metadata.
+- `enabled`: opt-in marker; without it publication is inert.
+
+Only opted-in targets are exported and reloaded. Removing `enabled` disables
+future publication but leaves the last palette active and config links intact;
+use the uninstall command for a complete removal. Generated files are retained
+for recovery and are not hand-edited sources of truth.
+
+Open editor plots redraw with the active palette. Previously exported files and
+browser pages remain independent snapshots.
 
 ## Verification
 
 ```sh
-.test-venv/bin/python -m pytest tests/python/test_theme_sync.py tests/python/test_theme_selection.py
+.test-venv/bin/python -m pytest tests/python/test_theme_setup.py tests/python/test_theme_sync.py tests/python/test_theme_selection.py
 .test-venv/bin/python -m pytest -m kernel -k plot_renderer
 ```
 
-The integration tests isolate state/cache and mock external publication; they do
-not recolour the user's desktop.
+Installer tests use disposable homes, fake app detection, and isolated state.
+They exercise backups, rollback, symlinks, migration, conflict refusal, and
+preservation of later edits. Integration tests locate plugins using Neovim's
+actual data directory; set `NVIM_TEST_PLUGIN_ROOT` for a custom Lazy plugin root.
+They mock external publication and do not recolour the user's desktop.
