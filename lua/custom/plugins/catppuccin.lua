@@ -17,6 +17,7 @@ return {
         styles = { comments = {} },
       }
       require('custom.theme').setup()
+      require('custom.fonts').setup()
       require('custom.theme').restore()
     end,
   },
