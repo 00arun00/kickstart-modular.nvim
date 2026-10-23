@@ -287,13 +287,15 @@ function M.pick()
 end
 
 function M.setup()
+  require('custom.theme_sync_setup').commands()
   local group = vim.api.nvim_create_augroup('CustomTheme', { clear = true })
   vim.api.nvim_create_autocmd('ColorScheme', { group = group, callback = M.apply_highlights })
   vim.api.nvim_create_autocmd('FocusGained', {
     group = group,
     callback = pull_selection,
   })
-  vim.keymap.set('n', '<leader>Tt', M.pick, { desc = '[T]heme picker: choose [t]heme' })
+  vim.api.nvim_create_user_command('ThemePicker', M.pick, { desc = 'Choose a theme with live preview' })
+  vim.keymap.set('n', '<leader>Tt', '<cmd>ThemePicker<CR>', { desc = '[T]heme picker: choose [t]heme' })
 end
 
 return M

@@ -33,7 +33,9 @@ local theme = require 'custom.theme'
 local path = vim.fn.stdpath 'state' .. '/theme-choice'
 theme.select('catppuccin-mocha')
 assert(#published == 1)
-theme.pick()
+assert(vim.fn.maparg('<leader>Tt', 'n') == '<Cmd>ThemePicker<CR>' or
+  vim.fn.maparg('<leader>Tt', 'n') == '<cmd>ThemePicker<CR>')
+vim.cmd 'ThemePicker'
 local picker = require('telescope.actions.state').get_current_picker(vim.api.nvim_get_current_buf())
 picker:set_prompt('rose-pine-dawn')
 assert(vim.wait(2000, function()
@@ -60,7 +62,40 @@ assert(vim.fn.readfile(path)[1] == 'tokyonight-day')
 print('PASS: previews local; confirmation published; shared selection pulled')
 vim.cmd 'qa!'
 """)
-    plugins = Path.home() / ".local/share/nvim/lazy"
+    detected = subprocess.run(
+        [
+            "nvim",
+            "--headless",
+            "-u",
+            "NONE",
+            "-i",
+            "NONE",
+            "--cmd",
+            "lua io.stdout:write(vim.fn.stdpath('data')); vim.cmd('qa!')",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=10,
+    )
+    plugins = Path(
+        os.environ.get("NVIM_TEST_PLUGIN_ROOT", str(Path(detected.stdout) / "lazy"))
+    )
+    required = (
+        "lazy.nvim",
+        "telescope.nvim",
+        "plenary.nvim",
+        "catppuccin",
+        "rose-pine",
+        "tokyonight.nvim",
+        "neovim-ayu",
+        "onedarkpro.nvim",
+    )
+    missing = [name for name in required if not (plugins / name).is_dir()]
+    if missing:
+        pytest.skip(
+            "Install theme plugins or set NVIM_TEST_PLUGIN_ROOT: " + ", ".join(missing)
+        )
     env = dict(
         os.environ,
         THEME_TEST_ROOT=str(ROOT),
