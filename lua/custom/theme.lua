@@ -163,6 +163,7 @@ function M.apply_highlights()
   palette_cache = build_palette()
   local colors = palette_cache
   local highlights = {
+    CustomBlameAccent = { fg = colors.lavender },
     Folded = { bg = colors.mantle },
     FoldColumn = { fg = colors.overlay1, bg = colors.base },
     CursorLineFold = { fg = colors.lavender, bg = colors.base, bold = true },
