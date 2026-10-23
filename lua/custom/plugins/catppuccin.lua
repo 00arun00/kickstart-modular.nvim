@@ -5,46 +5,19 @@ return {
     'catppuccin/nvim',
     name = 'catppuccin',
     priority = 1000,
+    dependencies = {
+      { 'rose-pine/neovim', name = 'rose-pine', main = 'rose-pine', opts = { styles = { italic = false } } },
+      { 'folke/tokyonight.nvim', main = 'tokyonight', opts = { styles = { comments = { italic = false } } } },
+      { 'Shatur/neovim-ayu', main = 'ayu', opts = { overrides = { Comment = { italic = false } } } },
+      { 'olimorris/onedarkpro.nvim', opts = { options = { cursorline = true } } },
+    },
     config = function()
       require('catppuccin').setup {
         flavour = 'mocha',
-        styles = {
-          comments = {},
-        },
-        custom_highlights = function(colors)
-          return {
-            Folded = { bg = colors.mantle },
-            FoldColumn = { fg = colors.overlay1, bg = colors.base },
-            CursorLineFold = { fg = colors.lavender, bg = colors.base, bold = true },
-            FoldSummary = { fg = colors.subtext0, bg = colors.mantle },
-            DiagnosticError = { fg = colors.red },
-            DiagnosticWarn = { fg = colors.peach },
-            DiagnosticSignError = { fg = colors.red },
-            DiagnosticSignWarn = { fg = colors.peach },
-            -- Task progress stays in one teal -> mint -> green color family.
-            MarkdownTaskPending = { fg = colors.overlay1 },
-            MarkdownTaskActive = { fg = '#64c9bc' },
-            MarkdownTaskQuarter = { fg = '#74bdb9' },
-            MarkdownTaskHalf = { fg = '#65d5b5' },
-            MarkdownTaskThreeQuarters = { fg = '#83df9b' },
-            MarkdownTaskDone = { fg = '#45e779' },
-            MarkdownTaskDeferred = { fg = colors.lavender },
-            MarkdownTaskBlocked = { fg = colors.red },
-            MarkdownTaskQuestion = { fg = colors.sky },
-            NeoTreeNormal = { fg = colors.text, bg = colors.mantle },
-            NeoTreeNormalNC = { fg = colors.text, bg = colors.mantle },
-            NeoTreeRootName = { fg = colors.lavender, bold = true },
-            NeoTreeCursorLine = { bg = colors.surface0 },
-            NeoTreeIndentMarker = { fg = colors.surface1 },
-            NeoTreeExpander = { fg = colors.overlay1 },
-            NeoTreeTabActive = { fg = colors.lavender, bg = colors.surface0, bold = true },
-            NeoTreeTabInactive = { fg = colors.subtext0, bg = colors.mantle },
-            NeoTreeTabSeparatorActive = { fg = colors.mantle, bg = colors.mantle },
-            NeoTreeTabSeparatorInactive = { fg = colors.mantle, bg = colors.mantle },
-          }
-        end,
+        styles = { comments = {} },
       }
-      vim.cmd.colorscheme 'catppuccin-mocha'
+      require('custom.theme').setup()
+      require('custom.theme').restore()
     end,
   },
 }

@@ -20,13 +20,13 @@ return {
             local ok, noice = pcall(require, 'noice')
             return ok and noice.api.status[kind].has()
           end,
-          color = { fg = color },
+          color = function() return { fg = require('custom.theme').palette()[color] } end,
         }
       end
 
       require('lualine').setup {
         options = {
-          theme = 'catppuccin-mocha',
+          theme = 'auto',
           icons_enabled = vim.g.have_nerd_font,
           section_separators = '',
           component_separators = '|',
@@ -37,9 +37,9 @@ return {
           lualine_c = { 'filename' },
           lualine_x = {
             -- `mode` is the noice-specific.
-            noice_status('mode', '#fab387'),
-            noice_status('command', '#f9e2af'),
-            noice_status('search', '#89b4fa'),
+            noice_status('mode', 'peach'),
+            noice_status('command', 'yellow'),
+            noice_status('search', 'blue'),
             'filetype',
           },
           lualine_y = { 'progress' },

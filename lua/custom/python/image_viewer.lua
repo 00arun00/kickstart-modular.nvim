@@ -564,6 +564,17 @@ function M.open(opts)
       end
     end,
   })
+  local theme_revision = 0
+  api.nvim_create_autocmd('ColorScheme', {
+    group = api.nvim_create_augroup('python-image-theme', { clear = true }),
+    callback = function()
+      theme_revision = theme_revision + 1
+      local revision = theme_revision
+      vim.defer_fn(function()
+        if revision == theme_revision and active == s and api.nvim_win_is_valid(win) then repaint(true) end
+      end, 250)
+    end,
+  })
   local function poll()
     if active ~= s then return end
     if opts.poll then opts.poll() end
