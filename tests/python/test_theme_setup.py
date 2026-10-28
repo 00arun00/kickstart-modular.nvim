@@ -98,6 +98,7 @@ assert(#plan.files==3 and plan.targets.ghostty and plan.targets.tmux and plan.ta
 local backup=api.install(plan)
 assert(read(state..'/enabled'))
 assert(api.plan().installed)
+assert(read(state..'/ghostty.conf'):find('palette = 22=',1,true))
 assert(read(state..'/ghostty.conf'):find('background = #fafafa',1,true))
 local tmux=read(state..'/tmux.conf')
 assert(tmux:find('#I #W #(echo fg=red)',1,true), 'changed a status command')

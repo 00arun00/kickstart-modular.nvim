@@ -164,7 +164,14 @@ end
 function M.plan(settings)
   settings = settings or vim.g.theme_sync or {}
   local state, home = dir(), vim.env.HOME or vim.fn.expand '~'
-  local plan = { version = 1, state = state, targets = {}, files = {}, skipped = {}, templates = { options = {}, sessionx = false, format_mode = 'semantic' } }
+  local plan = {
+    version = 1,
+    state = state,
+    targets = {},
+    files = {},
+    skipped = {},
+    templates = { options = {}, sessionx = false, format_mode = 'semantic' },
+  }
   if json(state .. '/installation.json') then
     plan.installed = true
     return plan
@@ -189,12 +196,22 @@ function M.plan(settings)
     local base = legacy and before and clean_legacy(before, state) or before or ''
     assert(not base:find(begin_marker, 1, true), 'Untracked managed block in ' .. path .. '; inspect before setup')
     local addition = (base == '' and '' or base:sub(-1) == '\n' and '\n' or '\n\n') .. block(lines)
-    plan.files[#plan.files + 1] = { path = path, target = target, before = before, base = base, addition = addition, after = base .. addition }
+    plan.files[#plan.files + 1] = {
+      path = path,
+      target = target,
+      before = before,
+      base = base,
+      addition = addition,
+      after = base .. addition,
+    }
     metadata.path = path
     plan.targets[name] = metadata
   end
   if settings.ghostty ~= false then
-    local bin = executable('ghostty', { '/Applications/Ghostty.app/Contents/MacOS/ghostty', home .. '/Applications/Ghostty.app/Contents/MacOS/ghostty' })
+    local bin = executable('ghostty', {
+      '/Applications/Ghostty.app/Contents/MacOS/ghostty',
+      home .. '/Applications/Ghostty.app/Contents/MacOS/ghostty',
+    })
     local candidates = { config .. '/ghostty/config' }
     if uv.os_uname().sysname == 'Darwin' then candidates[#candidates + 1] = home .. '/Library/Application Support/com.mitchellh.ghostty/config' end
     local path, reason = choose(settings.ghostty_config, candidates)

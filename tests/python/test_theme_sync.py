@@ -48,7 +48,13 @@ vim.cmd 'qa!'
     files = json.loads(output.read_text())
     assert "background = #fafafa" in files["ghostty"]
     assert "window-theme = light" in files["ghostty"]
-    assert sum(line.startswith("palette = ") for line in files["ghostty"]) == 16
+    assert sum(line.startswith("palette = ") for line in files["ghostty"]) == 31
+    extended = {int(line.split("=", 2)[1]): line.split("=", 2)[2]
+                for line in files["ghostty"] if line.startswith("palette = ")
+                and int(line.split("=", 2)[1]) >= 16}
+    assert set(extended) == {22, 52, 58, 75, 81, 114, 141, 168, 173, 180, 237, 238, 244, 245, 250}
+    assert extended[141] == "#774499"
+    assert extended[22] == "#e0ece2"
     tmux = "\n".join(files["tmux"])
     assert "#I" in tmux and "#W" in tmux and "#{?window_zoomed_flag,ZOOM,}" in tmux
     assert "colour232" not in tmux and "colour255" not in tmux and "#fab387" not in tmux
