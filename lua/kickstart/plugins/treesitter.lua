@@ -31,10 +31,19 @@ return {
       ---@param buf integer
       ---@param language string
       local function treesitter_try_attach(buf, language)
-        -- check if parser exists and load it
+        -- Load the parser before looking up queries, which need its node definitions.
         if not vim.treesitter.language.add(language) then return end
-        -- enables syntax highlighting and other treesitter features
-        vim.treesitter.start(buf, language)
+
+        -- A parser alone cannot provide highlighting. Use the built-in syntax when
+        -- highlight queries are missing, as with an unsupported leftover parser.
+        local highlight_query = vim.treesitter.query.get(language, 'highlights')
+
+        if highlight_query then
+          vim.treesitter.start(buf, language)
+        else
+          vim.treesitter.stop(buf)
+          vim.bo[buf].syntax = vim.bo[buf].filetype
+        end
 
         -- Tree-sitter folding defaults are configured in lua/options.lua.
 
