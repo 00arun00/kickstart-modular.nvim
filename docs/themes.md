@@ -101,13 +101,33 @@ Uninstall then removes those links too; it does not reintroduce the manual setup
 `lua/custom/theme_sync.lua` exports into `stdpath('state')/terminal-theme/`:
 
 - `ghostty.conf`: background, foreground, selections, cursor, window appearance,
-  and the active theme's 16 ANSI colours.
+  the active theme's 16 ANSI colours, and the extended slots documented below.
 - `tmux.conf`: status/window/popup styles, focus events, and compatible SessionX
   arguments. Explicit SessionX colours override old inherited fzf colours.
 - `fzf.conf`: colour arguments consumed by the managed shell wrapper.
 - `templates.json`: captured tmux formats and fzf options.
 - `installation.json`: detected targets and uninstall/backup metadata.
 - `enabled`: opt-in marker; without it publication is inert.
+
+
+### Extended terminal palette
+
+Ghostty also receives 15 stable palette slots, populated from the active Neovim
+highlight groups. Missing highlight colors use the theme's normalized palette.
+
+| Slots | Roles |
+| --- | --- |
+| 22, 52, 58 | Added-line background, deleted-line background, search background |
+| 75, 81, 114 | Function, operator, string |
+| 141, 168, 173, 180 | Keyword, tag, constant, type |
+| 237, 238 | Cursor-line background, selection background |
+| 244, 245, 250 | Border, muted text, punctuation |
+
+Search backgrounds are blended toward the normal background to retain readable
+syntax text. These slots are shared by every application in the terminal and
+override their usual extended-palette colors. Applications can map their own
+roles to these slots; no application-specific discovery manifest is generated.
+Changing a theme updates the colors while slot numbers remain stable.
 
 Only opted-in targets are exported and reloaded. Removing `enabled` disables
 future publication but leaves the last palette active and config links intact;
