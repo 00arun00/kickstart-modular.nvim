@@ -3,12 +3,16 @@
 `:ThemePicker` (also mapped to `Space T t`) opens the fuzzy theme picker. Moving
 through results previews only Neovim, including the statusline, custom highlights,
 and open plot/image UI.
-Enter remembers the selected variant. Cancelling restores the original theme.
+Enter remembers the selected variant. Cancelling restores the original theme, then adopts any newer shared selection.
 
 The latest confirmed choice is stored in `stdpath('state')/theme-choice`. New
-Neovim instances restore it on startup. Existing instances pull it on focus and
-before opening the picker. A picker in progress is not interrupted by a focus
-event. Instances using different state directories have independent choices.
+Neovim instances restore it on startup. Existing instances watch the state
+directory for confirmed changes and apply them locally, then redraw even when
+unfocused. This uses filesystem events, not periodic polling. Focus and opening
+the picker remain fallback checks. A picker in progress is not interrupted by
+external changes; cancellation adopts the latest shared choice, while confirmation
+saves your selected theme. Instances using different state directories have
+independent choices. Receiving instances never republish terminal colors.
 
 ## Opt-in terminal setup
 

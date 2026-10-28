@@ -210,7 +210,17 @@ function M.select(name)
   apply(name)
   local ok, err = pcall(function()
     vim.fn.mkdir(vim.fn.stdpath 'state', 'p')
-    vim.fn.writefile({ name }, state_path())
+    local path = state_path()
+    local temporary = path .. '.' .. vim.fn.getpid() .. '.tmp'
+    local written, failure = pcall(function()
+      assert(vim.fn.writefile({ name }, temporary) == 0, 'Could not write theme choice')
+      local renamed, rename_error = vim.uv.fs_rename(temporary, path)
+      assert(renamed, rename_error)
+    end)
+    if not written then
+      vim.uv.fs_unlink(temporary)
+      error(failure)
+    end
   end)
   if not ok then vim.notify('Theme applied, but could not save selection: ' .. tostring(err), vim.log.levels.WARN) end
   require('custom.theme_sync').publish()
@@ -233,7 +243,48 @@ local picking = false
 local function pull_selection()
   if picking then return end
   local ok, saved = pcall(vim.fn.readfile, state_path())
-  if ok and registry[saved[1]] and current_theme() ~= saved[1] then M.restore() end
+  local name = ok and saved[1] or nil
+  if registry[name] and (current_theme() ~= name or vim.o.background ~= registry[name].background) then
+    apply(name)
+    -- Update tmux's pane contents even when this instance is not focused.
+    vim.cmd 'redraw!'
+  end
+end
+
+local selection_watcher
+local function stop_selection_watcher()
+  if not selection_watcher then return end
+  selection_watcher:stop()
+  selection_watcher:close()
+  selection_watcher = nil
+end
+
+local function watch_selection()
+  stop_selection_watcher()
+  -- Watch the directory: confirmed choices replace the file atomically.
+  local directory = vim.fn.stdpath 'state'
+  local created = pcall(vim.fn.mkdir, directory, 'p')
+  if not created then return end -- FocusGained remains the fallback.
+  local watcher = vim.uv.new_fs_event()
+  if not watcher then return end
+  selection_watcher = watcher
+  local queued = false
+  local started = watcher:start(directory, {}, function(err, filename)
+    if selection_watcher ~= watcher then return end
+    if not err and filename and filename ~= 'theme-choice' then return end
+    if queued then return end
+    queued = true
+    vim.schedule(function()
+      queued = false
+      if selection_watcher ~= watcher then return end
+      if err then
+        stop_selection_watcher()
+        return
+      end
+      pull_selection()
+    end)
+  end)
+  if not started then stop_selection_watcher() end
 end
 
 function M.pick()
@@ -282,6 +333,7 @@ function M.pick()
     if not confirmed then
       vim.o.background = original_background
       vim.cmd.colorscheme(original)
+      pull_selection()
     end
   end
   picker:find()
@@ -295,6 +347,8 @@ function M.setup()
     group = group,
     callback = pull_selection,
   })
+  vim.api.nvim_create_autocmd('VimLeavePre', { group = group, callback = stop_selection_watcher })
+  watch_selection()
   vim.api.nvim_create_user_command('ThemePicker', M.pick, { desc = 'Choose a theme with live preview' })
   vim.keymap.set('n', '<leader>Tt', '<cmd>ThemePicker<CR>', { desc = '[T]heme picker: choose [t]heme' })
 end
