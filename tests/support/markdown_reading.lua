@@ -19,6 +19,7 @@ Snacks.image.image.new = function(src)
   if not images[src] then
     image_id = image_id + 1
     images[src] = {
+      src = src,
       id = image_id,
       file = src,
       pending = hold_reading_images == true,

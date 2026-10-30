@@ -105,11 +105,14 @@ function M.setup_snacks()
   -- A parse begun under an old theme must not restore old-colored placements
   -- after the new theme's refresh has completed.
   local visible = Snacks.image.doc.find_visible
+  local visible_requests = {}
   Snacks.image.doc.find_visible = function(buf, callback)
     if vim.bo[buf].filetype ~= 'markdown' then return visible(buf, callback) end
     local generation = math_generation
+    local request = (visible_requests[buf] or 0) + 1
+    visible_requests[buf] = request
     visible(buf, function(images)
-      if generation == math_generation then callback(images) end
+      if generation == math_generation and visible_requests[buf] == request then callback(images) end
     end)
   end
   local new, conceal = inline.new, inline.conceal

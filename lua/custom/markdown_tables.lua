@@ -2,7 +2,7 @@
 -- Source text stays in the buffer; entering a table reveals it for editing.
 local M = {}
 local states = {}
-local find_images
+local initialized = false
 local function supported(buf)
   if not vim.api.nvim_buf_is_valid(buf) or vim.bo[buf].filetype ~= 'markdown' then return false end
   if not Snacks.image.supports_terminal() or not Snacks.image.terminal.env().placeholders then return false end
@@ -34,41 +34,56 @@ local function scan(buf)
   release(states[buf])
   local state = { tick = tick, tables = {}, images = {}, grids = {} }
   states[buf] = state
-  find_images(buf, function(equations)
-    if states[buf] ~= state or not vim.api.nvim_buf_is_valid(buf) or vim.api.nvim_buf_get_changedtick(buf) ~= tick then return end
-    local parser = vim.treesitter.get_parser(buf, 'markdown')
-    local query = vim.treesitter.query.parse('markdown', '(pipe_table) @table')
-    for _, node in query:iter_captures(parser:parse()[1]:root(), buf) do
-      local first, _, last, end_col = node:range()
-      if end_col > 0 then last = last + 1 end
+  local parser = vim.treesitter.get_parser(buf, 'markdown')
+  local query = vim.treesitter.query.parse('markdown', '(pipe_table) @table')
+  for _, node in query:iter_captures(parser:parse()[1]:root(), buf) do
+    local first, _, last, end_col = node:range()
+    if end_col > 0 then last = last + 1 end
+    require('custom.markdown_prepare').find(buf, first + 1, last, function(equations)
+      if states[buf] ~= state or not vim.api.nvim_buf_is_valid(buf) or vim.api.nvim_buf_get_changedtick(buf) ~= tick then return end
       local selected = vim.tbl_filter(function(image) return image.type == 'math' and image.range[1] > first and image.range[3] <= last end, equations)
       if #selected > 0 then
         local entry = { first = first, last = last - 1, model = require('custom.markdown_table_preview').model(buf, node, selected) }
         state.tables[#state.tables + 1] = entry
-        for _, image in ipairs(selected) do
-          if not state.images[image.src] then
-            local img = Snacks.image.image.new(image.src)
-            local listener = {
-              update = function() refresh(buf, state) end,
-              error = function()
-                if not state.warned then
-                  state.warned = true
-                  vim.notify('A table equation could not be rendered; keeping the source table visible.', vim.log.levels.WARN)
-                end
-                refresh(buf, state)
-              end,
-            }
-            -- Register one lifecycle listener/grid placement per equation.
-            img:place(listener)
-            state.images[image.src] = { img = img, listener = listener }
-          end
+      end
+      refresh(buf, state)
+    end)
+  end
+  return state
+end
+
+local function visible(buf, entry)
+  for _, win in ipairs(vim.fn.win_findbuf(buf)) do
+    if vim.api.nvim_win_get_tabpage(win) == vim.api.nvim_get_current_tabpage() then
+      local view = vim.fn.getwininfo(win)[1]
+      if view.topline <= entry.last + 1 and view.botline >= entry.first + 1 then return true end
+    end
+  end
+  return false
+end
+
+local function attach(buf, state, entry)
+  for _, row in ipairs(entry.model.rows) do
+    for _, cell in ipairs(row) do
+      for _, token in ipairs(cell) do
+        if token.src and not state.images[token.src] then
+          local img = Snacks.image.image.new(token.src)
+          local listener = {
+            update = function() refresh(buf, state) end,
+            error = function()
+              if not state.warned then
+                state.warned = true
+                vim.notify('A table equation could not be rendered; keeping the source table visible.', vim.log.levels.WARN)
+              end
+              refresh(buf, state)
+            end,
+          }
+          img:place(listener)
+          state.images[token.src] = { img = img, listener = listener }
         end
       end
     end
-    state.loaded = true
-    refresh(buf, state)
-  end)
-  return state
+  end
 end
 
 local function ready(entry, state)
@@ -180,7 +195,11 @@ function M.parse(language, ctx)
   local original = require('render-markdown.handler.' .. language).parse(ctx)
   if not supported(ctx.buf) then return original end
   local state = scan(ctx.buf)
-  local active = vim.tbl_filter(function(entry) return ready(entry, state) end, state.tables)
+  local active = vim.tbl_filter(function(entry)
+    if not visible(ctx.buf, entry) then return false end
+    attach(ctx.buf, state, entry)
+    return ready(entry, state)
+  end, state.tables)
   -- Native borders/replacement rows and injected inline/HTML decorations must
   -- not coexist with the cell layout, including while revealing source.
   original = vim.tbl_filter(function(mark)
@@ -245,9 +264,9 @@ function M.parse(language, ctx)
 end
 
 function M.setup()
-  if find_images then return end
+  if initialized then return end
+  initialized = true
   local doc = Snacks.image.doc
-  find_images = doc.find
   local visible = doc.find_visible
   doc.find_visible = function(buf, cb)
     visible(buf, function(images)

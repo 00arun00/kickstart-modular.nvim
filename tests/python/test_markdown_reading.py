@@ -27,6 +27,12 @@ def nvim(tmp_path, monkeypatch, pytestconfig, request):
             str(data),
             getattr(request, "param", None),
         )
+        # Tables now instantiate placements only in view. Bring the fixture's
+        # first table into view rather than assuming off-screen rendering.
+        first_table = next(i + 1 for i, line in enumerate(n.current.buffer) if line.startswith("|"))
+        n.current.window.cursor = (max(1, first_table - 1), 0)
+        n.command("normal! zt")
+        n.exec_lua("require('render-markdown').render{buf=vim.api.nvim_get_current_buf()}")
         wait(n, "reading_fixture.table_rendered()")
         yield n
     finally:
@@ -478,6 +484,7 @@ def test_theme_refresh_discards_old_async_math_and_queued_updates(nvim):
     setup_math_theme_test(n)
     n.command("colorscheme catppuccin-mocha")
     wait(n, "reading_fixture.math_has_current_color()")
+    wait(n, "(function() for _,p in pairs(reading_fixture.controller.imgs)do if p.opts.type=='chart' then return p._state~=nil end end return false end)()")
     n.exec_lua("""
       for _,p in pairs(reading_fixture.controller.imgs)do
         if p.opts.type=='math'then old_math=p elseif p.opts.type=='chart'then old_chart=p end

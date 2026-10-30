@@ -1,5 +1,41 @@
 # Markdown rendering experiments
 
+## Background equation preparation
+
+Markdown math uses one distance-ordered preparation queue. Equations intersecting
+any viewport in the current tab have distance zero; other work is ordered by its
+gap above or below the nearest viewport. Pending work is selected again after
+each completion, so scrolling/jumping changes what runs next. Inactive tabs and
+hidden buffers wait until visible.
+
+Only one math-preparation job runs at a time. New work waits for 120ms of quiet
+after navigation and pauses in Insert/Replace mode; an existing conversion can
+finish. Ordinary background discovery scans at most 128 source lines per job.
+Tables request their full source range as one discovery unit because cell layout
+needs the whole table, using that same queue and distance rule. Viewport discovery
+also enters the queue, preventing overlapping ranged Tree-sitter queries from
+delivering incomplete results. Discovery/conversion still use the existing Snacks
+implementations; the scheduler controls only when they start.
+
+Repeated equation sources share preparation. Background conversion writes only
+to the existing disk cache, without constructing off-screen image placements or
+uploading those images to the terminal. Visible content reuses prepared files.
+Buffer edits, closure and theme changes invalidate stale pending work. Running
+conversions are not repeatedly cancelled; failed background formulas do not
+automatically retry in a loop. Source text and native motions are unchanged.
+
+The scheduler limits conversion/discovery work, not Neovim's own initial
+Tree-sitter parse or the cost of laying out a single very large table.
+
+    make test-python SUITE=fast FILE=markdown_prepare
+    make test-python SUITE=integration FILE=markdown_inline_raster
+
+Tests force conversion completion order, reprioritize after jumps, exercise
+multiple splits/tabs, deferred typing, edits/closure, cache handoff, table
+discovery, errors, and stale theme callbacks. The optional real-raster test also
+prepares a buffer without terminal uploads and exercises normal/table rendering
+with the scheduler enabled.
+
 ## Equation colors
 
 Equation images use the active theme palette's teal/cyan accent, distinct from
