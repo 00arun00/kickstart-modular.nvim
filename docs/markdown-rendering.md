@@ -1,5 +1,29 @@
 # Markdown rendering experiments
 
+## Inline math
+
+Single-dollar Markdown expressions outside tables use inline LaTeX text style.
+Symbols and compact fractions share a transparent reference canvas/baseline and
+one terminal-row placement. Longer expressions gain columns at the same scale;
+subscripts and other mathematical proportions retain their natural sizes.
+Transparent horizontal padding rounds widths to terminal columns rather than
+stretching each tightly cropped expression independently.
+
+The inline converter uses its own cache/file type and retains transparent
+padding. Display equations and table math keep their existing conversion/sizing
+policies. Source text, native motions and Reading mode behavior are unchanged.
+Very tall structures or formulas exceeding the available width retain Snacks'
+existing fallback; multi-row inline layout is outside this first step.
+
+    make test-lua SUITE=integration FILE=markdown_inline
+    make test-python SUITE=integration FILE=markdown_inline_raster
+
+The parser/placement test uses deterministic metadata. The optional raster test
+uses real Tectonic, ImageMagick and Ghostscript, checking shared canvas height,
+compact inline placement, increasing expression width, transparency, and the same
+rho glyph dimensions/baseline inside a longer expression. It skips when those
+external tools are absent.
+
 ## Reading mode
 
 `<Space>Tr` toggles Reading mode for all Markdown buffers, including scratch
