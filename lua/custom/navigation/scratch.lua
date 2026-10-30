@@ -57,9 +57,6 @@ end
 local function open(note, ctx)
   vim.fn.mkdir(storage(), 'p')
   local file = path(note)
-  -- Scope shortcuts rebuild the note record; retain the saved display preference.
-  local ok, saved = pcall(function() return vim.json.decode(table.concat(vim.fn.readfile(file .. '.json'), '\n')) end)
-  note.diagnostics_enabled = not (ok and type(saved) == 'table' and saved.diagnostics_enabled == false)
   vim.fn.writefile({ vim.json.encode(note) }, file .. '.json')
   local win = Snacks.scratch.open {
     file = file,
@@ -73,27 +70,29 @@ local function open(note, ctx)
     -- Counts must not imply additional notes: there is exactly one per scope.
     win:set_title(' ' .. note.name .. ' ')
     local function refresh()
-      vim.diagnostic.enable(note.diagnostics_enabled, { bufnr = win.buf })
       win.opts.footer = {
-        { '   ' .. (note.diagnostics_enabled and 'on' or 'off') .. '  · ', 'Comment' },
+        { '   ' .. (require('custom.markdown_diagnostics').is_enabled() and 'on' or 'off') .. '  · ', 'Comment' },
         { ' q ', 'SnacksFooterKey' },
         { ' close  ', 'SnacksFooterDesc' },
       }
       win:update()
-      -- Buffer-local descriptions are picked up by which-key automatically.
-      vim.keymap.set('n', '<leader>Td', function()
-        local enabled = not vim.diagnostic.is_enabled { bufnr = win.buf }
-        local updated = vim.tbl_extend('force', note, { diagnostics_enabled = enabled })
-        local written, err = pcall(vim.fn.writefile, { vim.json.encode(updated) }, file .. '.json')
-        if not written then
-          vim.notify('Could not save note diagnostics preference: ' .. tostring(err), vim.log.levels.ERROR)
-          return
-        end
-        note.diagnostics_enabled = enabled
-        refresh()
-      end, { buffer = win.buf, desc = (note.diagnostics_enabled and 'Hide' or 'Show') .. ' note diagnostics' })
     end
     refresh()
+    -- Keep every open scratch footer in sync with the shared Markdown toggle.
+    local group = vim.api.nvim_create_augroup('scratch-diagnostics-' .. win.buf, { clear = true })
+    vim.api.nvim_create_autocmd('User', {
+      group = group,
+      pattern = 'MarkdownDiagnosticsChanged',
+      callback = function()
+        if win:valid() then refresh() end
+      end,
+    })
+    vim.api.nvim_create_autocmd('BufWipeout', {
+      group = group,
+      buffer = win.buf,
+      once = true,
+      callback = function() vim.api.nvim_del_augroup_by_id(group) end,
+    })
   end
 end
 

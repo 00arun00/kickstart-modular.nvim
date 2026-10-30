@@ -100,6 +100,14 @@ pipeline: Ruff already supplies Python diagnostics through LSP.
 - Diagnostic floats open when jumping; insert-mode updates are off; warnings
   and errors are underlined. `severity_sort = true` affects diagnostic display,
   not the ordering of an arbitrary quickfix worklist.
+- In a Markdown buffer, `<Space>Td` hides/shows diagnostic UI across all Markdown
+  buffers, including scratch notes and files opened later. Which-key shows this
+  action only in Markdown, with a Hide/Show description. The shared preference
+  lasts for the session and replaces the old saved per-note preference. Signs,
+  underlines, inline messages and automatic jump floats are hidden; producers
+  keep publishing diagnostics to Trouble, Telescope and quickfix/location lists.
+  Lualine shows ` on` / ` off` beside diagnostic counts only in Markdown
+  buffers, matching the stethoscope in the scratch-note footer.
 
 ## The four layers
 

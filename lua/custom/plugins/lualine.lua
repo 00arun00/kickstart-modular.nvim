@@ -33,7 +33,15 @@ return {
         },
         sections = {
           lualine_a = { 'mode' },
-          lualine_b = { 'branch', 'diff', 'diagnostics' },
+          lualine_b = {
+            'branch',
+            'diff',
+            'diagnostics',
+            {
+              function() return ' ' .. (require('custom.markdown_diagnostics').is_enabled() and 'on' or 'off') end,
+              cond = function() return vim.bo.filetype == 'markdown' end,
+            },
+          },
           lualine_c = { 'filename' },
           lualine_x = {
             -- `mode` is the noice-specific.
@@ -46,6 +54,11 @@ return {
           lualine_z = { { 'location', fmt = function() return '%2l:%-2v' end } },
         },
       }
+      vim.api.nvim_create_autocmd('User', {
+        group = vim.api.nvim_create_augroup('lualine-markdown-diagnostics', { clear = true }),
+        pattern = 'MarkdownDiagnosticsChanged',
+        callback = function() require('lualine').refresh { place = { 'statusline' } } end,
+      })
     end,
   },
 }
