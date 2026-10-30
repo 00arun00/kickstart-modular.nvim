@@ -11,6 +11,7 @@ local function now() return vim.uv.hrtime() / 1e6 end
 
 local function kick()
   if exiting then return end
+  if M.on_update then M.on_update() end
   timer:stop()
   timer:start(math.max(1, math.ceil(quiet_until - now())), 0, vim.schedule_wrap(pump))
 end
@@ -32,6 +33,7 @@ local function state_for(buf)
       epoch = epoch,
       unseen = { { 1, vim.api.nvim_buf_line_count(buf) } },
       requests = {},
+      sources = {},
       order = math.huge,
     }
   end
@@ -57,6 +59,7 @@ end
 
 local function observe(buf, state, images)
   for _, image in ipairs(images) do
+    if image.type == 'math' and image.src and image.range then state.sources[image.src] = true end
     if image.type == 'math' and image.src and image.range and not prepared[image.src] then
       local job = jobs[image.src]
       if not job then
@@ -221,6 +224,25 @@ function M.find(buf, first, last, callback)
   end
   request.callbacks[#request.callbacks + 1] = callback
   kick()
+end
+
+-- Snapshot for progress consumers. Counts unique conversions, not occurrences.
+function M.status(buf)
+  local state = buffers[buf]
+  if not state or not current(buf, state) then return end
+  local status = { version = state, ready = 0, failed = 0, total = 0 }
+  for src in pairs(state.sources) do
+    status.total = status.total + 1
+    if prepared[src] then
+      status.ready = status.ready + 1
+    elseif failed[src] and not (jobs[src] and not jobs[src].failed) then
+      status.failed = status.failed + 1
+    end
+  end
+  status.discovering = #state.unseen > 0 or next(state.requests) ~= nil or (active ~= nil and active.state == state)
+  status.done = not status.discovering and status.ready + status.failed == status.total
+  status.paused = vim.fn.mode():match '^[iR]' ~= nil
+  return status
 end
 
 function M.setup()
