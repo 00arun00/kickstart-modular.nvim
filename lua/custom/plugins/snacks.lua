@@ -67,6 +67,8 @@ return {
         enabled = true,
         resolve = function(file, src) return require('custom.markdown_images').resolve(file, src) end,
         doc = {
+          auto_resize = true,
+          on_update_pre = function(placement) require('custom.markdown_math').prepare(placement) end,
           -- Conceal charts as well as math, so a mermaid diagram is rendered
           -- in place of its source and the source returns when the cursor
           -- moves into it.
