@@ -14,6 +14,8 @@ See [Reading long files with folds](docs/folding.md) for Origami summaries, fold
 
 See [Diagnostics and batch-fix workflows](docs/diagnostics-workflows.md) for the installed tooling, quickfix/location lists, Telescope, Ruff, and optional Trouble integration.
 
+See [Markdown rendering experiments](docs/markdown-rendering.md) for inline cell-by-cell math tables and the separate table preview.
+
 # kickstart-modular.nvim
 
 ## Introduction
