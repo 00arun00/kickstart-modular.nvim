@@ -129,8 +129,85 @@ local function run()
   picker = picker_with(1)
   mappings.i['<C-t>'](picker.prompt_bufnr)
   wait_for(function() return #trouble.get_items 'telescope_files' == 1 end, 'Ordinary Telescope export failed')
+
+  -- Exercise the real Neovim code-action handler with delayed LSP replies. The
+  -- request must use the selected source location, while the picker belongs to
+  -- Trouble so both applying and cancelling leave us in the list.
+  local fixes = trouble.open { mode = 'diagnostics', focus = true, filter = { buf = buf }, new = true }
+  visible(fixes, 3)
+  local selected_row
+  wait_for(function()
+    for row = 1, vim.api.nvim_buf_line_count(fixes.win.buf) do
+      local entry = fixes:at { row, 0 }
+      if entry.item and entry.item.pos[1] == 2 then selected_row = row end
+    end
+    return selected_row ~= nil
+  end, 'Missing target diagnostic row')
+  vim.api.nvim_win_set_cursor(fixes.win.win, { selected_row, 0 })
+  local original_clients, original_client, original_request, original_select =
+    vim.lsp.get_clients, vim.lsp.get_client_by_id, vim.lsp.buf_request_all, vim.ui.select
+  local client = { id = 4242, name = 'test-fixes', offset_encoding = 'utf-16' }
+  function client:supports_method() return false end
+  function client:_provider_foreach() end
+  vim.lsp.get_clients = function() return { client } end
+  vim.lsp.get_client_by_id = function() return client end
+  local reply, choose, picker_win, replied
+  vim.lsp.buf_request_all = function(request_buf, method, params, callback)
+    assert(request_buf == buf and method == 'textDocument/codeAction', 'Code actions targeted the Trouble buffer')
+    local request = params(client)
+    assert(request.textDocument.uri == vim.uri_from_bufnr(buf))
+    assert(request.range.start.line == 1 and request.range.start.character == 0, 'Code actions used the wrong diagnostic position')
+    reply = function(result)
+      replied = false
+      vim.schedule(function()
+        callback { [client.id] = { result = result, context = { client_id = client.id, bufnr = buf } } }
+        replied = true
+      end)
+    end
+  end
+  vim.ui.select = function(items, _, callback)
+    assert(vim.api.nvim_get_current_win() == fixes.win.win, 'Picker did not open from Trouble')
+    picker_win = vim.api.nvim_open_win(vim.api.nvim_create_buf(false, true), true, {
+      relative = 'editor',
+      row = 1,
+      col = 1,
+      width = 30,
+      height = 2,
+      style = 'minimal',
+    })
+    choose = function(apply)
+      vim.api.nvim_win_close(picker_win, true)
+      callback(apply and items[1] or nil)
+    end
+  end
+  local fix = {
+    title = 'Fix selected diagnostic',
+    edit = {
+      changes = {
+        [vim.uri_from_bufnr(buf)] = {
+          { range = { start = { line = 1, character = 0 }, ['end'] = { line = 1, character = 8 } }, newText = 'fixed' },
+        },
+      },
+    },
+  }
+  for _, apply in ipairs { true, false } do
+    choose = nil
+    opts.keys.gra.action(fixes)
+    assert(vim.api.nvim_get_current_win() == fixes.win.win, 'Request left focus in the source')
+    reply { fix }
+    wait_for(function() return choose ~= nil end, 'Code-action picker did not open')
+    choose(apply)
+    assert(vim.api.nvim_get_current_win() == fixes.win.win, 'Picker did not return focus to Trouble')
+    assert(vim.api.nvim_buf_get_lines(buf, 1, 2, false)[1] == 'fixed = 1', 'Code action did not edit the selected source')
+  end
+  choose = nil
+  opts.keys.gra.action(fixes)
+  reply {}
+  wait_for(function() return replied end, 'Empty code-action reply did not complete')
+  assert(choose == nil and vim.api.nvim_get_current_win() == fixes.win.win, 'Empty actions disrupted Trouble')
+  vim.lsp.get_clients, vim.lsp.get_client_by_id, vim.lsp.buf_request_all, vim.ui.select = original_clients, original_client, original_request, original_select
   vim.fn.delete(file)
-  print 'Trouble round-trip, filtering, metadata, selection, quickfix isolation, and new-tab checks passed'
+  print 'Trouble round-trip, filtering, metadata, selection, quickfix isolation, new-tab, and code-action checks passed'
 end
 
 local ok, err = xpcall(run, debug.traceback)
