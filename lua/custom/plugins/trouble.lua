@@ -8,6 +8,10 @@ return {
       -- Keep worklists available beside the source without opening automatically.
       focus = false,
       keys = {
+        gra = {
+          action = function(view) require('custom.navigation.trouble').code_action(view) end,
+          desc = 'Code actions for selected item',
+        },
         ['<C-t>'] = {
           action = function(view) require('custom.navigation.trouble').to_telescope(view) end,
           desc = 'Send filtered results to Telescope',

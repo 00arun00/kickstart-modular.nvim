@@ -1,5 +1,21 @@
 local M = {}
 
+function M.code_action(view)
+  local item = view:at().item
+  if not item then
+    vim.notify('Select a Trouble item to request code actions', vim.log.levels.INFO)
+    return
+  end
+  local main = view:main()
+  if not main or not vim.api.nvim_win_is_valid(main.win) then return end
+
+  -- Capture the source buffer/cursor for the LSP request, then restore Trouble
+  -- before the asynchronous picker opens. Closing the picker returns to the list.
+  vim.api.nvim_win_call(main.win, function()
+    if view:jump(item) then vim.lsp.buf.code_action() end
+  end)
+end
+
 -- Copy locations and producer metadata, not live view state or symbol parents.
 -- A selected child symbol should not bring an unselected parent back with it.
 local function snapshot(item)
