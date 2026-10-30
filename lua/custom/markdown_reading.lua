@@ -3,6 +3,7 @@ local enabled = true
 local mapped, windows, configs, controllers = {}, {}, {}, {}
 local hidden_diagnostics = {}
 local snacks_ready = false
+local math_generation = 0
 
 function M.is_enabled() return enabled end
 
@@ -101,12 +102,49 @@ function M.setup_snacks()
   if snacks_ready then return end
   snacks_ready = true
   local inline = Snacks.image.inline
+  -- A parse begun under an old theme must not restore old-colored placements
+  -- after the new theme's refresh has completed.
+  local visible = Snacks.image.doc.find_visible
+  Snacks.image.doc.find_visible = function(buf, callback)
+    if vim.bo[buf].filetype ~= 'markdown' then return visible(buf, callback) end
+    local generation = math_generation
+    visible(buf, function(images)
+      if generation == math_generation then callback(images) end
+    end)
+  end
   local new, conceal = inline.new, inline.conceal
   inline.new = function(buf)
     local controller = new(buf)
     controllers[buf] = controller
     return controller
   end
+  vim.api.nvim_create_autocmd('ColorScheme', {
+    group = vim.api.nvim_create_augroup('custom-markdown-math-colors', { clear = true }),
+    callback = function()
+      math_generation = math_generation + 1
+      local generation = math_generation
+      -- Run after all ColorScheme handlers have applied the new highlight.
+      vim.schedule(function()
+        if generation ~= math_generation then return end
+        for buf, controller in pairs(controllers) do
+          if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].filetype == 'markdown' then
+            for id, p in pairs(controller.imgs) do
+              if p.opts.type == 'math' then
+                p:close()
+                -- An already queued debounce/conversion update must stay closed.
+                p.ready = function() return false end
+                controller.imgs[id] = nil
+              end
+            end
+            for id, p in pairs(controller.idx) do
+              if p.opts.type == 'math' then controller.idx[id] = nil end
+            end
+            controller:update()
+          end
+        end
+      end)
+    end,
+  })
   inline.conceal = function(self)
     if vim.bo[self.buf].filetype ~= 'markdown' then return conceal(self) end
     local current = vim.api.nvim_get_current_buf() == self.buf

@@ -1,5 +1,18 @@
 # Markdown rendering experiments
 
+## Equation colors
+
+Equation images use the active theme palette's teal/cyan accent, distinct from
+ordinary prose. The shared theme layer sets SnacksImageMath on each colorscheme
+change, including the darker accent adjustment used by light themes.
+
+After colorscheme handlers finish, Markdown equation placements are discarded
+and rediscovered with the new color. Inline and display images then use the
+normal converter/cache; tables invalidate their layout/image listeners too.
+Cached files are retained so switching back can reuse previously generated
+images. Old-theme parsing results and queued placement updates cannot restore
+stale-colored images. Mermaid and ordinary image placements are retained.
+
 ## Inline math
 
 Single-dollar Markdown expressions outside tables use inline LaTeX text style.

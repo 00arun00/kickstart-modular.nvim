@@ -163,6 +163,8 @@ function M.apply_highlights()
   palette_cache = build_palette()
   local colors = palette_cache
   local highlights = {
+    -- Equation images use the active theme's accent, distinct from prose.
+    SnacksImageMath = { fg = colors.teal },
     CustomBlameAccent = { fg = colors.lavender },
     Folded = { bg = colors.mantle },
     FoldColumn = { fg = colors.overlay1, bg = colors.base },
