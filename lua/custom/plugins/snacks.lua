@@ -7,6 +7,7 @@ return {
     lazy = false,
     config = function(_, opts)
       require('snacks').setup(opts)
+      require('custom.markdown_inline').setup()
       require('custom.markdown_reading').setup_snacks()
     end,
     ---@module 'snacks'
@@ -69,6 +70,12 @@ return {
       -- Run `:checkhealth snacks` to see which converters are missing.
       image = {
         enabled = true,
+        convert = {
+          magick = {
+            -- Keep inline math's shared transparent canvas and baseline.
+            ['inline-math'] = { '-density', 192, '{src}[{page}]' },
+          },
+        },
         resolve = function(file, src) return require('custom.markdown_images').resolve(file, src) end,
         doc = {
           auto_resize = true,

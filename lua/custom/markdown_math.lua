@@ -14,6 +14,7 @@ end
 -- Called by Snacks before updating a document image. Keep its source range
 -- intact; only shift the generated image decorations, never buffer text.
 function M.prepare(p)
+  require('custom.markdown_inline').prepare(p)
   if not p._markdown_math then
     p._markdown_math = { max_width = p.opts.max_width }
     local state, render = p.state, p._render
