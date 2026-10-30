@@ -17,6 +17,11 @@ return {
     ---@module 'render-markdown'
     ---@type render.md.UserConfig
     opts = {
+      on = {
+        attach = function(ctx) require('custom.markdown_reading').attach(ctx.buf) end,
+        render = function(ctx) require('custom.markdown_reading').apply_window(ctx.win) end,
+        clear = function(ctx) require('custom.markdown_reading').apply_window(ctx.win) end,
+      },
       custom_handlers = {
         markdown = { parse = function(ctx) return require('custom.markdown_tables').parse('markdown', ctx) end },
         markdown_inline = { parse = function(ctx) return require('custom.markdown_tables').parse('markdown_inline', ctx) end },
