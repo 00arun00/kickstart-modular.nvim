@@ -419,3 +419,90 @@ def test_wrapped_table_source_has_continuous_borders(nvim):
     wait(n, "reading_fixture.table_rendered()")
     check_grid()
     assert n.exec_lua("return reading_fixture.source_unchanged()")
+
+
+def setup_math_theme_test(n):
+    n.exec_lua("""
+      local plugins
+      for _,path in ipairs(vim.api.nvim_list_runtime_paths())do
+        if path:match('/catppuccin$')then plugins=vim.fs.dirname(path) end
+      end
+      for _,name in ipairs{'rose-pine','tokyonight.nvim','onedarkpro.nvim','neovim-ayu'}do
+        vim.opt.rtp:append(plugins..'/'..name)
+      end
+      require('catppuccin').setup{}
+      vim.api.nvim_create_autocmd('ColorScheme',{callback=require('custom.theme').apply_highlights})
+      function reading_fixture.math_has_current_color()
+        local color=Snacks.util.color('SnacksImageMath'):sub(2):upper()
+        local count=0
+        for src,img in pairs(reading_fixture.images)do
+          if src:match('%.tex$') and not vim.tbl_isempty(img.placements)then
+            count=count+1
+            local tex=table.concat(vim.fn.readfile(src),'\\n')
+            if not tex:find('\\\\color[HTML]{'..color..'}',1,true)then return false end
+          end
+        end
+        return count>=2
+      end
+    """)
+
+
+def test_math_color_follows_all_supported_theme_palettes(nvim):
+    n = nvim
+    setup_math_theme_test(n)
+    themes = [
+        ("catppuccin-latte", "light"), ("catppuccin-frappe", "dark"),
+        ("catppuccin-macchiato", "dark"), ("catppuccin-mocha", "dark"),
+        ("rose-pine-main", "dark"), ("rose-pine-moon", "dark"), ("rose-pine-dawn", "light"),
+        ("onedark", "dark"), ("onelight", "light"), ("onedark_vivid", "dark"),
+        ("onedark_dark", "dark"), ("vaporwave", "dark"),
+        ("ayu-dark", "dark"), ("ayu-mirage", "dark"), ("ayu-light", "light"),
+        ("tokyonight-night", "dark"), ("tokyonight-storm", "dark"),
+        ("tokyonight-moon", "dark"), ("tokyonight-day", "light"),
+    ]
+    colors = set()
+    for theme, background in themes:
+        n.options["background"] = background
+        n.command("colorscheme " + theme)
+        wait(n, "reading_fixture.math_has_current_color()")
+        color = n.exec_lua("return Snacks.util.color('SnacksImageMath')")
+        assert color == n.exec_lua("return require('custom.theme').palette().teal").lower()
+        assert color != n.exec_lua("return Snacks.util.color('Normal')")
+        colors.add(color)
+    assert len(colors) > 5
+    assert n.exec_lua("return reading_fixture.source_unchanged()")
+
+
+def test_theme_refresh_discards_old_async_math_and_queued_updates(nvim):
+    n = nvim
+    setup_math_theme_test(n)
+    n.command("colorscheme catppuccin-mocha")
+    wait(n, "reading_fixture.math_has_current_color()")
+    n.exec_lua("""
+      for _,p in pairs(reading_fixture.controller.imgs)do
+        if p.opts.type=='math'then old_math=p elseif p.opts.type=='chart'then old_chart=p end
+      end
+      local find=Snacks.image.doc.find
+      held_math={}
+      hold_math=true
+      Snacks.image.doc.find=function(buf,callback,opts)
+        find(buf,function(items)
+          if hold_math then held_math[#held_math+1]=function()callback(items)end else callback(items)end
+        end,opts)
+      end
+      reading_fixture.controller:update()
+    """)
+    wait(n, "#held_math>0")
+    n.exec_lua("hold_math=false")
+    n.options["background"] = "light"
+    n.command("colorscheme catppuccin-latte")
+    wait(n, "reading_fixture.math_has_current_color()")
+    # Deliver the old-theme parse AFTER the new-theme images have appeared.
+    n.exec_lua("""
+      for _,callback in ipairs(held_math)do callback()end
+      Snacks.image.placement.update(old_math)
+    """)
+    assert n.exec_lua("return old_math.closed and not old_math:ready()")
+    assert n.exec_lua("return reading_fixture.math_has_current_color()")
+    assert n.exec_lua("return reading_fixture.controller.imgs[old_chart.id]==old_chart")
+    assert n.exec_lua("return reading_fixture.source_unchanged()")
