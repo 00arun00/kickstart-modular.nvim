@@ -65,6 +65,7 @@ return {
       -- Run `:checkhealth snacks` to see which converters are missing.
       image = {
         enabled = true,
+        resolve = function(file, src) return require('custom.markdown_images').resolve(file, src) end,
         doc = {
           -- Conceal charts as well as math, so a mermaid diagram is rendered
           -- in place of its source and the source returns when the cursor
