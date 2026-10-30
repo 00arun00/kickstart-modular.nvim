@@ -255,3 +255,81 @@ def test_inactive_tabs_do_not_count_as_visible_viewports(scheduler):
     finish(n)
     wait(n, "#prepare_fixture.starts==2")
     assert starts(n) == ["current-tab", "first-tab"]
+
+
+@pytest.fixture
+def progress(scheduler):
+    n = scheduler
+    n.exec_lua("""
+      progress_fixture = { handles = {}, cleared = {} }
+      local f = progress_fixture
+      package.loaded['fidget.progress'] = { handle = { create = function(opts)
+        local h = { opts = opts, reports = {} }
+        function h:report(props)
+          self.reports[#self.reports + 1] = props
+          self.message, self.percentage = props.message, props.percentage
+        end
+        function h:finish() self.finished = true end
+        function h:cancel() self.cancelled = true end
+        f.handles[#f.handles + 1] = h
+        return h
+      end } }
+      package.loaded['fidget.notification'] = { clear = function(group)
+        f.cleared[#f.cleared + 1] = group
+      end }
+      require('custom.markdown_progress').setup()
+    """)
+    return n
+
+
+def test_progress_unique_totals_completion_and_failures(progress):
+    n = progress
+    buffer(n, [[1, "one"], [2, "one"], [3, "two"]], lines=10)
+    wait(n, "#prepare_fixture.starts==1")
+    wait(n, "#progress_fixture.handles==1")
+    assert n.exec_lua("return progress_fixture.handles[1].percentage") == 0
+    finish(n)
+    wait(n, "#prepare_fixture.starts==2")
+    wait(n, "progress_fixture.handles[1].percentage==50")
+    n.exec_lua("prepare_fixture.finish(true)")
+    wait(n, "progress_fixture.handles[1].finished")
+    assert n.exec_lua("return progress_fixture.handles[1].message") == "1 ready, 1 failed"
+
+
+def test_progress_discovery_has_no_misleading_percentage(progress):
+    n = progress
+    n.exec_lua("prepare_fixture.hold=true")
+    buffer(n, [[1, "one"]], lines=10)
+    wait(n, "#prepare_fixture.held==1")
+    wait(n, "#progress_fixture.handles==1")
+    assert n.exec_lua("return progress_fixture.handles[1].message") == "0 prepared, discovering…"
+    assert n.exec_lua("return progress_fixture.handles[1].percentage") is None
+    n.exec_lua("prepare_fixture.hold=false; table.remove(prepare_fixture.held,1)()")
+    wait(n, "#prepare_fixture.starts==1")
+    finish(n)
+    wait(n, "progress_fixture.handles[1].finished")
+    assert n.exec_lua("return progress_fixture.handles[1].message") == "Ready · 1 prepared"
+
+
+def test_progress_quick_cache_is_silent(progress):
+    n = progress
+    n.exec_lua("prepare_fixture.cached.one=true")
+    buffer(n, [[1, "one"]], lines=10)
+    wait(n, "require('custom.markdown_prepare').status(vim.api.nvim_get_current_buf()).done")
+    # Let the scheduled presentation check observe completion before its delay.
+    n.exec_lua("vim.wait(1300, function() return #progress_fixture.handles>0 end)")
+    assert n.exec_lua("return #progress_fixture.handles") == 0
+
+
+def test_progress_switch_and_edit_cancel_only_own_notification(progress):
+    n = progress
+    buffer(n, [[1, "one"]], lines=10)
+    wait(n, "#progress_fixture.handles==1")
+    n.command("enew!")
+    wait(n, "progress_fixture.handles[1].cancelled")
+    assert n.exec_lua("return progress_fixture.cleared") == ["Markdown math"]
+    n.command("buffer #")
+    wait(n, "#progress_fixture.handles==2")
+    n.exec_lua("vim.api.nvim_buf_set_lines(0,0,1,false,{'changed'}); vim.api.nvim_exec_autocmds('TextChanged',{buffer=0})")
+    wait(n, "progress_fixture.handles[2].cancelled")
+    assert n.exec_lua("return progress_fixture.cleared") == ["Markdown math", "Markdown math"]

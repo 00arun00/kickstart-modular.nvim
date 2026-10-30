@@ -27,6 +27,15 @@ automatically retry in a loop. Source text and native motions are unchanged.
 The scheduler limits conversion/discovery work, not Neovim's own initial
 Tree-sitter parse or the cost of laying out a single very large table.
 
+Longer preparation tasks show one Fidget progress item for the current note.
+It waits about 750ms before appearing and updates at most every 250ms; quick or
+cached tasks stay silent. While discovery is unfinished it shows a count without
+a percentage. After discovery, the percentage counts completed unique equation
+preparations (including failures), rather than estimating time remaining. Repeated
+equations count once. Typing shows a paused message; completion reports ready and
+failed counts, then fades using Fidget's normal completion timeout. Switching
+buffers removes only this progress group, leaving LSP notifications alone.
+
     make test-python SUITE=fast FILE=markdown_prepare
     make test-python SUITE=integration FILE=markdown_inline_raster
 
