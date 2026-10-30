@@ -84,6 +84,8 @@ end
 
 local function editing(buf, entry)
   if vim.api.nvim_get_current_buf() ~= buf then return false end
+  local reading = require 'custom.markdown_reading'
+  if reading.is_enabled() and not reading.is_editing() then return false end
   local row = vim.api.nvim_win_get_cursor(0)[1] - 1
   local other = vim.fn.getpos('v')[2] - 1
   local mode = vim.fn.mode():sub(1, 1)

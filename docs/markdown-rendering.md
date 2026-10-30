@@ -1,5 +1,45 @@
 # Markdown rendering experiments
 
+## Reading mode
+
+`<Space>Tr` toggles Reading mode for all Markdown buffers, including scratch
+notes and files opened later. It is enabled at the start of each session.
+Which-key shows the action only in Markdown, with an Enable/Disable description.
+
+With Reading mode on, Normal-mode motions and searches keep tables, equations,
+and Mermaid diagrams rendered even under the cursor. Insert or Replace mode
+exposes source for editing; `Esc` restores rendering. With Reading mode off,
+moving the cursor onto rendered content reveals source as before. The original
+Markdown is never changed. `j`/`k`, Up/Down, and counts such as `5j` use native
+Vim source-line movement everywhere, including rendered math tables. Relative
+line numbers therefore match motion counts. Each source row has a stable rendered
+anchor; one motion can cross a tall table cell or equation. Use native
+`Ctrl-E`/`Ctrl-Y` to scroll through the rendered content. Vim may move the cursor
+when necessary to keep it visible. No table-specific movement maps or visual
+offset state are installed.
+
+Lualine shows ` on/off` only in Markdown. Scratch-note footers show the same
+coffee indicator. Reading mode suppresses diagnostic decorations and automatic
+diagnostic jump floats; turning Reading mode off shows diagnostic display again.
+Entering Insert mode while reading exposes source without turning diagnostics
+back on. Diagnostics continue updating in Trouble, Telescope, quickfix, and
+location lists throughout. There is one toggle and no separate diagnostic
+preference to manage.
+
+```sh
+make test-python SUITE=integration FILE=markdown_reading
+```
+
+The attached-editor tests exercise real Normal/Insert transitions, delayed
+image completion during Insert mode, toggle behavior, inherited split settings,
+diagnostic display and lists, lualine, scratch footers, new buffers, and
+isolation from other filetypes. The image converter and terminal transport are
+deterministic test stand-ins; render-markdown and Snacks controllers are real.
+Table navigation checks cover source-line motions/counts, arrow keys, the upward
+scrolloff regression, native scrolling, resize, Insert-mode reveal, BOF/EOF,
+operators/Visual mode, direct jumps/searches, cursor positions across splits, and
+continuous borders with wrapped source lines.
+
 ## Inline math tables
 
 Markdown pipe tables containing equations render directly inside the note using
@@ -8,18 +48,20 @@ native Neovim text for labels/borders and separate Snacks images for equations.
 cells, with row height reserved for their images. Ordinary tables retain the
 existing render-markdown layout.
 
-Moving the cursor into a math table reveals the complete source table; leaving
-restores the rendered layout. Source edits update the layout, and renderer
-enable/disable commands apply too. No buffer text, modified state, or saved
-Markdown is changed by rendering.
-
-Motions, counts, operators, and Visual mode use native source-line semantics.
-Each header/body source row has its own anchor, and the Markdown delimiter row
-anchors the border beneath the header. The layout retains every source line
+In Reading mode, moving the cursor into a math table keeps it rendered; enter
+Insert mode to reveal the source, and `Esc` restores the layout. With Reading
+mode off, cursor entry reveals the complete table and leaving restores it.
+Source edits update the layout, and renderer enable/disable commands apply too.
+No buffer text, modified state, or saved Markdown is changed by rendering.
+Insert/Replace exposes the original table. Motions, operators and Visual mode
+all act on source lines; rendered virtual rows are display content. Reading mode
+off restores cursor-triggered source reveal. Each header/body source row has its
+own anchor, and the Markdown delimiter row anchors the border beneath the header.
+Direct line jumps and searches therefore land on the corresponding rendered row;
+Insert mode exposes that same source row. The layout retains every source line
 instead of concealing whole lines, avoiding the Neovim cursor/scrolloff loop when
 approaching a tall table from below. The window's `scrolloff` setting is unchanged.
-Use `Ctrl-E`/`Ctrl-Y` for native viewport scrolling. Resizing recalculates the
-layout while retaining the native source cursor position.
+Resizing recalculates the layout while retaining the native source cursor position.
 Long concealed source lines can still occupy native wrapped screen rows. Those
 continuations are painted as cell padding so borders remain continuous, without
 repeating labels/equations or disabling wrapping for surrounding prose.

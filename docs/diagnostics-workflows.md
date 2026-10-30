@@ -100,14 +100,15 @@ pipeline: Ruff already supplies Python diagnostics through LSP.
 - Diagnostic floats open when jumping; insert-mode updates are off; warnings
   and errors are underlined. `severity_sort = true` affects diagnostic display,
   not the ordering of an arbitrary quickfix worklist.
-- In a Markdown buffer, `<Space>Td` hides/shows diagnostic UI across all Markdown
-  buffers, including scratch notes and files opened later. Which-key shows this
-  action only in Markdown, with a Hide/Show description. The shared preference
-  lasts for the session and replaces the old saved per-note preference. Signs,
-  underlines, inline messages and automatic jump floats are hidden; producers
-  keep publishing diagnostics to Trouble, Telescope and quickfix/location lists.
-  Lualine shows ` on` / ` off` beside diagnostic counts only in Markdown
-  buffers, matching the stethoscope in the scratch-note footer.
+- Markdown Reading mode (`<Space>Tr`) is the single control for reading behavior
+  and diagnostic display across Markdown buffers, scratch notes, and files opened
+  later. It starts on each session: normal navigation preserves rendering, while
+  diagnostic signs, underlines, inline messages, and automatic jump floats are
+  hidden. Turn it off to restore cursor-based source reveal and diagnostic display.
+  Insert mode reveals source without re-enabling diagnostics while Reading mode
+  remains on. Lualine and scratch footers show ` on/off`; which-key shows the
+  action only in Markdown. Producers and Trouble/Telescope/quickfix/location-list
+  data remain available in both settings.
 
 ## The four layers
 
