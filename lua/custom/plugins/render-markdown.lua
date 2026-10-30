@@ -5,9 +5,23 @@ return {
     'MeanderingProgrammer/render-markdown.nvim',
     ft = { 'markdown' },
     dependencies = { 'nvim-treesitter/nvim-treesitter', 'nvim-tree/nvim-web-devicons' },
+    init = function()
+      vim.api.nvim_create_user_command('MarkdownMathTable', function() require('custom.markdown_table_preview').open() end, {
+        desc = 'Preview current table with native text and per-cell equation images',
+      })
+    end,
+    config = function(_, opts)
+      require('custom.markdown_tables').setup()
+      require('render-markdown').setup(opts)
+    end,
     ---@module 'render-markdown'
     ---@type render.md.UserConfig
     opts = {
+      custom_handlers = {
+        markdown = { parse = function(ctx) return require('custom.markdown_tables').parse('markdown', ctx) end },
+        markdown_inline = { parse = function(ctx) return require('custom.markdown_tables').parse('markdown_inline', ctx) end },
+        html = { parse = function(ctx) return require('custom.markdown_tables').parse('html', ctx) end },
+      },
       -- Color only the icons: no scope_highlight on the task text.
       checkbox = {
         unchecked = { icon = '󰄱 ', highlight = 'MarkdownTaskPending' },
