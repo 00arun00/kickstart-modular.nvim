@@ -9,6 +9,7 @@ return {
       require('snacks').setup(opts)
       require('custom.markdown_inline').setup()
       require('custom.markdown_reading').setup_snacks()
+      if opts.image and opts.image.enabled then require('custom.markdown_prepare').setup() end
     end,
     ---@module 'snacks'
     ---@type snacks.Config
