@@ -1,6 +1,12 @@
 {
   "cases": [
     {
+      "file": "tests/markdown_math.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 30
+    },
+    {
       "file": "tests/markdown_images.lua",
       "language": "lua",
       "suite": "fast",
