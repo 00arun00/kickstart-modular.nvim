@@ -17,7 +17,7 @@ return {
     },
     config = function(_, opts)
       require('bullets').setup(opts)
-      require('custom.markdown_lists').setup()
+      require('custom.markdown.lists').setup()
     end,
   },
 }

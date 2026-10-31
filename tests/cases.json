@@ -1,6 +1,36 @@
 {
   "cases": [
     {
+      "file": "tests/markdown_inline.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 30
+    },
+    {
+      "file": "tests/markdown_tables.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 30
+    },
+    {
+      "file": "tests/markdown_table_preview.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 30
+    },
+    {
+      "file": "tests/markdown_math.lua",
+      "language": "lua",
+      "suite": "integration",
+      "timeout": 30
+    },
+    {
+      "file": "tests/markdown_images.lua",
+      "language": "lua",
+      "suite": "fast",
+      "timeout": 30
+    },
+    {
       "file": "tests/markdown_lists.lua",
       "language": "lua",
       "suite": "integration",

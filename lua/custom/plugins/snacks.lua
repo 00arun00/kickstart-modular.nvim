@@ -5,6 +5,15 @@ return {
     'folke/snacks.nvim',
     priority = 1000,
     lazy = false,
+    config = function(_, opts)
+      require('snacks').setup(opts)
+      require('custom.markdown.inline').setup()
+      require('custom.markdown.reading').setup_snacks()
+      if opts.image and opts.image.enabled then
+        require('custom.markdown.prepare').setup()
+        require('custom.markdown.progress').setup()
+      end
+    end,
     ---@module 'snacks'
     ---@type snacks.Config
     opts = {
@@ -65,7 +74,16 @@ return {
       -- Run `:checkhealth snacks` to see which converters are missing.
       image = {
         enabled = true,
+        convert = {
+          magick = {
+            -- Keep inline math's shared transparent canvas and baseline.
+            ['inline-math'] = { '-density', 192, '{src}[{page}]' },
+          },
+        },
+        resolve = function(file, src) return require('custom.markdown.images').resolve(file, src) end,
         doc = {
+          auto_resize = true,
+          on_update_pre = function(placement) require('custom.markdown.math').prepare(placement) end,
           -- Conceal charts as well as math, so a mermaid diagram is rendered
           -- in place of its source and the source returns when the cursor
           -- moves into it.

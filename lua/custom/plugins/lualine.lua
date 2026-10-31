@@ -37,13 +37,13 @@ return {
             'branch',
             'diff',
             'diagnostics',
-            {
-              function() return ' ' .. (require('custom.markdown_diagnostics').is_enabled() and 'on' or 'off') end,
-              cond = function() return vim.bo.filetype == 'markdown' end,
-            },
           },
           lualine_c = { 'filename' },
           lualine_x = {
+            {
+              function() return '  ' .. (require('custom.markdown.reading').is_enabled() and 'on' or 'off') end,
+              cond = function() return vim.bo.filetype == 'markdown' end,
+            },
             -- `mode` is the noice-specific.
             noice_status('mode', 'peach'),
             noice_status('command', 'yellow'),
@@ -55,8 +55,8 @@ return {
         },
       }
       vim.api.nvim_create_autocmd('User', {
-        group = vim.api.nvim_create_augroup('lualine-markdown-diagnostics', { clear = true }),
-        pattern = 'MarkdownDiagnosticsChanged',
+        group = vim.api.nvim_create_augroup('lualine-markdown-reading', { clear = true }),
+        pattern = 'MarkdownReadingChanged',
         callback = function() require('lualine').refresh { place = { 'statusline' } } end,
       })
     end,

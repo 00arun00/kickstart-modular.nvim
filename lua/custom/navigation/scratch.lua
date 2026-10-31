@@ -71,18 +71,18 @@ local function open(note, ctx)
     win:set_title(' ' .. note.name .. ' ')
     local function refresh()
       win.opts.footer = {
-        { '   ' .. (require('custom.markdown_diagnostics').is_enabled() and 'on' or 'off') .. '  · ', 'Comment' },
+        { '    ' .. (require('custom.markdown.reading').is_enabled() and 'on' or 'off') .. '  · ', 'Comment' },
         { ' q ', 'SnacksFooterKey' },
         { ' close  ', 'SnacksFooterDesc' },
       }
       win:update()
     end
     refresh()
-    -- Keep every open scratch footer in sync with the shared Markdown toggle.
-    local group = vim.api.nvim_create_augroup('scratch-diagnostics-' .. win.buf, { clear = true })
+    -- Keep every open scratch footer in sync with the shared reading toggle.
+    local group = vim.api.nvim_create_augroup('scratch-reading-' .. win.buf, { clear = true })
     vim.api.nvim_create_autocmd('User', {
       group = group,
-      pattern = 'MarkdownDiagnosticsChanged',
+      pattern = 'MarkdownReadingChanged',
       callback = function()
         if win:valid() then refresh() end
       end,
