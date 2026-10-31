@@ -49,7 +49,7 @@ vim.bo.filetype = 'markdown'
 vim.bo.modified = false
 local buf = vim.api.nvim_get_current_buf()
 local tick = vim.api.nvim_buf_get_changedtick(buf)
-local preview = require 'custom.markdown_table_preview'
+local preview = require 'custom.markdown.table_preview'
 assert(not preview.table_at(buf, 0), 'prose was mistaken for a table')
 vim.api.nvim_win_set_cursor(0, { 5, 0 })
 require('custom.plugins.render-markdown')[1].init()

@@ -85,4 +85,4 @@ function f.query(buf, placements)
     end
   end)
 end
-require('custom.markdown_prepare').setup()
+require('custom.markdown.prepare').setup()

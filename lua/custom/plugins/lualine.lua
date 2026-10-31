@@ -41,7 +41,7 @@ return {
           lualine_c = { 'filename' },
           lualine_x = {
             {
-              function() return '  ' .. (require('custom.markdown_reading').is_enabled() and 'on' or 'off') end,
+              function() return '  ' .. (require('custom.markdown.reading').is_enabled() and 'on' or 'off') end,
               cond = function() return vim.bo.filetype == 'markdown' end,
             },
             -- `mode` is the noice-specific.

@@ -30,7 +30,7 @@ vim.diagnostic.config {
   -- Auto open the float, so you can easily read the errors when jumping with `[d` and `]d`
   jump = {
     on_jump = function(_, bufnr)
-      if vim.bo[bufnr].filetype == 'markdown' and require('custom.markdown_reading').is_enabled() then return end
+      if vim.bo[bufnr].filetype == 'markdown' and require('custom.markdown.reading').is_enabled() then return end
       vim.diagnostic.open_float {
         bufnr = bufnr,
         scope = 'cursor',
@@ -40,7 +40,7 @@ vim.diagnostic.config {
   },
 }
 
-require('custom.markdown_reading').setup()
+require('custom.markdown.reading').setup()
 
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
 

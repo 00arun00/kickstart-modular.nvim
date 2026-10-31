@@ -80,13 +80,13 @@ def test_toggle_restores_cursor_reveal(nvim):
     n = nvim
     move(n, 7)
     n.input(" Tr")
-    wait(n, "not require('custom.markdown_reading').is_enabled() and not reading_fixture.table_rendered()")
+    wait(n, "not require('custom.markdown.reading').is_enabled() and not reading_fixture.table_rendered()")
     move(n, 10)
     wait(n, "reading_fixture.image_hidden('math')==true")
     move(n, 14)
     wait(n, "reading_fixture.image_hidden('chart')==true")
     n.input(" Tr")
-    wait(n, "require('custom.markdown_reading').is_enabled() and reading_fixture.image_hidden('chart')==false")
+    wait(n, "require('custom.markdown.reading').is_enabled() and reading_fixture.image_hidden('chart')==false")
     move(n, 7)
     wait(n, "reading_fixture.table_rendered()")
     assert n.exec_lua("return reading_fixture.source_unchanged()")
@@ -123,10 +123,10 @@ def test_editing_mode_in_a_split_restores_source_reveal(nvim):
     assert n.current.window.options["concealcursor"] == "nvc"
     move(n, 14)
     n.input(" Tr")
-    wait(n, "not require('custom.markdown_reading').is_enabled() and reading_fixture.image_hidden('chart')==true")
+    wait(n, "not require('custom.markdown.reading').is_enabled() and reading_fixture.image_hidden('chart')==true")
     assert n.current.window.options["concealcursor"] == ""
     n.input(" Tr")
-    wait(n, "require('custom.markdown_reading').is_enabled() and reading_fixture.image_hidden('chart')==false")
+    wait(n, "require('custom.markdown.reading').is_enabled() and reading_fixture.image_hidden('chart')==false")
     assert n.exec_lua("return reading_fixture.source_unchanged()")
 
 
@@ -171,7 +171,7 @@ def test_reading_controls_diagnostics_lists_and_single_indicator(nvim):
     assert "" not in n.exec_lua("return reading_fixture.status()")
     assert n.exec_lua("return reading_fixture.jump_float_count()") == 1
     n.input(" Tr")
-    wait(n, "require('custom.markdown_reading').is_enabled() and not reading_fixture.diagnostics_drawn()")
+    wait(n, "require('custom.markdown.reading').is_enabled() and not reading_fixture.diagnostics_drawn()")
     assert not n.exec_lua("return vim.diagnostic.is_enabled({bufnr=0})")
     n.input(" Tr")
     wait(n, "vim.diagnostic.is_enabled({bufnr=0}) and reading_fixture.diagnostics_drawn()")
@@ -189,10 +189,10 @@ def test_new_buffers_scope_window_restore_and_scratch_footer(nvim):
     assert n.exec_lua("return vim.fn.maparg(' Td','n')") == ""
     second = n.current.buffer.number
     n.input(" Tr")
-    wait(n, "not require('custom.markdown_reading').is_enabled()")
+    wait(n, "not require('custom.markdown.reading').is_enabled()")
     assert n.exec_lua("local a,b=...; return vim.diagnostic.is_enabled({bufnr=a}) and vim.diagnostic.is_enabled({bufnr=b})", original, second)
     n.input(" Tr")
-    wait(n, "require('custom.markdown_reading').is_enabled()")
+    wait(n, "require('custom.markdown.reading').is_enabled()")
     assert not n.exec_lua("return vim.diagnostic.is_enabled({bufnr=0})")
     n.command("enew")
     n.current.buffer.options["filetype"] = "python"
@@ -205,7 +205,7 @@ def test_new_buffers_scope_window_restore_and_scratch_footer(nvim):
     footer = "".join(chunk[0] for chunk in n.api.win_get_config(0)["footer"])
     assert "  on" in footer and "" not in footer
     n.input(" Tr")
-    wait(n, "not require('custom.markdown_reading').is_enabled()")
+    wait(n, "not require('custom.markdown.reading').is_enabled()")
     footer = "".join(chunk[0] for chunk in n.api.win_get_config(0)["footer"])
     assert "  off" in footer and "" not in footer
 
@@ -277,7 +277,7 @@ def test_table_upward_navigation_resize_edit_and_reading_off(nvim):
     n.input("<Esc>")
     wait(n, "vim.fn.mode()=='n' and reading_fixture.table_rendered()")
     n.input(" Tr")
-    wait(n, "not require('custom.markdown_reading').is_enabled()")
+    wait(n, "not require('custom.markdown.reading').is_enabled()")
     move(n, 90)
     n.command("normal! zt")
     for target in range(89, 34, -1):

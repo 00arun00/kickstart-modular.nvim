@@ -1,6 +1,6 @@
 -- Run with: nvim --headless -n -u NONE -i NONE -l tests/markdown_images.lua
 vim.opt.rtp:prepend(vim.fn.getcwd())
-local resolve = require('custom.markdown_images').resolve
+local resolve = require('custom.markdown.images').resolve
 local root = vim.fn.tempname()
 local vault = root .. '/Second Brain Vault'
 local note = vault .. '/Learning/RL/cs285/FlowMatching.md'

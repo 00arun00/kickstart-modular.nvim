@@ -40,7 +40,7 @@ def test_common_inline_scale_and_compact_fraction(tmp_path, pytestconfig, prepar
           terminal.size=function()return {cell_width=10,cell_height=20,scale=1} end
           raster_uploads=0
           terminal.request=function(request) if request.t=='f' then raster_uploads=raster_uploads+1 end end
-          if prepare_ahead then require('custom.markdown_prepare').setup() end
+          if prepare_ahead then require('custom.markdown.prepare').setup() end
           vim.bo.filetype='markdown'
           vim.api.nvim_buf_set_lines(0,0,-1,false,source)
           vim.bo.modified=false
@@ -83,7 +83,7 @@ def test_common_inline_scale_and_compact_fraction(tmp_path, pytestconfig, prepar
             assert(not img:failed(),img.src)
             local p=Snacks.image.placement.new(vim.api.nvim_get_current_buf(),item.src,{
               type='math',inline=true,conceal=true,pos=item.pos,range=item.range,
-              on_update_pre=require('custom.markdown_math').prepare,
+              on_update_pre=require('custom.markdown.math').prepare,
             })
             Snacks.image.placement.update(p)
             local marks=vim.api.nvim_buf_get_extmarks(p.buf,Snacks.image.placement.ns,0,-1,{details=true})

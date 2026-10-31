@@ -6,7 +6,7 @@ local delay_ms, throttle_ms = 750, 250
 function M.setup()
   if M.installed then return end
   M.installed = true
-  local prepare = require 'custom.markdown_prepare'
+  local prepare = require 'custom.markdown.prepare'
   local timer = vim.uv.new_timer()
   local version, started, handle, completed, stopped, owned
   local function clear()
