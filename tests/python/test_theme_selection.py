@@ -53,7 +53,7 @@ assert(vim.fn.maparg('<leader>Tt', 'n') == '<Cmd>ThemePicker<CR>' or
   vim.fn.maparg('<leader>Tt', 'n') == '<cmd>ThemePicker<CR>')
 vim.cmd 'ThemePicker'
 local picker = require('telescope.actions.state').get_current_picker(vim.api.nvim_get_current_buf())
-picker:set_prompt('rose-pine-dawn')
+picker:set_prompt('Rosé Pine Dawn')
 assert(vim.wait(2000, function()
   return picker:get_selection() and picker:get_selection().value == 'rose-pine-dawn'
     and vim.g.colors_name == 'rose-pine'

@@ -370,56 +370,33 @@ local function watch_selection()
   if not started then stop_selection_watcher() end
 end
 
-function M.pick()
+function M.pick(opts)
+  opts = opts or {}
   pull_selection()
-  local actions = require 'telescope.actions'
-  local action_state = require 'telescope.actions.state'
   local original, original_background = current_theme(), vim.o.background
-  local confirmed = false
   picking = true
-  local selected = 1
-  for i, name in ipairs(themes) do
-    if name == current_theme() then selected = i end
-  end
-  local picker = require('telescope.pickers').new(require('telescope.themes').get_dropdown { previewer = false }, {
-    prompt_title = 'Theme',
-    default_selection_index = selected,
-    finder = require('telescope.finders').new_table {
-      results = themes,
-      entry_maker = function(name) return { value = name, display = labels[name], ordinal = labels[name] .. ' ' .. name } end,
-    },
-    sorter = require('telescope.config').values.generic_sorter {},
-    attach_mappings = function(prompt_bufnr)
-      actions.select_default:replace(function()
-        local entry = action_state.get_selected_entry()
-        if not entry then return end
-        confirmed = true
-        actions.close(prompt_bufnr)
-        M.select(entry.value)
-      end)
-      return true
+  local ok, picker = pcall(require('custom.theme_picker').open, {
+    themes = themes,
+    labels = labels,
+    registry = registry,
+    current = original,
+    scope = opts.scope,
+    preview = apply,
+    select = M.select,
+    close = function(confirmed)
+      picking = false
+      if not confirmed then
+        vim.o.background = original_background
+        load(original)
+        pull_selection()
+      end
     end,
   })
-
-  -- Use the same per-picker hooks as Telescope's built-in colorscheme preview.
-  -- set_selection covers navigation, mouse selection, and fuzzy-filter updates.
-  local set_selection = picker.set_selection
-  picker.set_selection = function(self, row)
-    set_selection(self, row)
-    local entry = self:get_selection()
-    if entry then apply(entry.value) end
-  end
-  local close_windows = picker.close_windows
-  picker.close_windows = function(status)
-    close_windows(status)
+  if not ok then
     picking = false
-    if not confirmed then
-      vim.o.background = original_background
-      load(original)
-      pull_selection()
-    end
+    error(picker)
   end
-  picker:find()
+  return picker
 end
 
 function M.setup()
@@ -432,7 +409,11 @@ function M.setup()
   })
   vim.api.nvim_create_autocmd('VimLeavePre', { group = group, callback = stop_selection_watcher })
   watch_selection()
-  vim.api.nvim_create_user_command('ThemePicker', M.pick, { desc = 'Choose a theme with live preview' })
+  vim.api.nvim_create_user_command('ThemePicker', function(args) M.pick { scope = args.args ~= '' and args.args or nil } end, {
+    nargs = '?',
+    complete = function() return { 'all', 'favorites' } end,
+    desc = 'Choose a theme with favorites and live preview',
+  })
   vim.keymap.set('n', '<leader>Tt', '<cmd>ThemePicker<CR>', { desc = '[T]heme picker: choose [t]heme' })
 end
 
