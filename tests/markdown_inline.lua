@@ -65,7 +65,7 @@ for id, item in ipairs(items) do
       pos = item.pos,
       range = item.range,
       max_width = 80,
-      on_update_pre = require('custom.markdown_math').prepare,
+      on_update_pre = require('custom.markdown.math').prepare,
     },
   }, Placement)
   p:update()

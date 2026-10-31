@@ -66,7 +66,7 @@ local tick = vim.api.nvim_buf_get_changedtick(buf)
 local disk = table.concat(vim.fn.readfile(file, 'b'), '\n')
 local spec = require('custom.plugins.render-markdown')[1]
 -- Keep the existing cursor-reveal checks in Editing mode.
-require('custom.markdown_reading').toggle()
+require('custom.markdown.reading').toggle()
 spec.config(nil, vim.tbl_deep_extend('force', spec.opts, { debounce = 0, render_modes = true, anti_conceal = { enabled = false } }))
 vim.cmd 'runtime plugin/render-markdown.lua'
 local renderer = require 'render-markdown'

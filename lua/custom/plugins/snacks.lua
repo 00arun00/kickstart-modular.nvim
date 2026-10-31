@@ -7,11 +7,11 @@ return {
     lazy = false,
     config = function(_, opts)
       require('snacks').setup(opts)
-      require('custom.markdown_inline').setup()
-      require('custom.markdown_reading').setup_snacks()
+      require('custom.markdown.inline').setup()
+      require('custom.markdown.reading').setup_snacks()
       if opts.image and opts.image.enabled then
-        require('custom.markdown_prepare').setup()
-        require('custom.markdown_progress').setup()
+        require('custom.markdown.prepare').setup()
+        require('custom.markdown.progress').setup()
       end
     end,
     ---@module 'snacks'
@@ -80,10 +80,10 @@ return {
             ['inline-math'] = { '-density', 192, '{src}[{page}]' },
           },
         },
-        resolve = function(file, src) return require('custom.markdown_images').resolve(file, src) end,
+        resolve = function(file, src) return require('custom.markdown.images').resolve(file, src) end,
         doc = {
           auto_resize = true,
-          on_update_pre = function(placement) require('custom.markdown_math').prepare(placement) end,
+          on_update_pre = function(placement) require('custom.markdown.math').prepare(placement) end,
           -- Conceal charts as well as math, so a mermaid diagram is rendered
           -- in place of its source and the source returns when the cursor
           -- moves into it.

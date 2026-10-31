@@ -10,7 +10,7 @@ terminal.env = function() return { placeholders = true } end
 terminal.size = function() return { cell_width = 10, cell_height = 20, scale = 1 } end
 terminal.request = function() end
 local Placement = require 'snacks.image.placement'
-local prepare = require('custom.markdown_math').prepare
+local prepare = require('custom.markdown.math').prepare
 vim.o.columns = 120
 vim.wo.number = true
 vim.wo.signcolumn = 'yes:2'

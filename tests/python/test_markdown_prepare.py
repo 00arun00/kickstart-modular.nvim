@@ -226,7 +226,7 @@ def test_table_discovery_uses_the_same_distance_queue(scheduler):
     buf = buffer(n, [[10, "visible"], [850, "table"]])
     n.exec_lua("""
       local buf=...
-      require('custom.markdown_prepare').find(buf,850,850,function(items)
+      require('custom.markdown.prepare').find(buf,850,850,function(items)
         for _,item in ipairs(items)do Snacks.image.image.new(item.src)end
       end)
       prepare_fixture.query(buf,true)
@@ -277,7 +277,7 @@ def progress(scheduler):
       package.loaded['fidget.notification'] = { clear = function(group)
         f.cleared[#f.cleared + 1] = group
       end }
-      require('custom.markdown_progress').setup()
+      require('custom.markdown.progress').setup()
     """)
     return n
 
@@ -315,7 +315,7 @@ def test_progress_quick_cache_is_silent(progress):
     n = progress
     n.exec_lua("prepare_fixture.cached.one=true")
     buffer(n, [[1, "one"]], lines=10)
-    wait(n, "require('custom.markdown_prepare').status(vim.api.nvim_get_current_buf()).done")
+    wait(n, "require('custom.markdown.prepare').status(vim.api.nvim_get_current_buf()).done")
     # Let the scheduled presentation check observe completion before its delay.
     n.exec_lua("vim.wait(1300, function() return #progress_fixture.handles>0 end)")
     assert n.exec_lua("return #progress_fixture.handles") == 0

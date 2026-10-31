@@ -39,11 +39,11 @@ local function scan(buf)
   for _, node in query:iter_captures(parser:parse()[1]:root(), buf) do
     local first, _, last, end_col = node:range()
     if end_col > 0 then last = last + 1 end
-    require('custom.markdown_prepare').find(buf, first + 1, last, function(equations)
+    require('custom.markdown.prepare').find(buf, first + 1, last, function(equations)
       if states[buf] ~= state or not vim.api.nvim_buf_is_valid(buf) or vim.api.nvim_buf_get_changedtick(buf) ~= tick then return end
       local selected = vim.tbl_filter(function(image) return image.type == 'math' and image.range[1] > first and image.range[3] <= last end, equations)
       if #selected > 0 then
-        local entry = { first = first, last = last - 1, model = require('custom.markdown_table_preview').model(buf, node, selected) }
+        local entry = { first = first, last = last - 1, model = require('custom.markdown.table_preview').model(buf, node, selected) }
         state.tables[#state.tables + 1] = entry
       end
       refresh(buf, state)
@@ -99,7 +99,7 @@ end
 
 local function editing(buf, entry)
   if vim.api.nvim_get_current_buf() ~= buf then return false end
-  local reading = require 'custom.markdown_reading'
+  local reading = require 'custom.markdown.reading'
   if reading.is_enabled() and not reading.is_editing() then return false end
   local row = vim.api.nvim_win_get_cursor(0)[1] - 1
   local other = vim.fn.getpos('v')[2] - 1
@@ -150,7 +150,7 @@ local function byte_at(text, column)
 end
 
 local function compose(buf, entry, state, width)
-  local layout = require('custom.markdown_table_preview').layout(entry.model, width, function(token, limit)
+  local layout = require('custom.markdown.table_preview').layout(entry.model, width, function(token, limit)
     local img = state.images[token.src].img
     return Snacks.image.util.fit(img.file, { width = limit, height = token.display and 8 or 1 }, { info = img.info })
   end)

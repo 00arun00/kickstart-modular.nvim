@@ -71,7 +71,7 @@ local function open(note, ctx)
     win:set_title(' ' .. note.name .. ' ')
     local function refresh()
       win.opts.footer = {
-        { '    ' .. (require('custom.markdown_reading').is_enabled() and 'on' or 'off') .. '  · ', 'Comment' },
+        { '    ' .. (require('custom.markdown.reading').is_enabled() and 'on' or 'off') .. '  · ', 'Comment' },
         { ' q ', 'SnacksFooterKey' },
         { ' close  ', 'SnacksFooterDesc' },
       }
