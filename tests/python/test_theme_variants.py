@@ -70,10 +70,11 @@ local function picker()
   return p
 end
 local function cancel(p) require('telescope.actions').close(p.prompt_bufnr) end
+local queries = {}
 local function preview(p, name)
   local completed = false
   p:register_completion_callback(function() completed = true end)
-  p:set_prompt(name)
+  p:set_prompt(queries[name])
   assert(vim.wait(2000, function() return completed end, 10), 'picker did not finish filtering ' .. name)
   -- Family prefixes such as "onedark" can match multiple variants. Navigate to
   -- the exact entry instead of assuming fuzzy ranking always selects it first.
@@ -119,6 +120,7 @@ local names, available = {}, {}
 for entry in p.manager:iter() do
   names[#names + 1] = entry.value
   available[entry.value] = true
+  queries[entry.value] = entry.ordinal
 end
 cancel(p)
 assert(#names == 60, 'expected 60 distinct picker variants, got ' .. #names)

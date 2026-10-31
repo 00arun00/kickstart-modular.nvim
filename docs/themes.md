@@ -5,6 +5,48 @@ through results previews only Neovim, including the statusline, custom highlight
 and open plot/image UI.
 Enter remembers the selected variant. Cancelling restores the original theme, then adopts any newer shared selection.
 
+## Favorites and browsing
+
+`Space T t` / `:ThemePicker` remembers whether you last used **Favorites** or
+**All**, including across Neovim restarts. Press `Tab` to change views; the choice
+is saved immediately, even if you cancel the theme preview. On the first use,
+the picker opens Favorites if you already have favorites, otherwise All.
+`:ThemePicker all` and `:ThemePicker favorites` explicitly open and remember that
+view. The saved view lives in `stdpath('state')/theme-picker-view`.
+
+| Key (insert or normal mode) | Action |
+| --- | --- |
+| `Ctrl-N` / `Ctrl-P` | Next / previous result; stop at the bottom / top without wrapping |
+| `Tab` | Switch Favorites / All, keeping the search text and background filter |
+| `Ctrl-S` | Star/unstar the highlighted variant immediately, keeping the picker open |
+| `Ctrl-L` | Cycle background filter: Any → Dark → Light → Any |
+| `Enter` | Confirm, save, and apply the highlighted variant |
+| `Esc` | Close and restore the original theme; favorite edits remain saved |
+
+`★` marks a favorite. `●` marks the confirmed theme from when the picker opened,
+so the marker does not follow temporary previews. The title shows the view,
+background filter, and matching count out of the entire collection. Empty views
+explain how to return to browsing. Applying or starring an empty result does nothing.
+
+Favorites refer to individual variants, not entire theme families. Starring keeps
+the highlighted row in place; unstarring in Favorites selects the nearest remaining
+result. Lists sort alphabetically by theme label without a query and use
+standard fuzzy relevance while searching, with alphabetical order breaking equal
+scores. Only the displayed theme name is searched; the background suffix,
+internal ID, favorite star, and current-theme marker do not affect matching.
+Use `Ctrl-L` to filter backgrounds. Both view changes and favorite edits retain the
+query and preserve the highlighted variant when it is still available.
+Typing or editing a search selects and previews the first, highest-ranked match.
+The opening theme is selected when the query is empty.
+
+Favorites are shared between Neovim instances through individual marker files in
+`stdpath('state')/theme-favorites/`. Each added marker is written atomically, and
+editing one variant cannot overwrite edits to other variants from another instance.
+Open pickers watch this directory and refresh on changes. Reopening or toggling a
+view also reads the current favorites. Same-variant edits use the last completed
+action. Favorites never publish terminal colors or change the confirmed theme;
+only confirming a picker selection does that.
+
 The latest confirmed choice is stored in `stdpath('state')/theme-choice`. New
 Neovim instances restore it on startup. Existing instances watch the state
 directory for confirmed changes and apply them locally, then redraw even when
