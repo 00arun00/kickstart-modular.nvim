@@ -21,13 +21,54 @@ local choices = {
   { 'tokyonight-storm', 'Tokyo Night Storm', 'dark', 'tokyonight' },
   { 'tokyonight-moon', 'Tokyo Night Moon', 'dark', 'tokyonight' },
   { 'tokyonight-day', 'Tokyo Night Day', 'light', 'tokyonight' },
+  { 'vesper', 'Vesper', 'dark', 'vesper' },
+  { 'kanso-zen', 'Kansō Zen', 'dark', 'kanso' },
+  { 'kanso-ink', 'Kansō Ink', 'dark', 'kanso' },
+  { 'kanso-mist', 'Kansō Mist', 'dark', 'kanso' },
+  { 'kanso-pearl', 'Kansō Pearl', 'light', 'kanso' },
+  { 'vague', 'Vague', 'dark', 'vague' },
+  { 'flexoki-dark', 'Flexoki Dark', 'dark', 'flexoki' },
+  { 'flexoki-light', 'Flexoki Light', 'light', 'flexoki' },
+  { 'kanagawa-paper-ink', 'Kanagawa Paper Ink', 'dark', 'kanagawa-paper' },
+  { 'kanagawa-paper-canvas', 'Kanagawa Paper Canvas', 'light', 'kanagawa-paper' },
+  { 'melange-dark', 'Mélange Dark', 'dark', 'melange', 'melange' },
+  { 'melange-light', 'Mélange Light', 'light', 'melange', 'melange' },
+  { 'oxocarbon-dark', 'Oxocarbon Dark', 'dark', 'oxocarbon', 'oxocarbon' },
+  { 'oxocarbon-light', 'Oxocarbon Light', 'light', 'oxocarbon', 'oxocarbon' },
+  { 'evergarden-winter', 'Evergarden Winter', 'dark', 'evergarden', 'evergarden' },
+  { 'evergarden-fall', 'Evergarden Fall', 'dark', 'evergarden', 'evergarden' },
+  { 'evergarden-spring', 'Evergarden Spring', 'dark', 'evergarden', 'evergarden' },
+  { 'evergarden-summer', 'Evergarden Summer', 'light', 'evergarden', 'evergarden' },
+  { 'mellow-dark', 'Mellow Dark', 'dark', 'mellow', 'mellow', 'dark' },
+  { 'mellow-light', 'Mellow Light', 'light', 'mellow', 'mellow', 'light' },
+  { 'oldworld-default', 'OldWorld Default', 'dark', 'oldworld', 'oldworld', 'default' },
+  { 'oldworld-cooler', 'OldWorld Cooler', 'dark', 'oldworld', 'oldworld', 'cooler' },
+  { 'oldworld-oled', 'OldWorld OLED', 'dark', 'oldworld', 'oldworld', 'oled' },
+  { 'mellifluous-dark', 'Mellifluous Dark', 'dark', 'mellifluous', 'mellifluous', 'mellifluous' },
+  { 'mellifluous-light', 'Mellifluous Light', 'light', 'mellifluous', 'mellifluous', 'mellifluous' },
+  { 'mellifluous-alduin', 'Mellifluous Alduin', 'dark', 'mellifluous', 'mellifluous', 'alduin' },
+  { 'mellifluous-mountain', 'Mellifluous Mountain', 'dark', 'mellifluous', 'mellifluous', 'mountain' },
+  { 'mellifluous-tender', 'Mellifluous Tender', 'dark', 'mellifluous', 'mellifluous', 'tender' },
+  { 'mellifluous-kanagawa_dragon', 'Mellifluous Kanagawa Dragon', 'dark', 'mellifluous', 'mellifluous', 'kanagawa_dragon' },
+  { 'poimandres', 'Poimandres', 'dark', 'poimandres' },
+  { 'nightfox', 'Nightfox', 'dark', 'nightfox' },
+  { 'dayfox', 'Nightfox Dayfox', 'light', 'nightfox' },
+  { 'dawnfox', 'Nightfox Dawnfox', 'light', 'nightfox' },
+  { 'duskfox', 'Nightfox Duskfox', 'dark', 'nightfox' },
+  { 'nordfox', 'Nightfox Nordfox', 'dark', 'nightfox' },
+  { 'terafox', 'Nightfox Terafox', 'dark', 'nightfox' },
+  { 'carbonfox', 'Nightfox Carbonfox', 'dark', 'nightfox' },
+  { 'flow-dark', 'Flow Dark', 'dark', 'flow', 'flow' },
+  { 'flow-light', 'Flow Light', 'light', 'flow', 'flow' },
+  { 'flow-mono-dark', 'Flow Mono Dark', 'dark', 'flow', 'flow-mono' },
+  { 'flow-mono-light', 'Flow Mono Light', 'light', 'flow', 'flow-mono' },
 }
 local themes, labels, registry = {}, {}, {}
 for _, choice in ipairs(choices) do
-  local name, label, background, family = unpack(choice)
+  local name, label, background, family, scheme, variant = unpack(choice)
   themes[#themes + 1] = name
   labels[name] = label .. ' (' .. background .. ')'
-  registry[name] = { background = background, family = family }
+  registry[name] = { background = background, family = family, scheme = scheme or name, variant = variant }
 end
 
 local function state_path() return vim.fn.stdpath 'state' .. '/theme-choice' end
@@ -39,6 +80,20 @@ local function current_theme()
     return require('ayu.config').mirage and 'ayu-mirage' or 'ayu-dark'
   end
   if vim.g.colors_name == 'rose-pine' then return 'rose-pine-' .. require('rose-pine.config').options.variant end
+  if vim.g.colors_name == 'kanso' then return 'kanso-' .. require('kanso')._CURRENT_THEME end
+  if vim.g.colors_name == 'flexoki' then return 'flexoki-' .. require('flexoki.palette').palette()._name end
+  if vim.g.colors_name == 'melange' or vim.g.colors_name == 'oxocarbon' then return vim.g.colors_name .. '-' .. vim.o.background end
+  if vim.g.colors_name == 'evergarden' then return 'evergarden-' .. require('evergarden.config').get().theme.variant end
+  if vim.g.colors_name == 'mellow' then return 'mellow-' .. require('mellow.config').config.variant end
+  if vim.g.colors_name == 'oldworld' then return 'oldworld-' .. (require('oldworld.config').variant or 'default') end
+  if vim.g.colors_name == 'mellifluous' then
+    local colorset = require('mellifluous.config').config.colorset
+    return 'mellifluous-' .. (colorset == 'mellifluous' and vim.o.background or colorset)
+  end
+  if vim.g.colors_name == 'flow' or vim.g.colors_name == 'flow-mono' then
+    local config = require('flow.config').options
+    return (config.variant == 'mono' and 'flow-mono-' or 'flow-') .. config.theme.style
+  end
   return vim.g.colors_name
 end
 
@@ -134,6 +189,8 @@ local function build_palette()
       teal = p.teal,
       green = p.green,
     }
+  elseif require('custom.theme_palettes')[family] then
+    c = require('custom.theme_palettes')[family](name)
   else
     c = vim.deepcopy(require('catppuccin.palettes').get_palette 'mocha')
   end
@@ -200,10 +257,34 @@ function M.apply_highlights()
   end
 end
 
+-- Some families expose one colorscheme for several backgrounds or variants.
+local function load(name)
+  local entry = registry[name]
+  if entry and entry.family == 'evergarden' then
+    local config = require('evergarden.config').get()
+    config.theme.variant = name:match 'evergarden%-(.+)'
+    require('evergarden').setup(config)
+  elseif entry and entry.family == 'mellow' then
+    require('mellow.config').config.variant = entry.variant
+  elseif entry and entry.family == 'oldworld' then
+    require('oldworld').setup { variant = entry.variant }
+    -- OldWorld caches palette-derived group tables; rebuild them per variant.
+    for module in pairs(package.loaded) do
+      if module:match '^oldworld%.' and module ~= 'oldworld.config' and module ~= 'oldworld.variants' then package.loaded[module] = nil end
+    end
+  elseif entry and entry.family == 'mellifluous' then
+    require('mellifluous').setup { colorset = entry.variant }
+  elseif entry and entry.family == 'flow' then
+    -- Flow's setup only initializes once; its live options own the background.
+    require('flow.config').options.theme.style = entry.background
+  end
+  vim.cmd.colorscheme(entry and entry.scheme or name)
+end
+
 local function apply(name)
   if current_theme() == name and vim.o.background == registry[name].background then return end
   vim.o.background = registry[name].background
-  vim.cmd.colorscheme(name)
+  load(name)
 end
 
 -- Previewing does not write state; only a confirmed choice is remembered.
@@ -234,7 +315,7 @@ function M.restore()
   local name = ok and saved[1] or nil
   if not vim.tbl_contains(themes, name) then name = 'catppuccin-mocha' end
   vim.o.background = registry[name].background
-  local applied = pcall(vim.cmd.colorscheme, name)
+  local applied = pcall(load, name)
   if not applied then
     vim.o.background = 'dark'
     vim.cmd.colorscheme 'catppuccin-mocha'
@@ -334,7 +415,7 @@ function M.pick()
     picking = false
     if not confirmed then
       vim.o.background = original_background
-      vim.cmd.colorscheme(original)
+      load(original)
       pull_selection()
     end
   end

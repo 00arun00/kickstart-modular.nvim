@@ -14,6 +14,58 @@ external changes; cancellation adopts the latest shared choice, while confirmati
 saves your selected theme. Instances using different state directories have
 independent choices. Receiving instances never republish terminal colors.
 
+## Installed themes
+
+The picker includes 60 choices across 19 families. Each light/dark variant is an
+explicit entry, so previewing, cancelling, saving, and restoring retain the exact
+variant and background.
+
+| Family | Variants |
+| --- | --- |
+| Catppuccin | Latte (light), Frappé, Macchiato, Mocha |
+| Rosé Pine | Default, Moon, Dawn (light) |
+| One Dark Pro | Dark, Light, Vivid, Dark Dark, Vaporwave |
+| Ayu | Dark, Mirage, Light |
+| Tokyo Night | Night, Storm, Moon, Day (light) |
+| Vesper | Dark |
+| Kansō | Zen, Ink, Mist, Pearl (light) |
+| Vague | Dark |
+| Flexoki | Dark, Light |
+| Kanagawa Paper | Ink, Canvas (light) |
+| Mélange | Dark, Light |
+| Oxocarbon | Dark, Light |
+| Evergarden | Winter, Fall, Spring, Summer (light) |
+| Mellow | Dark, Light |
+| OldWorld | Default, Cooler, OLED |
+| Mellifluous | Original Dark, Original Light, Alduin, Mountain, Tender, Kanagawa Dragon |
+| Poimandres | Main (dark) |
+| Nightfox | Nightfox, Dayfox (light), Dawnfox (light), Duskfox, Nordfox, Terafox, Carbonfox |
+| Flow | Dark, Light, Mono Dark, Mono Light |
+
+All variants ship with their family's plugin; no separate variant installation
+is needed. The new families have adapters in `lua/custom/theme_palettes.lua`
+that read their native palettes on each colorscheme change. Custom statusline
+accents, Markdown task progress, math, folds, navigation, plots, and enabled
+terminal exports therefore use the selected family's colors. The dashboard
+also derives its colors from the active theme's highlight groups.
+
+Mélange and Oxocarbon use one native colorscheme name for both backgrounds; the
+picker gives them separate stable IDs. Evergarden's selected season is configured
+before loading its colorscheme, keeping its native palette API in sync too.
+Kansō's reduced-color and saturation settings remain ordinary plugin options;
+the four named variants appear in the picker.
+
+Mellow and OldWorld configure their palette variants before loading. OldWorld's
+cached palette-derived highlights are rebuilt when switching variants. Mellifluous
+includes all five colorsets; only its original colorset provides a light mode.
+Poimandres currently implements only its main palette in the Neovim port.
+Flow's standard and Mono palettes each have explicit dark and light entries;
+contrast and fluorescent accent settings remain ordinary plugin options.
+
+Kanagawa Paper is installed from `thesimonho/kanagawa-paper` on its `neovim`
+distribution branch. Its `main` branch contains development source rather than
+the loadable Neovim runtime. Plugin revisions are recorded in `lazy-lock.json`.
+
 ## Opt-in terminal setup
 
 The Neovim picker works without terminal integration. No external config is
