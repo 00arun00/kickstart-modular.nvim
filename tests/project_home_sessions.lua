@@ -1,6 +1,8 @@
 -- Multi-tab project/global capture, restore, and save lifecycle.
 vim.opt.rtp:prepend(vim.fn.getcwd())
 local sessions = require 'custom.project_home.sessions'
+vim.o.cmdheight = 0
+vim.o.laststatus = 3
 local state = require 'custom.project_home.state'
 local root = vim.fn.tempname()
 vim.fn.mkdir(root .. '/a/.git', 'p')
@@ -37,6 +39,7 @@ vim.cmd 'tabnew'
 local target = vim.api.nvim_get_current_tabpage()
 vim.bo[vim.fn.bufnr(root .. '/a/three.lua')].buflisted = false
 assert(sessions.restore(project, { root = root .. '/a' }))
+assert(vim.o.cmdheight == 0, 'project resume preserves the hidden command line')
 assert(vim.bo.buflisted, 'restored files must be listed for test signs and buffer navigation')
 assert(#vim.api.nvim_list_tabpages() == 6, 'project replaces target and adds one tab')
 for _, tab in ipairs(original_tabs) do
@@ -75,6 +78,7 @@ for _, scope in ipairs { 'project', 'global' } do
   assert(sessions.inspect(cramped, true, nil, scope), 'snapshot passes path validation')
   local ok, err = sessions.restore(cramped, { scope = scope })
   assert(not ok and err:find('E36', 1, true), 'narrow terminal rejects saved splits')
+  assert(vim.o.cmdheight == 0, 'failed resume preserves the command-line height')
   assert(vim.deep_equal(before, vim.api.nvim_list_tabpages()), 'failure removes only temporary tabs')
   assert(vim.api.nvim_get_current_win() == original_win, 'failure restores original focus')
   for _, tab in ipairs(before) do
@@ -85,6 +89,11 @@ for _, scope in ipairs { 'project', 'global' } do
 end
 vim.o.columns = columns
 assert(sessions.restore(global, { scope = 'global' }))
+for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
+  vim.api.nvim_set_current_tabpage(tab)
+  assert(vim.o.cmdheight == 0, 'global resume preserves the hidden command line in every restored tab')
+end
+vim.api.nvim_set_current_tabpage(vim.api.nvim_list_tabpages()[global.active_tab])
 assert(#vim.api.nvim_list_tabpages() == 4, 'global replaces entire tab layout')
 assert(not vim.api.nvim_tabpage_is_valid(current), 'global replaces original tabs after construction')
 assert(vim.api.nvim_buf_is_loaded(dirty) and vim.bo[dirty].modified, 'global preserves unsaved buffers')
@@ -110,5 +119,17 @@ assert(vim.deep_equal(saved, state.get(sessions.global_key).session), 'empty exi
 -- Existing single-tab data remains restorable.
 local legacy = { root = root .. '/a', tree = project.tabs[1].tree, saved_at = os.time() }
 assert(sessions.inspect(legacy, true, root .. '/a').count == 1)
+-- Replacing a single tab briefly shows the tabline. Replaying the saved
+-- window sizes after it disappears must not steal a command-line row.
+for _, height in ipairs { 0, 2 } do
+  for _, scope in ipairs { 'project', 'global' } do
+    vim.cmd 'silent hide tabonly'
+    edit 'a/one.lua'
+    vim.o.cmdheight = height
+    local single = sessions.capture(root .. '/a', { scope = scope })
+    assert(sessions.restore(single, { scope = scope }))
+    assert(vim.o.cmdheight == height, scope .. ' single-tab resume preserves command-line height')
+  end
+end
 print 'Sessions passed: project/global tabs, mixed projects, active window, preflight, unsaved buffers, exit persistence, legacy snapshots'
 vim.cmd 'qa!'

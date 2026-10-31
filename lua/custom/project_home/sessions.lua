@@ -133,6 +133,7 @@ function M.restore(session, opts)
   local info, err = M.inspect(session, true, opts.root, opts.scope)
   if not info then return false, err end
   if vim.fn.isdirectory(session.root) ~= 1 then return false, 'Saved project folder is unavailable.' end
+  local cmdheight = vim.o.cmdheight
   local focused_win
   local function restore(node, win, top)
     vim.api.nvim_set_current_win(win)
@@ -201,6 +202,7 @@ function M.restore(session, opts)
     for i, tab in ipairs(info.tabs) do
       vim.cmd 'noautocmd tabnew'
       restored[i] = vim.api.nvim_get_current_tabpage()
+      vim.o.cmdheight = cmdheight
       vim.cmd('tcd ' .. vim.fn.fnameescape(tab.cwd))
       focused_win = nil
       restore(tab.tree, vim.api.nvim_get_current_win(), true)
@@ -219,7 +221,11 @@ function M.restore(session, opts)
       -- Closing the last old tab can toggle the tabline and equalize splits.
       for i, tab in ipairs(restored) do
         vim.api.nvim_set_current_tabpage(tab)
+        -- Tabline changes and winrestcmd() can grow the command line while
+        -- resizing windows. Keep the caller's UI setting in each restored tab.
+        vim.o.cmdheight = cmdheight
         vim.cmd(sizes[i])
+        vim.o.cmdheight = cmdheight
       end
       vim.api.nvim_set_current_tabpage(restored[info.active_tab])
     end)
@@ -231,6 +237,7 @@ function M.restore(session, opts)
       end
     end
     vim.api.nvim_set_current_win(original_win)
+    vim.o.cmdheight = cmdheight
   end
   M.restoring = false
   for buf, value in pairs(hidden) do
