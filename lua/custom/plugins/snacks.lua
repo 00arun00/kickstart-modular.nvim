@@ -7,7 +7,7 @@ return {
     lazy = false,
     config = function(_, opts)
       require('snacks').setup(opts)
-      require('custom.markdown.inline').setup()
+      require('custom.markdown.math').setup()
       require('custom.markdown.document').setup()
       require('custom.markdown.reading').setup_snacks()
     end,
