@@ -133,9 +133,11 @@ def test_display_math_glyphs_center_in_their_content_containers(render_design, m
         page = pages[equation["page"]]
         top = max(0, int(equation["y"] * scale) - 1)
         bottom = min(page.height, int((equation["y"] + equation["height"]) * scale) + 2)
-        strip = page.crop((0, top, page.width, bottom))
-        # Include antialiased glyphs at the smallest page scale while excluding
-        # the quote panel and its greener rule (green >= 173).
+        # Inspect the equation's content column, excluding the quote's rule.
+        # Its selected-theme colour may be as dark as mathematical glyphs.
+        left = max(0, int(equation["x"] * scale) - 1) if index == 5 else 0
+        strip = page.crop((left, top, page.width, bottom))
+        # Include antialiased glyphs at the smallest page scale.
         pixels = strip.load()
         mask = Image.new("1", strip.size)
         selected = mask.load()
@@ -145,7 +147,7 @@ def test_display_math_glyphs_center_in_their_content_containers(render_design, m
                 selected[x, y] = r < 170 and g < 170 and b < 180
         bounds = mask.getbbox()
         assert bounds is not None, f"equation {index} has no visible mathematical ink"
-        center = (bounds[0] + bounds[2]) / 2
+        center = left + (bounds[0] + bounds[2]) / 2
         # The list has only a left indent. Quotes have symmetric panel insets.
         expected = ((equation["x"] + page_width - margin) / 2) * scale if index == 4 else page.width / 2
         measured.append({"index": index, "center_px": center, "expected_px": expected, "ink": bounds})

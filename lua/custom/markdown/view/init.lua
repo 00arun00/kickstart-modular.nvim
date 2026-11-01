@@ -3,10 +3,13 @@ local api = vim.api
 local root = vim.fs.dirname(debug.getinfo(1, 'S').source:sub(2))
 local ns = api.nvim_create_namespace 'markdown-rich-view'
 local canvas = require 'custom.markdown.view.canvas'
+local theme = require 'custom.markdown.view.theme'
 local actions = { 'continuous', 'paged', 'zoom', 'close', 'refresh', 'status', 'check' }
 local closing = {}
 
 local function notify(message, level) vim.notify('Markdown view: ' .. message, level or vim.log.levels.INFO) end
+
+local function background(palette) api.nvim_set_hl(0, 'MarkdownViewNormal', { fg = palette.foreground, bg = palette.background }) end
 
 local function executable(name)
   local path = vim.fn.exepath(name)
@@ -144,7 +147,7 @@ local function failed(s, task, message)
 end
 
 local function publish(s, task, result)
-  if not valid(s) or task ~= s.task or task.cancelled then return prune(s) end
+  if not valid(s) or task ~= s.task or task.cancelled or task.theme_epoch ~= s.theme_epoch then return prune(s) end
   if result.tick ~= api.nvim_buf_get_changedtick(s.source) then
     s.task, s.signature = nil, nil
     prune(s)
@@ -152,7 +155,7 @@ local function publish(s, task, result)
   end
   local ok, frame = pcall(canvas.prepare, s.buf, result)
   if not ok then return failed(s, task, tostring(frame)) end
-  if not valid(s) or task ~= s.task or result.tick ~= api.nvim_buf_get_changedtick(s.source) then
+  if not valid(s) or task ~= s.task or task.theme_epoch ~= s.theme_epoch or result.tick ~= api.nvim_buf_get_changedtick(s.source) then
     canvas.dispose(frame)
     if s.task == task then
       s.task, s.signature = nil, nil
@@ -161,6 +164,11 @@ local function publish(s, task, result)
     return M.request()
   end
   local old, anchor = s.frame, s.anchor or api.nvim_win_get_cursor(s.source_win)[1]
+  -- Colors do not change document geometry. Capture the latest viewport here,
+  -- after worker completion, so navigation during rendering/picker preview is
+  -- preserved exactly instead of restoring an earlier source-block anchor.
+  local same_geometry = s.frame_task and s.frame_task.geometry == task.geometry
+  local latest_view = same_geometry and view(s.win) or nil
   s.syncing = true
   ok, frame.error = pcall(canvas.publish, s.buf, ns, frame)
   s.syncing = false
@@ -169,11 +177,17 @@ local function publish(s, task, result)
     return failed(s, task, tostring(frame.error))
   end
   s.manifest, s.frame, s.frame_task, s.task = result, frame, task, nil
+  s.frame_palette, s.frame_palette_hash = task.palette, task.palette_hash
+  background(s.frame_palette)
   s.forward, s.backward = vim.deepcopy(result.points), vim.deepcopy(result.points)
   table.sort(s.forward, function(a, b) return a.source == b.source and a.col < b.col or a.source < b.source end)
   table.sort(s.backward, function(a, b) return a.row == b.row and a.source < b.source or a.row < b.row end)
   s.phase, s.error, s.ready = #(result.warnings or {}) > 0 and 'ready (warnings)' or 'ready', nil, true
-  if api.nvim_get_current_win() == s.source_win then
+  if latest_view then
+    s.syncing = true
+    api.nvim_win_call(s.win, function() vim.fn.winrestview(latest_view) end)
+    s.syncing = false
+  elseif api.nvim_get_current_win() == s.source_win then
     local current = view(s.source_win)
     setview(s, s.win, forward(s, current.lnum), forward(s, current.topline))
   else
@@ -189,7 +203,7 @@ end
 
 function M.render()
   local s = M.session
-  if not s or not valid(s) or api.nvim_get_current_tabpage() ~= s.tab then return end
+  if not s or not valid(s) or s.theme_pending or api.nvim_get_current_tabpage() ~= s.tab then return end
   local width = api.nvim_win_get_width(s.win)
   if width < 24 then
     s.phase = 'hidden'
@@ -202,7 +216,8 @@ function M.render()
   local tick = api.nvim_buf_get_changedtick(s.source)
   local origin = api.nvim_buf_get_name(s.source)
   if origin == '' then origin = vim.fs.joinpath(api.nvim_win_call(s.source_win, vim.fn.getcwd), 'untitled.md') end
-  local signature = table.concat({ tick, s.mode, cols, cw, ch, origin }, ':')
+  local geometry = table.concat({ tick, s.mode, cols, cw, ch, origin }, ':')
+  local signature = geometry .. ':' .. s.palette_hash
   if signature == s.signature and (s.task or s.ready or s.failed) then
     if s.phase == 'hidden' then
       s.phase = s.error and 'failed' or (s.ready and 'ready' or 'rendering')
@@ -216,7 +231,14 @@ function M.render()
   prune(s)
   s.phase, s.error, s.ready, s.failed = 'rendering', nil, false, false
   title(s)
-  local task = { version = s.version, folder = vim.fs.joinpath(s.tmp, tostring(s.version)) }
+  local task = {
+    version = s.version,
+    folder = vim.fs.joinpath(s.tmp, tostring(s.version)),
+    geometry = geometry,
+    theme_epoch = s.theme_epoch,
+    palette = vim.deepcopy(s.palette),
+    palette_hash = s.palette_hash,
+  }
   s.task, s.tasks[task.version] = task, task
   vim.fn.mkdir(task.folder, 'p')
   local path = vim.fs.joinpath(task.folder, 'request.json')
@@ -230,12 +252,13 @@ function M.render()
     cell_height = ch,
     pandoc = s.dependencies.pandoc,
     typst = s.dependencies.typst,
+    palette = task.palette,
   }
   vim.fn.writefile({ vim.json.encode(request) }, path)
   local ok, job = pcall(vim.system, { s.dependencies.python, root .. '/render.py', path }, { text = true, timeout = 25000 }, function(result)
     task.finished = true
     vim.schedule(function()
-      if not valid(s) or task.cancelled or s.task ~= task then return prune(s) end
+      if not valid(s) or task.cancelled or s.task ~= task or task.theme_epoch ~= s.theme_epoch then return prune(s) end
       if api.nvim_buf_get_changedtick(s.source) ~= tick then
         s.task, s.signature = nil, nil
         prune(s)
@@ -319,7 +342,29 @@ function M.source()
   api.nvim_set_current_win(s.source_win)
 end
 
-local function background() api.nvim_set_hl(0, 'MarkdownViewNormal', { fg = '#35394a', bg = '#ffffff' }) end
+local function theme_changed(s)
+  if not valid(s) then return end
+  -- Invalidate synchronously: even a completed worker whose scheduled callback
+  -- runs before deferred palette capture must not publish an obsolete theme.
+  s.theme_epoch, s.theme_pending = s.theme_epoch + 1, true
+  s.ready, s.error, s.phase = false, nil, 'styling'
+  cancel(s.task)
+  s.task = nil
+  prune(s)
+  background(s.frame_palette or s.palette)
+  title(s)
+  local epoch = s.theme_epoch
+  vim.schedule(function()
+    if not valid(s) or epoch ~= s.theme_epoch then return end
+    -- Other ColorScheme handlers may resolve custom semantic highlights. Keep
+    -- displaying the old coherent page/background until its replacement exists.
+    background(s.frame_palette or s.palette)
+    s.palette = theme.capture(s.source_win)
+    s.palette_hash = theme.fingerprint(s.palette)
+    s.theme_pending, s.signature = false, nil
+    M.request()
+  end)
+end
 
 local function map_toggle(buf) vim.keymap.set('n', '<leader>Tv', M.toggle, { buffer = buf, silent = true, desc = '[T]oggle rich Markdown [v]iew' }) end
 
@@ -330,6 +375,7 @@ function M.open(mode)
   local snacks, err = canvas.check()
   if not snacks then return notify(err, vim.log.levels.WARN) end
   M.close()
+  local palette = theme.capture()
   local source, source_win = api.nvim_get_current_buf(), api.nvim_get_current_win()
   local buf = api.nvim_create_buf(false, true)
   vim.cmd 'botright vsplit'
@@ -355,7 +401,7 @@ function M.open(mode)
   } do
     vim.wo[win][key] = value
   end
-  background()
+  background(palette)
   vim.wo[win].winhighlight = 'Normal:MarkdownViewNormal,NormalNC:MarkdownViewNormal,EndOfBuffer:MarkdownViewNormal'
   vim.wo[win].fillchars = 'eob: '
   local s = {
@@ -373,6 +419,9 @@ function M.open(mode)
     tmp = vim.fn.tempname() .. '-markdown-view',
     dependencies = dependencies,
     phase = 'starting',
+    palette = palette,
+    palette_hash = theme.fingerprint(palette),
+    theme_epoch = 0,
   }
   s.group = api.nvim_create_augroup('markdown-rich-view-session', { clear = true })
   M.session = s
@@ -417,7 +466,7 @@ function M.open(mode)
     })
     api.nvim_create_autocmd({ 'BufWipeout', 'BufUnload' }, { group = s.group, buffer = watched, callback = M.close })
   end
-  api.nvim_create_autocmd('ColorScheme', { group = s.group, callback = background })
+  api.nvim_create_autocmd('ColorScheme', { group = s.group, callback = function() theme_changed(s) end })
   map_toggle(buf)
   for key, action in pairs {
     m = function() M.mode() end,
@@ -446,6 +495,10 @@ end
 function M.refresh()
   local s = M.session
   if not s or not active(s) then return notify 'Focus the source or rich reading pane first.' end
+  if not s.theme_pending then
+    s.palette = theme.capture(s.source_win)
+    s.palette_hash = theme.fingerprint(s.palette)
+  end
   s.signature = nil
   M.render()
 end
@@ -468,6 +521,10 @@ function M.status()
     render_ms = s.manifest and s.manifest.render_ms,
     warnings = s.manifest and s.manifest.warnings,
     sync_count = s.sync_count,
+    theme_epoch = s.theme_epoch,
+    palette_hash = s.palette_hash,
+    frame_palette_hash = s.frame_palette_hash,
+    theme_pending = s.theme_pending,
   }
 end
 

@@ -77,9 +77,24 @@ positions and interpolation, so it is approximate within long paragraphs,
 equations, and large tables. Full Obsidian feature parity, rendered Mermaid
 diagrams, and all LaTeX extensions are not provided by this pipeline.
 
-The initial presentation keeps the prototype's light palette and typography.
-Following the current Neovim theme is a separate enhancement. This view does
-not alter the native renderer's SVG decoder or the editor's font settings.
+The rich view follows the active Neovim theme through resolved highlight colors,
+including theme-picker previews and cancellation. Page and prose colors come
+from `Normal`; headings, mathematics, links, borders, surfaces, and code use
+semantic editor roles. It keeps its established document typography. There is
+no separate rich-view theme selector or duplicate theme-family registry.
+
+Color updates retain the previous complete image/background pair until the
+replacement is ready, preserving the latest reading position and focus. Use
+`:MarkdownView refresh` after manually changing highlights outside a colorscheme
+event. Code syntax follows semantic editor colors; exact Tree-sitter token
+parity is not implied. Authored figures retain their colors, with a stable light
+backing for transparent graphics. If an unrelated floating-panel background
+would make inherited text unreadable, the view uses the normal editor surface.
+Deliberate low-contrast colors in the selected theme are otherwise preserved.
+
+The [theme convergence record](rich-markdown-theme-convergence.md) explains the
+choices and validation. This view does not alter the native renderer's SVG
+decoder or the editor's font settings.
 
 Very large documents can take appreciable time and terminal memory to typeset
 and display. Full-document rendering is intentional in this first integration;
