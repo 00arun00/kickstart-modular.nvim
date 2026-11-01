@@ -8,19 +8,19 @@ M.presets = {
     label = 'iA Writer Mono',
     family = 'iA Writer Mono V',
     cask = 'font-ia-writer-mono',
-    detail = '15pt · line height +12% · padding 20 × 14pt',
+    detail = '15pt · line height +12% · top padding 6pt',
   },
-  { id = 'lilex', label = 'Lilex', family = 'Lilex', cask = 'font-lilex', detail = '15pt · line height +12% · padding 20 × 14pt' },
-  { id = 'maple', label = 'Maple Mono', family = 'Maple Mono', cask = 'font-maple-mono', detail = '15pt · line height +12% · padding 20 × 14pt' },
+  { id = 'lilex', label = 'Lilex', family = 'Lilex', cask = 'font-lilex', detail = '15pt · line height +12% · top padding 6pt' },
+  { id = 'maple', label = 'Maple Mono', family = 'Maple Mono', cask = 'font-maple-mono', detail = '15pt · line height +12% · top padding 6pt' },
   {
     id = 'recursive',
     label = 'Recursive Mono Casual',
     family = 'Rec Mono Casual',
     cask = 'font-recursive-code',
-    detail = '15pt · line height +12% · padding 20 × 14pt · installs the Recursive Code family',
+    detail = '15pt · line height +12% · top padding 6pt · installs the Recursive Code family',
   },
-  { id = 'plex', label = 'IBM Plex Mono', family = 'IBM Plex Mono', cask = 'font-ibm-plex-mono', detail = '15pt · line height +12% · padding 20 × 14pt' },
-  { id = 'commit', label = 'Commit Mono', family = 'CommitMono', cask = 'font-commit-mono', detail = '15pt · line height +12% · padding 20 × 14pt' },
+  { id = 'plex', label = 'IBM Plex Mono', family = 'IBM Plex Mono', cask = 'font-ibm-plex-mono', detail = '15pt · line height +12% · top padding 6pt' },
+  { id = 'commit', label = 'Commit Mono', family = 'CommitMono', cask = 'font-commit-mono', detail = '15pt · line height +12% · top padding 6pt' },
 }
 local function dir() return vim.fn.stdpath 'state' .. '/terminal-font' end
 local function read(path)
@@ -75,8 +75,8 @@ function M.render(id)
       'font-size = 15',
       'adjust-cell-height = 12%',
       'adjust-cell-width = 0',
-      'window-padding-x = 20',
-      'window-padding-y = 14',
+      'window-padding-x = 0',
+      'window-padding-y = 6,0',
     })
   end
   return table.concat(lines, '\n') .. '\n'
