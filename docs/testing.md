@@ -271,5 +271,7 @@ copied placement arithmetic, upstream source-code parsing, private generation
 counters, or particular debounce delays. A renderer/plugin redesign should not
 require preserving those mechanisms to satisfy the tests. Control asynchronous
 completion at I/O boundaries and assert source, view, focus, and published-frame
-behavior instead. Use installed dependency revisions without changing the user's
+behavior instead. Exercise the advertised theme catalog instead of duplicating
+variant lists or fixing its size; do not require a particular number of distinct
+accent colors. Use installed dependency revisions without changing the user's
 theme, fonts, terminal configuration, or system packages.
