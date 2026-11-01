@@ -342,13 +342,21 @@ def test_table_source_jumps_search_and_editing(nvim):
         assert n.current.window.cursor[0] == target
         assert n.exec_lua("""
           local target,label=...
+          local owned,text=false,{}
+          local function append(chunks)
+            for _,chunk in ipairs(chunks or {})do text[#text+1]=chunk[1]end
+          end
           for _,m in ipairs(vim.api.nvim_buf_get_extmarks(0,require('custom.markdown.tables').ns,0,-1,{details=true})) do
-            if m[2]==target-1 and m[4].conceal=='' then
-              local text={} for _,chunk in ipairs(m[4].virt_text) do text[#text+1]=chunk[1] end
-              return table.concat(text):find(label,1,true)~=nil
+            if m[2]==target-1 then
+              owned=owned or m[4].conceal==''
+              append(m[4].virt_text)
+              for _,line in ipairs(m[4].virt_lines or {})do append(line)end
             end
           end
-          return false
+          -- Tall images use a blank physical anchor to keep image row ordinals
+          -- contiguous through wrapped source. The label still belongs to this
+          -- exact source row, in its associated virtual presentation.
+          return owned and table.concat(text):find(label,1,true)~=nil
         """, target, label)
     press(n, f"{first - 1}G")
     press(n, "/Momentum<CR>")
@@ -410,9 +418,12 @@ def test_wrapped_table_source_has_continuous_borders(nvim):
         for row in grid[first : last + 1]:
             assert row[0] in "┌│├└", repr(row)
             assert row.rstrip()[-1] in "┐│┤┘", repr(row)
-        # Continuation decoration must not repeat row labels or equations.
-        for label in ["Branch", "Mass", "Momentum", "Energy equation"]:
-            assert sum(label in row for row in grid) == 1
+        # Continuation decoration must not repeat labels within their cell.
+        # Momentum is legitimate in both Branch and Quantity, whose baselines
+        # can differ when an inline equation is taller than one terminal row.
+        cells = [row.split("│")[1:-1] for row in grid if row.startswith("│")]
+        for label, column in [("Branch", 0), ("Mass", 0), ("Momentum", 0), ("Energy equation", 2)]:
+            assert sum(label in row[column] for row in cells if len(row) > column) == 1
 
     check_grid()
     press(n, "3G")

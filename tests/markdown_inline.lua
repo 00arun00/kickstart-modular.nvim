@@ -35,10 +35,12 @@ local items, inline_count = find(), 0
 local Placement = Snacks.image.placement
 for id, item in ipairs(items) do
   local is_inline = item.range[1] == 1
-  assert((item.src:match '%.inline%-math%.tex$' ~= nil) == is_inline, 'display/table conversion policy changed')
+  local range = item.range
+  local original = table.concat(vim.api.nvim_buf_get_text(buf, range[1] - 1, range[2], range[3] - 1, range[4], {}), '\n')
+  local single_dollar = original:sub(1, 1) == '$' and original:sub(1, 2) ~= '$$'
+  assert((item.src:match '%.inline%-math%.tex$' ~= nil) == single_dollar, 'single-dollar conversion lost its shared text-style profile')
   local tex = table.concat(vim.fn.readfile(item.src), '\n')
-  if is_inline then
-    inline_count = inline_count + 1
+  if single_dollar then
     assert(tex:find([[\textstyle]], 1, true) and tex:find([[\vrule]], 1, true), 'missing inline style/shared canvas')
     assert(not tex:find([[\[]], 1, true), 'inline expression still uses display style')
   elseif item.range[1] == 2 then
@@ -70,6 +72,7 @@ for id, item in ipairs(items) do
   }, Placement)
   p:update()
   if is_inline then
+    inline_count = inline_count + 1
     assert(p._state.loc.height == 1 and p._state.loc.width == columns, 'inline scale depends on individual expression fit')
     local mark = vim.api.nvim_buf_get_extmarks(buf, Placement.ns, 0, -1, { details = true })[#p.eids]
     assert(mark and mark[4].virt_text_pos == 'inline' and not mark[4].virt_lines, 'inline expression became a block')
@@ -85,6 +88,10 @@ for id, item in ipairs(items) do
     assert(vim.deep_equal(p:state(), Placement.state(p)), 'tall expression was forced into one row')
     p.img.info.size = { width = 90 * 43 / 2, height = 43 }
     assert(vim.deep_equal(p:state(), Placement.state(p)), 'wide expression lost the existing overflow fallback')
+  elseif single_dollar then
+    -- Table conversion now shares text style, while table layout still owns
+    -- cell geometry. The prose-only one-row placement override must not leak.
+    assert(vim.deep_equal(p:state(), Placement.state(p)), 'table placement inherited the prose inline override')
   end
   p:del()
 end
@@ -97,4 +104,4 @@ local item = { content = [[$\rho$]], ext = 'math.tex', range = { 1, 0, 1, 6 } }
 doc.transforms.latex(item, { buf = buf })
 assert(item.ext == 'math.tex' and item.content:find([=[\[\rho\]]=], 1, true))
 vim.fn.delete(cache, 'rf')
-print 'Inline math: text style, common canvas, one-row placements, longer widths, cell-size changes, display/table isolation and source preservation passed'
+print 'Inline math: shared single-dollar style, prose one-row placements, longer widths, cell-size changes, table-layout isolation and source preservation passed'
