@@ -8,11 +8,8 @@ return {
     config = function(_, opts)
       require('snacks').setup(opts)
       require('custom.markdown.inline').setup()
+      require('custom.markdown.document').setup()
       require('custom.markdown.reading').setup_snacks()
-      if opts.image and opts.image.enabled then
-        require('custom.markdown.prepare').setup()
-        require('custom.markdown.progress').setup()
-      end
     end,
     ---@module 'snacks'
     ---@type snacks.Config

@@ -3,7 +3,6 @@ local enabled = true
 local mapped, windows, configs, controllers = {}, {}, {}, {}
 local hidden_diagnostics = {}
 local snacks_ready = false
-local math_generation = 0
 
 function M.is_enabled() return enabled end
 
@@ -97,89 +96,18 @@ function M.toggle()
   vim.api.nvim_exec_autocmds('User', { pattern = 'MarkdownReadingChanged', modeline = false })
 end
 
--- Install after Snacks loads, before its scheduled Markdown image attachment.
+-- Select one document owner before Snacks schedules Markdown attachment.
+-- Other document types and terminal fallbacks retain the native Snacks path.
 function M.setup_snacks()
   if snacks_ready then return end
   snacks_ready = true
   local inline = Snacks.image.inline
-  -- A parse begun under an old theme must not restore old-colored placements
-  -- after the new theme's refresh has completed.
-  local visible = Snacks.image.doc.find_visible
-  local visible_requests = {}
-  Snacks.image.doc.find_visible = function(buf, callback)
-    if vim.bo[buf].filetype ~= 'markdown' then return visible(buf, callback) end
-    local generation = math_generation
-    local request = (visible_requests[buf] or 0) + 1
-    visible_requests[buf] = request
-    visible(buf, function(images)
-      if generation == math_generation and visible_requests[buf] == request then callback(images) end
-    end)
-  end
-  local new, conceal = inline.new, inline.conceal
+  local new = inline.new
   inline.new = function(buf)
-    local controller = new(buf)
+    if vim.bo[buf].filetype ~= 'markdown' or not Snacks.image.terminal.env().placeholders then return new(buf) end
+    local controller = require('custom.markdown.document').new(buf)
     controllers[buf] = controller
     return controller
-  end
-  vim.api.nvim_create_autocmd('ColorScheme', {
-    group = vim.api.nvim_create_augroup('custom-markdown-math-colors', { clear = true }),
-    callback = function()
-      math_generation = math_generation + 1
-      local generation = math_generation
-      -- Run after all ColorScheme handlers have applied the new highlight.
-      vim.schedule(function()
-        if generation ~= math_generation then return end
-        for buf, controller in pairs(controllers) do
-          if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].filetype == 'markdown' then
-            for id, p in pairs(controller.imgs) do
-              if p.opts.type == 'math' then
-                p:close()
-                -- An already queued debounce/conversion update must stay closed.
-                p.ready = function() return false end
-                controller.imgs[id] = nil
-              end
-            end
-            for id, p in pairs(controller.idx) do
-              if p.opts.type == 'math' then controller.idx[id] = nil end
-            end
-            controller:update()
-          end
-        end
-      end)
-    end,
-  })
-  inline.conceal = function(self)
-    if vim.bo[self.buf].filetype ~= 'markdown' then return conceal(self) end
-    local current = vim.api.nvim_get_current_buf() == self.buf
-    if not current and not enabled then return end
-    local from, to = vim.fn.line 'v', vim.fn.line '.'
-    from, to = math.min(from, to), math.max(from, to)
-    local mode = vim.fn.mode():sub(1, 1):lower()
-    local reveal = current and (enabled and M.is_editing() or not enabled and not vim.wo.concealcursor:find(mode, 1, true))
-    for _, img in pairs(self.imgs) do
-      local range = img.opts.range
-      -- Use the source range, not extmarks: conversion can finish after the
-      -- cursor enters Insert mode, before the first grid has been displayed.
-      if reveal and img.opts.conceal and range and from <= range[3] and to >= range[1] then
-        img:hide()
-      else
-        img:show()
-      end
-    end
-  end
-  local place = Snacks.image.placement.new
-  Snacks.image.placement.new = function(buf, src, opts)
-    if opts and opts.inline and opts.on_update and vim.bo[buf].filetype == 'markdown' then
-      opts = vim.tbl_extend('force', {}, opts)
-      local update = opts.on_update
-      opts.on_update = function(p)
-        update(p)
-        vim.schedule(function()
-          if controllers[buf] and vim.api.nvim_buf_is_valid(buf) then controllers[buf]:conceal() end
-        end)
-      end
-    end
-    return place(buf, src, opts)
   end
 end
 

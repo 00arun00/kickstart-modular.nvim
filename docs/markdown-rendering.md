@@ -1,49 +1,47 @@
 # Markdown rendering experiments
 
-## Background equation preparation
+## Retained mathematical presentation
 
-Markdown math uses one distance-ordered preparation queue. Equations intersecting
-any viewport in the current tab have distance zero; other work is ordered by its
-gap above or below the nearest viewport. Pending work is selected again after
-each completion, so scrolling/jumping changes what runs next. Inactive tabs and
-hidden buffers wait until visible.
+Markdown mathematics is rendered across the source buffer, including equations
+and mathematical tables outside the viewport. Once the document reports ready,
+ordinary scrolling reveals existing image placements and native decorations;
+it does not discover equations, start conversion, or rebuild table geometry.
+Source text, saved Markdown, and native editing remain unchanged.
 
-Only one math-preparation job runs at a time. New work waits for 120ms of quiet
-after navigation and pauses in Insert/Replace mode; an existing conversion can
-finish. Ordinary background discovery scans at most 128 source lines per job.
-Tables request their full source range as one discovery unit because cell layout
-needs the whole table, using that same queue and distance rule. Viewport discovery
-also enters the queue, preventing overlapping ranged Tree-sitter queries from
-delivering incomplete results. Discovery/conversion still use the existing Snacks
-implementations; the scheduler controls only when they start.
+A document owner discovers each source revision as a whole. Equation results
+are prepared through the normal Snacks converter and disk cache before the
+corresponding image placements and table layout are published. Repeated sources
+share preparation. The old viewport-distance preparation queue and its Fidget
+progress UI are no longer used.
 
-Repeated equation sources share preparation. Background conversion writes only
-to the existing disk cache, without constructing off-screen image placements or
-uploading those images to the terminal. Visible content reuses prepared files.
-Buffer edits, closure and theme changes invalidate stale pending work. Running
-conversions are not repeatedly cancelled; failed background formulas do not
-automatically retry in a loop. Source text and native motions are unchanged.
+Editing invalidates the affected document revision; rebuilding waits until
+Insert/Replace mode ends. Theme changes regenerate equation inputs, while width
+changes recalculate presentation. Superseded asynchronous results cannot restore
+old content. Closing or unloading a note releases its listeners and placements.
+Failures leave the relevant source usable and do not retry on every redraw.
 
-The scheduler limits conversion/discovery work, not Neovim's own initial
-Tree-sitter parse or the cost of laying out a single very large table.
+### Trying a real note
 
-Longer preparation tasks show one Fidget progress item for the current note.
-It waits about 750ms before appearing and updates at most every 250ms; quick or
-cached tasks stay silent. While discovery is unfinished it shows a count without
-a percentage. After discovery, the percentage counts completed unique equation
-preparations (including failures), rather than estimating time remaining. Repeated
-equations count once. Typing shows a paused message; completion reports ready and
-failed counts, then fades using Fidget's normal completion timeout. Switching
-buffers removes only this progress group, leaving LSP notifications alone.
+Restart Neovim to load the new modules, then open a Markdown note in Ghostty or
+Kitty with Unicode image placeholders enabled. Reading mode starts on; toggle
+it with `<Space>Tr`. Use `:MarkdownRenderStatus` to inspect document readiness,
+and `:MarkdownRender` to request a fresh render if needed.
 
-    make test-python SUITE=fast FILE=markdown_prepare
-    make test-python SUITE=integration FILE=markdown_inline_raster
+On the first uncached opening, TeX conversion can take time. After the document
+is ready, try `Ctrl-E`/`Ctrl-Y`, page scrolling, and searches into previously
+unvisited equations and tables. Enter Insert mode to edit the original source,
+then leave Insert mode to rebuild. Resize a split or switch themes to exercise
+layout and color refresh. The separate `:MarkdownMathTable` command remains
+available as a snapshot view.
 
-Tests force conversion completion order, reprioritize after jumps, exercise
-multiple splits/tabs, deferred typing, edits/closure, cache handoff, table
-discovery, errors, and stale theme callbacks. The optional real-raster test also
-prepares a buffer without terminal uploads and exercises normal/table rendering
-with the scheduler enabled.
+Large notes may require more initial work and terminal image memory than the
+old viewport-only renderer. Terminal pixel behavior needs verification in a
+real terminal; attached-editor tests validate source concealment, retained
+geometry, asynchronous lifecycles, and input behavior.
+
+```sh
+make test SUITE=all FILE=markdown ARGS='--tb=short'
+```
 
 ## Equation colors
 
@@ -51,9 +49,10 @@ Equation images use the active theme palette's teal/cyan accent, distinct from
 ordinary prose. The shared theme layer sets SnacksImageMath on each colorscheme
 change, including the darker accent adjustment used by light themes.
 
-After colorscheme handlers finish, Markdown equation placements are discarded
-and rediscovered with the new color. Inline and display images then use the
-normal converter/cache; tables invalidate their layout/image listeners too.
+After colorscheme handlers finish, Markdown equations are rediscovered with the
+new color. The previous presentation remains until the new revision is prepared,
+then its equation placements and table layout/image listeners are replaced.
+Inline and display images use the normal converter/cache.
 Cached files are retained so switching back can reuse previously generated
 images. Old-theme parsing results and queued placement updates cannot restore
 stale-colored images. Mermaid and ordinary image placements are retained.
@@ -88,8 +87,8 @@ external tools are absent.
 notes and files opened later. It is enabled at the start of each session.
 Which-key shows the action only in Markdown, with an Enable/Disable description.
 
-With Reading mode on, Normal-mode motions and searches keep tables, equations,
-and Mermaid diagrams rendered even under the cursor. Insert or Replace mode
+With Reading mode on, Normal-mode motions and searches keep mathematical tables,
+equations, and Mermaid diagrams rendered even under the cursor. Insert or Replace mode
 exposes source for editing; `Esc` restores rendering. With Reading mode off,
 moving the cursor onto rendered content reveals source as before. The original
 Markdown is never changed. `j`/`k`, Up/Down, and counts such as `5j` use native
@@ -107,6 +106,21 @@ Entering Insert mode while reading exposes source without turning diagnostics
 back on. Diagnostics continue updating in Trouble, Telescope, quickfix, and
 location lists throughout. There is one toggle and no separate diagnostic
 preference to manage.
+
+### Current limits
+
+Ordinary tables without mathematics remain owned by render-markdown. Its wrapped
+rows reveal source under the cursor, and column widths can change as different
+rows enter its parsing range. The retained mathematical presentation does not
+change those behaviors. Continuous ordinary-table rendering is an optional
+follow-up, not part of this document-owner change.
+
+Mode transitions are not yet coordinated across both renderers. In Insert or
+Visual mode, render-markdown can expose source across the window while the
+document owner retains noncurrent equation images. This can display an image
+alongside its source. Local source reveal versus a complete source view needs a
+separate policy decision; the current tests do not establish a fully coherent
+presentation in every mode.
 
 ```sh
 make test-python SUITE=integration FILE=markdown_reading

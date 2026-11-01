@@ -96,23 +96,21 @@ def test_image_finishing_after_insert_reveals_source(nvim):
     n = nvim
     move(n, 10)
     n.exec_lua("""
-      hold_reading_images=true
+      reading_fixture.transport.hold=true
       vim.api.nvim_buf_set_lines(0,9,10,false,{'d/e=f'})
       reading_fixture.controller:update()
     """)
-    wait(n, "(function() for _,p in pairs(reading_fixture.controller.imgs) do if p.opts.type=='math' and p.img.pending then return true end end return false end)()")
+    wait(n, "#reading_fixture.transport.pending>0")
     n.input("i")
     wait(n, "vim.fn.mode()=='i'")
     n.exec_lua("""
-      hold_reading_images=false
-      for _,img in pairs(reading_fixture.images) do
-        if img.pending then
-          img.pending=false
-          for _,p in pairs(img.placements) do p:update() end
-        end
-      end
+      reading_fixture.transport.hold=false
+      reading_fixture.transport.finish_all()
     """)
-    wait(n, "reading_fixture.image_hidden('math')==true")
+    # The new owner publishes a reading revision only after editing ends;
+    # conversion completion must leave the current native source exposed.
+    assert n.current.line == "d/e=f"
+    assert n.exec_lua("return vim.tbl_isempty(reading_fixture.controller.imgs)")
     n.input("\x1b")
     wait(n, "vim.fn.mode()=='n' and reading_fixture.image_hidden('math')==false")
 
@@ -344,7 +342,7 @@ def test_table_source_jumps_search_and_editing(nvim):
         assert n.current.window.cursor[0] == target
         assert n.exec_lua("""
           local target,label=...
-          for _,m in ipairs(vim.api.nvim_buf_get_extmarks(0,require('render-markdown.core.ui').ns,0,-1,{details=true})) do
+          for _,m in ipairs(vim.api.nvim_buf_get_extmarks(0,require('custom.markdown.tables').ns,0,-1,{details=true})) do
             if m[2]==target-1 and m[4].conceal=='' then
               local text={} for _,chunk in ipairs(m[4].virt_text) do text[#text+1]=chunk[1] end
               return table.concat(text):find(label,1,true)~=nil
@@ -497,18 +495,17 @@ def test_theme_refresh_discards_old_async_math_and_queued_updates(nvim):
           if hold_math then held_math[#held_math+1]=function()callback(items)end else callback(items)end
         end,opts)
       end
-      reading_fixture.controller:update()
+      reading_fixture.controller:update(true)
     """)
     wait(n, "#held_math>0")
     n.exec_lua("hold_math=false")
     n.options["background"] = "light"
     n.command("colorscheme catppuccin-latte")
+    # Discovery remains serialized. Release the obsolete parse so the queued
+    # new style can discover; the obsolete result must not publish anything.
+    n.exec_lua("for _,callback in ipairs(held_math)do callback()end")
     wait(n, "reading_fixture.math_has_current_color()")
-    # Deliver the old-theme parse AFTER the new-theme images have appeared.
-    n.exec_lua("""
-      for _,callback in ipairs(held_math)do callback()end
-      Snacks.image.placement.update(old_math)
-    """)
+    n.exec_lua("Snacks.image.placement.update(old_math)")
     assert n.exec_lua("return old_math.closed and not old_math:ready()")
     assert n.exec_lua("return reading_fixture.math_has_current_color()")
     assert n.exec_lua("return reading_fixture.controller.imgs[old_chart.id]==old_chart")

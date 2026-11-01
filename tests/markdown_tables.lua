@@ -9,28 +9,8 @@ local terminal = Snacks.image.terminal
 terminal.env = function() return { supported = true, placeholders = true } end
 terminal.size = function() return { cell_width = 10, cell_height = 20, scale = 1 } end
 terminal.request = function() end
-local images, image_id, placement_id = {}, 100, 200
-Snacks.image.image.new = function(src)
-  if not images[src] then
-    image_id = image_id + 1
-    images[src] = {
-      id = image_id,
-      file = src,
-      info = { size = { width = 280, height = 80 }, dpi = { width = 96, height = 96 } },
-      placements = {},
-      ready = function() return true end,
-      place = function(self, p)
-        if not p.id then
-          placement_id = placement_id + 1
-          p.id = placement_id
-        end
-        self.placements[p.id] = p
-      end,
-      del = function(self, id) self.placements[id] = nil end,
-    }
-  end
-  return images[src]
-end
+local transport = assert(loadfile(vim.fn.getcwd() .. '/tests/support/markdown_document.lua'))().transport()
+local images = transport.images
 local held, hold = {}, false
 local find = Snacks.image.doc.find
 Snacks.image.doc.find = function(buf, cb, opts)
@@ -69,9 +49,14 @@ local spec = require('custom.plugins.render-markdown')[1]
 require('custom.markdown.reading').toggle()
 spec.config(nil, vim.tbl_deep_extend('force', spec.opts, { debounce = 0, render_modes = true, anti_conceal = { enabled = false } }))
 vim.cmd 'runtime plugin/render-markdown.lua'
+local controller = require('custom.markdown.document').new(buf)
 local renderer = require 'render-markdown'
 local ns = require('render-markdown.core.ui').ns
-local function marks() return vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true }) end
+local function marks()
+  local result = vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true })
+  vim.list_extend(result, vim.api.nvim_buf_get_extmarks(buf, require('custom.markdown.tables').ns, 0, -1, { details = true }))
+  return result
+end
 local function table_mark()
   for _, mark in ipairs(marks()) do
     if mark[2] == 6 and mark[4].virt_lines and mark[4].conceal == '' then return mark end
@@ -156,27 +141,23 @@ vim.api.nvim_win_set_cursor(win, { 1, 0 })
 vim.api.nvim_exec_autocmds('CursorMoved', { buffer = buf })
 wait_for(table_mark, 'leaving table did not restore rendering')
 
--- Snacks must not independently place the same equations over the table.
-local visible
-Snacks.image.doc.find_visible(buf, function(matches) visible = matches end)
-wait_for(function() return visible ~= nil end, 'visible-image query did not complete')
-for _, img in ipairs(visible) do
-  assert(img.type ~= 'math' or img.range[1] < 7, 'duplicate Snacks table equation')
+-- The document owner must not independently place table equations.
+for _, img in pairs(controller.imgs) do
+  assert(img.opts.type ~= 'math' or img.opts.range[1] < 7, 'duplicate Snacks table equation')
 end
 
--- Force reversed async parsing completion across two source revisions.
+-- An obsolete serialized discovery must yield to the latest source revision.
 hold = true
 source[9] = source[9]:gsub('Mass Transport', 'Intermediate label')
 vim.api.nvim_buf_set_lines(buf, 8, 9, false, { source[9] })
-renderer.render { buf = buf }
+controller:update()
 wait_for(function() return #held >= 1 end, 'first parse was not held')
 source[9] = source[9]:gsub('Intermediate label', 'Final label')
 vim.api.nvim_buf_set_lines(buf, 8, 9, false, { source[9] })
-renderer.render { buf = buf }
-wait_for(function() return #held >= 2 end, 'second parse was not held')
+controller:update()
 hold = false
-for i = #held, 1, -1 do
-  held[i]()
+for _, callback in ipairs(held) do
+  callback()
 end
 wait_for(function() return table_mark() and check():find('Final label', 1, true) end, 'stale parsing overwrote current layout')
 assert(not check():find('Intermediate label', 1, true))
