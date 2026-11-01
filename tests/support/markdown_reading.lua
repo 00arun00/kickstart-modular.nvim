@@ -14,31 +14,8 @@ local terminal = Snacks.image.terminal
 terminal.env = function() return { supported = true, placeholders = true } end
 terminal.size = function() return { cell_width = 10, cell_height = 20, scale = 1 } end
 terminal.request = function() end
-local images, image_id, placement_id = {}, 100, 200
-Snacks.image.image.new = function(src)
-  if not images[src] then
-    image_id = image_id + 1
-    images[src] = {
-      src = src,
-      id = image_id,
-      file = src,
-      pending = hold_reading_images == true,
-      info = { size = { width = 280, height = 80 }, dpi = { width = 96, height = 96 } },
-      placements = {},
-      ready = function(self) return not self.pending end,
-      failed = function() return false end,
-      place = function(self, p)
-        if not p.id then
-          placement_id = placement_id + 1
-          p.id = placement_id
-        end
-        self.placements[p.id] = p
-      end,
-      del = function(self, id) self.placements[id] = nil end,
-    }
-  end
-  return images[src]
-end
+local transport = assert(loadfile(root .. '/tests/support/markdown_document.lua'))().transport()
+local images = transport.images
 local source = type(provided_source) == 'table' and provided_source
   or {
     '# Reading fixture',
@@ -65,7 +42,7 @@ vim.bo.filetype = 'markdown'
 vim.bo.modified = false
 require 'keymaps'
 local renderer = require('custom.plugins.render-markdown')[1]
-renderer.config(nil, vim.tbl_deep_extend('force', renderer.opts, { debounce = 0 }))
+renderer.config(nil, renderer.opts)
 vim.cmd 'runtime plugin/render-markdown.lua'
 require('custom.plugins.lualine')[1].config()
 reading_fixture = {
@@ -73,11 +50,12 @@ reading_fixture = {
   win = vim.api.nvim_get_current_win(),
   source = source,
   tick = vim.api.nvim_buf_get_changedtick(0),
-  controller = Snacks.image.inline.new(vim.api.nvim_get_current_buf()),
+  controller = require('custom.markdown.document').new(vim.api.nvim_get_current_buf()),
+  transport = transport,
   images = images,
 }
 function reading_fixture.table_rendered()
-  local ns = require('render-markdown.core.ui').ns
+  local ns = require('custom.markdown.tables').ns
   for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(reading_fixture.buf, ns, 0, -1, { details = true })) do
     if mark[4].conceal == '' and mark[4].virt_lines and mark[4].virt_lines_above then return true end
   end

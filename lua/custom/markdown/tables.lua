@@ -1,100 +1,138 @@
--- Inline math tables: native-text virtual rows with Snacks equation grids.
--- Source text stays in the buffer; entering a table reveals it for editing.
-local M = {}
+-- Retained math-table decorations. The document owner supplies one discovery
+-- result; ordinary scrolling never rebuilds or clears this namespace.
+local M = { ns = vim.api.nvim_create_namespace 'markdown-math-tables' }
 local states = {}
 local initialized = false
+
 local function supported(buf)
   if not vim.api.nvim_buf_is_valid(buf) or vim.bo[buf].filetype ~= 'markdown' then return false end
   if not Snacks.image.supports_terminal() or not Snacks.image.terminal.env().placeholders then return false end
-  return require('render-markdown.state').get(buf).enabled
+  local renderer = package.loaded['render-markdown.state']
+  if not (renderer and renderer.config) then return false end
+  local config = renderer.get(buf)
+  return config.enabled and config.resolved:render(vim.fn.mode())
 end
 
-local function release(state)
+local function valid(state)
+  return not state.closed
+    and states[state.buf] == state
+    and vim.api.nvim_buf_is_valid(state.buf)
+    and vim.api.nvim_buf_is_loaded(state.buf)
+    and vim.api.nvim_buf_get_changedtick(state.buf) == state.tick
+end
+
+function M.hide(state)
   if not state then return end
-  for _, item in pairs(state.grids or {}) do
-    item.img:del(item.listener.id)
-  end
-  for _, item in pairs(state.images or {}) do
-    item.img:del(item.listener.id)
-  end
+  if vim.api.nvim_buf_is_valid(state.buf) then vim.api.nvim_buf_clear_namespace(state.buf, M.ns, 0, -1) end
+  state.signature, state.awaiting_host = nil, false
 end
 
-local function refresh(buf, state)
-  if state.queued then return end
-  state.queued = true
-  vim.schedule(function()
-    state.queued = false
-    if states[buf] == state and vim.api.nvim_buf_is_valid(buf) then require('render-markdown').render { buf = buf } end
-  end)
+function M.release(state)
+  if not state or state.closed then return end
+  state.closed = true
+  M.hide(state)
+  for _, item in pairs(state.grids) do
+    if item.listener.id then item.img:del(item.listener.id) end
+  end
+  for _, item in pairs(state.images) do
+    if item.listener.id then item.img:del(item.listener.id) end
+  end
+  state.grids, state.images = {}, {}
+  if states[state.buf] == state then states[state.buf] = nil end
 end
 
-local function scan(buf)
-  local tick = vim.api.nvim_buf_get_changedtick(buf)
-  if states[buf] and states[buf].tick == tick then return states[buf] end
-  release(states[buf])
-  local state = { tick = tick, tables = {}, images = {}, grids = {} }
+-- Build all table models from the same full-document equation discovery used
+-- for ordinary math. This function never discovers or converts images itself.
+function M.build(buf, equations)
+  M.release(states[buf])
+  local state = { buf = buf, tick = vim.api.nvim_buf_get_changedtick(buf), tables = {}, images = {}, grids = {} }
   states[buf] = state
   local parser = vim.treesitter.get_parser(buf, 'markdown')
   local query = vim.treesitter.query.parse('markdown', '(pipe_table) @table')
   for _, node in query:iter_captures(parser:parse()[1]:root(), buf) do
-    local first, _, last, end_col = node:range()
-    if end_col > 0 then last = last + 1 end
-    require('custom.markdown.prepare').find(buf, first + 1, last, function(equations)
-      if states[buf] ~= state or not vim.api.nvim_buf_is_valid(buf) or vim.api.nvim_buf_get_changedtick(buf) ~= tick then return end
-      local selected = vim.tbl_filter(function(image) return image.type == 'math' and image.range[1] > first and image.range[3] <= last end, equations)
-      if #selected > 0 then
-        local entry = { first = first, last = last - 1, model = require('custom.markdown.table_preview').model(buf, node, selected) }
-        state.tables[#state.tables + 1] = entry
-      end
-      refresh(buf, state)
-    end)
+    local first, _, last, col = node:range()
+    if col > 0 then last = last + 1 end
+    local selected = vim.tbl_filter(function(image) return image.type == 'math' and image.range[1] > first and image.range[3] <= last end, equations)
+    if #selected > 0 then
+      local ok, model = pcall(require('custom.markdown.table_preview').model, buf, node, selected)
+      state.tables[#state.tables + 1] = { first = first, last = last - 1, model = ok and model or nil, skipped = not ok }
+    end
   end
   return state
 end
 
-local function visible(buf, entry)
-  for _, win in ipairs(vim.fn.win_findbuf(buf)) do
-    if vim.api.nvim_win_get_tabpage(win) == vim.api.nvim_get_current_tabpage() then
-      local view = vim.fn.getwininfo(win)[1]
-      if view.topline <= entry.last + 1 and view.botline >= entry.first + 1 then return true end
-    end
+function M.contains(state, image)
+  if not state or image.type ~= 'math' or not image.range then return false end
+  for _, entry in ipairs(state.tables) do
+    if image.range[1] > entry.first and image.range[3] <= entry.last + 1 then return true end
   end
   return false
 end
 
-local function attach(buf, state, entry)
-  for _, row in ipairs(entry.model.rows) do
+local function changed(state)
+  if state.queued then return end
+  state.queued = true
+  vim.schedule(function()
+    state.queued = false
+    if valid(state) then
+      if state.on_change then
+        state.on_change(state)
+      else
+        M.publish(state)
+      end
+    end
+  end)
+end
+
+local function tokens(entry, callback)
+  for _, row in ipairs(entry.model and entry.model.rows or {}) do
     for _, cell in ipairs(row) do
       for _, token in ipairs(cell) do
-        if token.src and not state.images[token.src] then
-          local img = Snacks.image.image.new(token.src)
-          local listener = {
-            update = function() refresh(buf, state) end,
-            error = function()
-              if not state.warned then
-                state.warned = true
-                vim.notify('A table equation could not be rendered; keeping the source table visible.', vim.log.levels.WARN)
-              end
-              refresh(buf, state)
-            end,
-          }
-          img:place(listener)
-          state.images[token.src] = { img = img, listener = listener }
-        end
+        if token.src then callback(token.src) end
       end
     end
   end
 end
 
-local function ready(entry, state)
-  for _, row in ipairs(entry.model.rows) do
-    for _, cell in ipairs(row) do
-      for _, token in ipairs(cell) do
-        if token.src and not state.images[token.src].img:ready() then return false end
-      end
+-- Called after cache preparation settles. Failed formula tables stay in the
+-- normal Markdown renderer; they do not hold other tables or the note hostage.
+function M.prepare(state, failed_sources)
+  if not valid(state) or state.prepared then return end
+  state.prepared = true
+  failed_sources = failed_sources or {}
+  for _, entry in ipairs(state.tables) do
+    tokens(entry, function(src)
+      if failed_sources[src] then entry.skipped = true end
+    end)
+    if not entry.skipped then
+      tokens(entry, function(src)
+        if state.images[src] then return end
+        local img = Snacks.image.image.new(src)
+        local listener = { update = function() changed(state) end, error = function() changed(state) end }
+        state.images[src] = { img = img, listener = listener }
+        img:place(listener)
+      end)
     end
   end
-  return true
+end
+
+local function table_ready(state, entry)
+  if entry.skipped then return false end
+  local ready = true
+  tokens(entry, function(src)
+    local item = state.images[src]
+    if not item or not item.img:ready() then ready = false end
+    if item and item.img:failed() then entry.skipped = true end
+  end)
+  return ready and not entry.skipped
+end
+
+function M.ready(state)
+  if not valid(state) or not state.prepared then return false end
+  for _, item in pairs(state.images) do
+    if not item.img:ready() and not item.img:failed() then return false end
+  end
+  return M.publish(state) == true
 end
 
 local function editing(buf, entry)
@@ -191,64 +229,85 @@ local function compose(buf, entry, state, width)
   return result, layout.groups, { { padding, 'Normal' } }
 end
 
-function M.parse(language, ctx)
-  local original = require('render-markdown.handler.' .. language).parse(ctx)
-  if not supported(ctx.buf) then return original end
-  local state = scan(ctx.buf)
-  local active = vim.tbl_filter(function(entry)
-    if not visible(ctx.buf, entry) then return false end
-    attach(ctx.buf, state, entry)
-    return ready(entry, state)
-  end, state.tables)
-  -- Native borders/replacement rows and injected inline/HTML decorations must
-  -- not coexist with the cell layout, including while revealing source.
-  original = vim.tbl_filter(function(mark)
-    for _, entry in ipairs(active) do
-      if mark.start_row >= entry.first and mark.start_row <= entry.last then return false end
-      if mark.conceal == 'table_border' and (mark.start_row == entry.first - 1 or mark.start_row == entry.last + 1) then return false end
-    end
+-- Publish a complete retained table surface. Repeated scrolling in the same
+-- document/width/edit state returns before touching extmarks or image grids.
+function M.publish(state, from_host)
+  if not state then return end
+  if not valid(state) then return M.hide(state) end
+  if not supported(state.buf) then
+    M.hide(state)
     return true
-  end, original)
-  if language ~= 'markdown' then return original end
-  local width = vim.o.columns
-  for _, win in ipairs(vim.fn.win_findbuf(ctx.buf)) do
-    local info = vim.fn.getwininfo(win)[1]
-    width = math.min(width, info.width - info.textoff)
   end
+  local width, wins = vim.o.columns, 0
+  for _, win in ipairs(vim.fn.win_findbuf(state.buf)) do
+    local info = vim.fn.getwininfo(win)[1]
+    width, wins = math.min(width, info.width - info.textoff), wins + 1
+  end
+  if wins == 0 then return true end
+  width = math.max(1, width)
+  local signature, active, ownership_changed = { width }, {}, false
+  for _, entry in ipairs(state.tables) do
+    local owned = table_ready(state, entry)
+    ownership_changed = ownership_changed or entry.owned ~= owned
+    entry.owned = owned
+    local reveal = editing(state.buf, entry)
+    signature[#signature + 1] = entry.owned and (reveal and 'source' or 'rendered') or 'pending'
+    if entry.owned and not reveal then active[#active + 1] = entry end
+  end
+  signature = table.concat(signature, ':')
+  if signature == state.signature and not state.awaiting_host then return true end
+  -- The host may still own standard table borders and inline decorations from
+  -- its previous parse. Acquire these ranges through its normal parse/display
+  -- transaction, then install retained rows in on_render after it has finished.
+  if ownership_changed and not from_host and package.loaded['render-markdown'] then
+    state.awaiting_host = true
+    if not state.host_queued then
+      state.host_queued = true
+      vim.schedule(function()
+        state.host_queued = false
+        if valid(state) then require('render-markdown').render { buf = state.buf } end
+      end)
+    end
+  end
+  if state.awaiting_host and not from_host then return false end
+  local marks = {}
   for _, entry in ipairs(active) do
-    if not editing(ctx.buf, entry) then
-      local rows, groups, padding = compose(ctx.buf, entry, state, width)
-      -- Fixed source-row anchors keep native motions, jumps and editing intact.
+    local ok, rows, groups, padding = pcall(compose, state.buf, entry, state, width)
+    if not ok then
+      entry.skipped, entry.owned = true, false
+      for key, item in pairs(state.grids) do
+        if vim.startswith(key, entry.first .. ':') then
+          if item.listener.id then item.img:del(item.listener.id) end
+          state.grids[key] = nil
+        end
+      end
+      if not state.warned then
+        state.warned = true
+        vim.notify('A math table could not be laid out; keeping its source visible.', vim.log.levels.WARN)
+      end
+    else
       for _, group in ipairs(groups) do
-        local selected = group.anchor
         local above, below = {}, {}
         for index = group.first, group.last do
-          if index < selected then above[#above + 1] = rows[index] end
-          if index > selected then below[#below + 1] = rows[index] end
+          if index < group.anchor then above[#above + 1] = rows[index] end
+          if index > group.anchor then below[#below + 1] = rows[index] end
         end
-        local line = vim.api.nvim_buf_get_lines(ctx.buf, group.source, group.source + 1, false)[1]
-        original[#original + 1] = {
-          conceal = false,
-          start_row = group.source,
-          start_col = 0,
+        local line = vim.api.nvim_buf_get_lines(state.buf, group.source, group.source + 1, false)[1]
+        marks[#marks + 1] = {
+          row = group.source,
           opts = {
             end_row = group.source,
             end_col = #line,
             conceal = '',
-            virt_text = rows[selected],
+            virt_text = rows[group.anchor],
             virt_text_pos = 'overlay',
             priority = 101,
             virt_lines = above,
             virt_lines_above = true,
           },
         }
-        original[#original + 1] = {
-          conceal = false,
-          start_row = group.source,
-          start_col = 0,
-          -- Conceal hides characters but does not remove native wrap rows.
-          -- Paint those continuations as cell padding, underneath the anchor
-          -- row. Repeating the anchor row would duplicate labels/equations.
+        marks[#marks + 1] = {
+          row = group.source,
           opts = {
             virt_text = padding,
             virt_text_pos = 'overlay',
@@ -260,71 +319,62 @@ function M.parse(language, ctx)
       end
     end
   end
-  return original
+  vim.api.nvim_buf_clear_namespace(state.buf, M.ns, 0, -1)
+  for _, mark in ipairs(marks) do
+    vim.api.nvim_buf_set_extmark(state.buf, M.ns, mark.row, 0, mark.opts)
+  end
+  local committed = state.awaiting_host
+  state.signature, state.awaiting_host = signature, false
+  if committed then changed(state) end
+  return true
+end
+
+function M.parse(language, ctx)
+  local original = require('render-markdown.handler.' .. language).parse(ctx)
+  local state = states[ctx.buf]
+  if not state then return original end
+  M.publish(state)
+  if not valid(state) or not supported(ctx.buf) then return original end
+  -- The retained table namespace owns these ranges even while revealing their
+  -- source. Host Markdown/inline/HTML decorations must not compete with it.
+  return vim.tbl_filter(function(mark)
+    for _, entry in ipairs(state.tables) do
+      if entry.owned then
+        if mark.start_row >= entry.first and mark.start_row <= entry.last then return false end
+        if mark.conceal == 'table_border' and (mark.start_row == entry.first - 1 or mark.start_row == entry.last + 1) then return false end
+      end
+    end
+    return true
+  end, original)
+end
+
+function M.on_render(ctx) M.publish(states[ctx.buf], true) end
+function M.on_clear(ctx)
+  if not supported(ctx.buf) then M.hide(states[ctx.buf]) end
 end
 
 function M.setup()
   if initialized then return end
   initialized = true
-  local doc = Snacks.image.doc
-  local visible = doc.find_visible
-  doc.find_visible = function(buf, cb)
-    visible(buf, function(images)
-      if supported(buf) then
-        scan(buf)
-        local parser = vim.treesitter.get_parser(buf, 'markdown')
-        local query = vim.treesitter.query.parse('markdown', '(pipe_table) @table')
-        local ranges = {}
-        for _, node in query:iter_captures(parser:parse()[1]:root(), buf) do
-          local first, _, last, col = node:range()
-          ranges[#ranges + 1] = { first, col == 0 and last or last + 1 }
-        end
-        images = vim.tbl_filter(function(image)
-          for _, range in ipairs(ranges) do
-            if image.type == 'math' and image.range[1] > range[1] and image.range[3] <= range[2] then return false end
-          end
-          return true
-        end, images)
-      end
-      cb(images)
-    end)
+  local function highlights()
+    vim.api.nvim_set_hl(0, 'MarkdownTablePreviewBold', { bold = true, default = true })
+    vim.api.nvim_set_hl(0, 'MarkdownTablePreviewHeader', { link = 'Title', default = true })
   end
-  vim.api.nvim_set_hl(0, 'MarkdownTablePreviewBold', { bold = true, default = true })
-  vim.api.nvim_set_hl(0, 'MarkdownTablePreviewHeader', { link = 'Title', default = true })
+  highlights()
   local group = vim.api.nvim_create_augroup('markdown-math-tables', { clear = true })
-  vim.api.nvim_create_autocmd({ 'CursorMoved', 'CursorMovedI', 'ModeChanged', 'BufEnter', 'WinEnter' }, {
+  vim.api.nvim_create_autocmd({ 'CursorMoved', 'CursorMovedI', 'ModeChanged', 'BufEnter', 'WinEnter', 'WinResized' }, {
     group = group,
-    callback = function(event)
-      local state = states[event.buf]
-      if not state or not supported(event.buf) then return end
-      local inside = 0
-      for index, entry in ipairs(state.tables) do
-        if editing(event.buf, entry) then inside = index end
-      end
-      if state.editing ~= inside then
-        state.editing = inside
-        refresh(event.buf, state)
+    callback = function()
+      for _, state in pairs(states) do
+        M.publish(state)
       end
     end,
   })
   vim.api.nvim_create_autocmd('BufWipeout', {
     group = group,
-    callback = function(event)
-      local state = states[event.buf]
-      release(state)
-      states[event.buf] = nil
-    end,
+    callback = function(event) M.release(states[event.buf]) end,
   })
-  vim.api.nvim_create_autocmd('ColorScheme', {
-    group = group,
-    callback = function()
-      for buf, state in pairs(states) do
-        release(state)
-        state.tick = nil
-        refresh(buf, state)
-      end
-    end,
-  })
+  vim.api.nvim_create_autocmd('ColorScheme', { group = group, callback = highlights })
 end
 
 return M

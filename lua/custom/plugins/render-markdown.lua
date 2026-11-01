@@ -6,6 +6,14 @@ return {
     ft = { 'markdown' },
     dependencies = { 'nvim-treesitter/nvim-treesitter', 'nvim-tree/nvim-web-devicons' },
     init = function()
+      vim.api.nvim_create_user_command('MarkdownRender', function()
+        if vim.bo.filetype ~= 'markdown' then return vim.notify('Open a Markdown note first.', vim.log.levels.INFO) end
+        require('custom.markdown.document').new(vim.api.nvim_get_current_buf()):update(true)
+      end, { desc = 'Refresh the retained mathematical presentation for this note' })
+      vim.api.nvim_create_user_command('MarkdownRenderStatus', function()
+        local status = require('custom.markdown.document').status(vim.api.nvim_get_current_buf())
+        vim.notify(status and vim.inspect(status) or 'No retained Markdown presentation is attached.', vim.log.levels.INFO)
+      end, { desc = 'Show retained Markdown rendering readiness' })
       vim.api.nvim_create_user_command('MarkdownMathTable', function() require('custom.markdown.table_preview').open() end, {
         desc = 'Preview current table with native text and per-cell equation images',
       })
@@ -17,10 +25,19 @@ return {
     ---@module 'render-markdown'
     ---@type render.md.UserConfig
     opts = {
+      -- Each retained-table ownership change needs a completed host render.
+      -- The host's leading-edge throttle can otherwise drop the final request.
+      debounce = 0,
       on = {
         attach = function(ctx) require('custom.markdown.reading').attach(ctx.buf) end,
-        render = function(ctx) require('custom.markdown.reading').apply_window(ctx.win) end,
-        clear = function(ctx) require('custom.markdown.reading').apply_window(ctx.win) end,
+        render = function(ctx)
+          require('custom.markdown.reading').apply_window(ctx.win)
+          require('custom.markdown.tables').on_render(ctx)
+        end,
+        clear = function(ctx)
+          require('custom.markdown.reading').apply_window(ctx.win)
+          require('custom.markdown.tables').on_clear(ctx)
+        end,
       },
       custom_handlers = {
         markdown = { parse = function(ctx) return require('custom.markdown.tables').parse('markdown', ctx) end },
