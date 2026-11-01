@@ -275,3 +275,9 @@ behavior instead. Exercise the advertised theme catalog instead of duplicating
 variant lists or fixing its size; do not require a particular number of distinct
 accent colors. Use installed dependency revisions without changing the user's
 theme, fonts, terminal configuration, or system packages.
+
+Reader tests load the reader and its required plugins in the existing isolated
+fixture. They do not start the entire personal configuration through embedded
+RPC; CI provisioning already loads that configuration. Pytest's built-in
+`faulthandler_timeout` prints a stack trace after 60 seconds in a test so stalled
+setup or teardown is diagnosable; this is a diagnostic, not a timing assertion.

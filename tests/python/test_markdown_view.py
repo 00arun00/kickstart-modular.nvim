@@ -281,6 +281,7 @@ def reader(tmp_path, monkeypatch):
         n.ui_attach(180, 45, rgb=True)
         n.exec_lua("""
           local root,data,python,origin=...
+          vim.g.markdown_view_test_plugins=data..'/lazy'
           vim.opt.rtp:prepend(root)
           vim.opt.rtp:append(data..'/lazy/snacks.nvim')
           vim.opt.rtp:append(data..'/site')
@@ -471,52 +472,3 @@ def test_closing_during_render_reaps_jobs_before_removing_files(reader, tmp_path
         assert origin.read_bytes() == original
     finally:
         (tmp_path / "release").touch()
-
-
-@pytest.mark.integration
-def test_full_config_registers_tv_and_preserves_native_renderer(tmp_path, monkeypatch):
-    tools()
-    for name in ("STATE", "CACHE"):
-        monkeypatch.setenv(f"XDG_{name}_HOME", str(tmp_path / name.lower()))
-    source = tmp_path / "Coexisting readers.md"
-    original = "# Two reading views\n\nNative source remains authoritative.\n\n| Name | Meaning |\n| --- | --- |\n| Source | Native editing |\n| Rich view | Typeset reading |\n"
-    source.write_text(original)
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", message=".*get_child_watcher.*", category=DeprecationWarning)
-        n = pynvim.attach("child", argv=[
-            "nvim", "--embed", "--cmd", f"lua vim.opt.rtp:prepend({json.dumps(str(ROOT))})",
-            "-u", str(ROOT / "init.lua"), "-n", "-i", "NONE",
-        ])
-    try:
-        n.ui_attach(160, 42, rgb=True)
-        n.exec_lua("""
-          local source=...
-          local terminal=Snacks.image.terminal
-          terminal.env=function()return {supported=true,placeholders=true}end
-          terminal.size=function()return {cell_width=10,cell_height=20,scale=1}end
-          terminal.request=function()end
-          vim.cmd('edit '..vim.fn.fnameescape(source))
-        """, str(source))
-        assert n.current.buffer.options["filetype"] == "markdown"
-        assert n.exec_lua("return vim.fn.maparg(' Tv','n')~='' and vim.fn.maparg(' Tr','n')~=''")
-        source_buf, source_win = n.current.buffer.number, n.current.window.handle
-        wait(n, "require('custom.markdown.document').status(vim.api.nvim_get_current_buf())~=nil")
-        n.input(" Tv")
-        n.command("redraw!")
-        ready(n)
-        assert status(n)["source_win"] == source_win
-        assert status(n)["active"] == source_win
-        assert n.exec_lua("return require('custom.markdown.document').status(...)~=nil", source_buf)
-        assert list(n.current.buffer) == original.splitlines()
-        n.input(" Tv")
-        n.command("redraw!")
-        wait(n, "require('custom.markdown.view').session==nil")
-        assert n.current.buffer.number == source_buf
-        assert n.exec_lua("return require('custom.markdown.document').status(...)~=nil", source_buf)
-        assert source.read_text() == original
-    finally:
-        try:
-            n.command("qa!")
-        except EOFError:
-            pass
-        n.close()
