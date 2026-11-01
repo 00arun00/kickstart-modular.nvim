@@ -255,3 +255,21 @@ make test-python FILE=cache_navigation
 
 The last command preserves the former raster script's optional screenshot
 utility; it generates examples and is not counted as a regression test.
+
+
+## Reading-renderer test boundaries
+
+Automated checks cover source preservation, native editing and navigation,
+two-pane synchronization, stale asynchronous results, asset failures, process
+and temporary-file cleanup, theme preview/cancellation, and public PNG/source-map
+outputs. Corpus renders are smoke checks; their success does not establish
+typographic quality or terminal-side image compositing.
+
+Keep visual review notes in `tests/fixtures/markdown_view/`. Do not gate CI on
+small-glyph RGB thresholds, fixed font metrics, exact heading-height ordering,
+copied placement arithmetic, upstream source-code parsing, private generation
+counters, or particular debounce delays. A renderer/plugin redesign should not
+require preserving those mechanisms to satisfy the tests. Control asynchronous
+completion at I/O boundaries and assert source, view, focus, and published-frame
+behavior instead. Use installed dependency revisions without changing the user's
+theme, fonts, terminal configuration, or system packages.

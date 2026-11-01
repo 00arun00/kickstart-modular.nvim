@@ -1,5 +1,10 @@
 # Rich Markdown theme convergence
 
+> Historical design/review record. The current automated suite checks source
+> preservation, editor behavior, lifecycle, and public render outputs. Font- and
+> pixel-dependent appearance assertions and implementation-counter checks were
+> removed in the test cleanup. Use the fixture notes for visual review.
+
 This record separates the intended experience, the selected concept, and its
 implementation obligations. Native layout fixes and the synchronized rich
 view are separate review commits. Theme work is a separate change. The user is away

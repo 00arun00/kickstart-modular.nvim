@@ -12,8 +12,8 @@ stays in prose; internal `aligned`, matrix, and cases structure is preserved.
 The native source-buffer renderer still has a known exception for `$$…$$`
 surrounded by prose on the same source line: centering that fragment safely
 needs a paragraph layout that also preserves the surrounding prose. The rich
-view handles that case. An explicit strict expected-failure test keeps the
-native limitation visible rather than counting it as supported.
+view handles that case. This remains a manual review case and a documented
+limitation; CI does not require an unsupported feature to keep failing.
 
 | Note | Review focus |
 | --- | --- |
@@ -30,8 +30,8 @@ not depend on the separate native SVG decoder issue. The invalid SVG file is an
 explicit failure fixture. Generated review images belong in `.test-results/`,
 not this source corpus.
 
-Run the observable rendering checks with:
+Run the render/source-map smoke checks with (appearance still needs visual review):
 
 ```sh
-make test-python SUITE=integration FILE='markdown_view_design or markdown_native_design'
+make test-python SUITE=integration FILE=markdown_view_design
 ```

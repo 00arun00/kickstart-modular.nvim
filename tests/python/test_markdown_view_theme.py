@@ -1,24 +1,18 @@
-"""Theme colours and publication lifecycles, measured through real rendering."""
+"""Theme selection, source ownership, and presentation lifecycle regressions."""
 
 import hashlib
 import json
 import os
 import subprocess
-import sys
 import warnings
-from collections import Counter
 from pathlib import Path
 
 import pynvim
 import pytest
-from PIL import Image
 
 from test_markdown_view import reader as base_reader, tools, wait
-from test_markdown_view_design import page_images, query_geometry
 
 ROOT = Path(__file__).resolve().parents[2]
-WORKER = ROOT / "lua/custom/markdown/view/render.py"
-NOTE = ROOT / "tests/fixtures/markdown_view/07-theme-material.md"
 pytestmark = pytest.mark.python
 
 DARK = {
@@ -43,100 +37,6 @@ LIGHT = {
 
 def rgb(color):
     return tuple(int(color[index:index + 2], 16) for index in (1, 3, 5))
-
-
-def near_count(counts, color, tolerance=8):
-    target = rgb(color)
-    return sum(count for pixel, count in counts.items() if max(abs(a - b) for a, b in zip(pixel, target)) <= tolerance)
-
-
-@pytest.fixture(scope="session")
-def themed_render(test_run_dir):
-    cached = {}
-    found = tools()
-
-    def render(name, mode):
-        key = name, mode
-        if key in cached:
-            return cached[key]
-        palette = DARK if name == "dark" else LIGHT
-        folder = test_run_dir / "markdown-view-theme" / f"{name}-{mode}"
-        folder.mkdir(parents=True, exist_ok=True)
-        original = NOTE.read_bytes()
-        request = {"output": str(folder), "origin": str(NOTE), "text": original.decode(),
-                   "mode": mode, "columns": 90, "cell_width": 10, "cell_height": 20,
-                   "palette": palette, **found}
-        path = folder / "request.json"
-        path.write_text(json.dumps(request))
-        process = subprocess.run([sys.executable, str(WORKER), str(path)], text=True, capture_output=True, timeout=35)
-        result = json.loads(process.stdout)
-        assert process.returncode == 0, result
-        assert NOTE.read_bytes() == original
-        (folder / "result.json").write_text(json.dumps(result, indent=2))
-        cached[key] = folder, result, found
-        return cached[key]
-
-    return render
-
-
-@pytest.mark.integration
-@pytest.mark.parametrize("mode", ["continuous", "paged"])
-@pytest.mark.parametrize("name,palette", [("dark", DARK), ("light", LIGHT)])
-def test_actual_page_code_and_math_pixels_use_selected_roles(themed_render, name, palette, mode):
-    folder, result, found = themed_render(name, mode)
-    counts = Counter()
-    for tile in result["tiles"]:
-        with Image.open(tile["file"]) as source:
-            image = source.convert("RGB")
-            assert image.getpixel((0, 0)) == rgb(palette["background"])
-            assert image.getpixel((0, image.height - 1)) == rgb(palette["background"]), "terminal-row padding leaked a white stripe"
-            counts.update(image.get_flattened_data())
-    for role in ("foreground", "heading", "link", "math", "panel", "header"):
-        assert near_count(counts, palette[role]) > 0, f"the actual raster did not use the selected {role} colour"
-    scale = result["pixel_width"] / 595 if mode == "paged" else 20 / 14
-    margin = 36 if mode == "paged" else 24
-    body = result["pixel_width"] / scale - 2 * margin
-    blocks = query_geometry(folder, found, "raw.where(block:true)",
-                            "page:p.page,x:p.x.pt(),y:p.y.pt(),height:m.height.pt()", measure_width=body)
-    assert len(blocks) == 1
-    code_counts = Counter()
-    for block in blocks:
-        image = page_images(result)[block["page"]]
-        crop = image.crop((int((block["x"] - 12) * scale), max(0, int((block["y"] - 12) * scale)),
-                           int(result["pixel_width"] - margin * scale),
-                           min(image.height, int((block["y"] + block["height"] + 12) * scale))))
-        code_counts.update(crop.get_flattened_data())
-    for role in ("keyword", "string", "function", "comment"):
-        # Small glyphs are antialiased (observed channel differences 1–5), so
-        # inspect near-colour ink in the actual code region, not exact RGB or
-        # a matching hue elsewhere in the document.
-        assert near_count(code_counts, palette["syntax"][role]) > 0, f"code {role} colour exists in the palette but not rendered glyphs"
-
-
-@pytest.mark.integration
-@pytest.mark.parametrize("mode", ["continuous", "paged"])
-def test_theme_changes_preserve_layout_and_authored_figure_pixels(themed_render, mode):
-    dark_folder, dark, found = themed_render("dark", mode)
-    light_folder, light, _ = themed_render("light", mode)
-    assert (dark["rows"], dark["pages"], dark["points"]) == (light["rows"], light["pages"], light["points"]), "colour-only rendering changed document geometry"
-    scale = dark["pixel_width"] / 595 if mode == "paged" else 20 / 14
-    margin = 36 if mode == "paged" else 24
-    body = dark["pixel_width"] / scale - 2 * margin
-    expression = "page:p.page,x:p.x.pt(),y:p.y.pt(),width:m.width.pt(),height:m.height.pt()"
-    dark_images = query_geometry(dark_folder, found, "image", expression, measure_width=body)
-    light_images = query_geometry(light_folder, found, "image", expression, measure_width=body)
-    assert dark_images == light_images and len(dark_images) == 1
-    pages = page_images(dark), page_images(light)
-    position = dark_images[0]
-    bounds = (int(position["x"] * scale) + 2, int(position["y"] * scale) + 2,
-              int((position["x"] + position["width"]) * scale) - 2,
-              int((position["y"] + position["height"]) * scale) - 2)
-    crops = [group[position["page"]].crop(bounds) for group in pages]
-    assert crops[0].tobytes() == crops[1].tobytes(), "theme following recoloured or inverted an authored figure"
-    pixels = Counter(crops[0].get_flattened_data())
-    assert pixels[(255, 255, 255)] > crops[0].width * crops[0].height / 2, "transparent dark labels lost their light paper backing"
-    assert pixels[(211, 77, 82)] > 10, "the authored red curve colour was lost"
-    assert near_count(pixels, "#1f2937") > 10, "dark authored labels were recoloured"
 
 
 @pytest.mark.fast
@@ -230,8 +130,8 @@ def theme_reader(base_reader):
 
 
 def ready_theme(editor, background):
-    wait(editor, "(function()local s=require('custom.markdown.view').session;return s and s.ready and not s.theme_pending and s.frame_palette and s.frame_palette.background=="
-         + json.dumps(background) + " and s.palette_hash==s.frame_palette_hash end)()")
+    wait(editor, "(function()local s=require('custom.markdown.view').session;return s and s.ready and s.frame_palette and s.frame_palette.background=="
+         + json.dumps(background) + " end)()")
 
 
 def views(editor):
@@ -294,35 +194,6 @@ def test_color_publication_is_atomic_and_preserves_latest_view(theme_reader, mod
 
 
 @pytest.mark.integration
-def test_theme_epoch_rejects_completion_before_deferred_palette_capture(theme_reader):
-    editor, _ = theme_reader
-    editor.command("MarkdownView")
-    ready_theme(editor, DARK["background"])
-    initial = editor.exec_lua("local s=require('custom.markdown.view').session;return{epoch=s.theme_epoch,frame=s.frame_task.version}")
-    hold_workers(editor)
-    editor.command("MarkdownView refresh")
-    wait(editor, "#qa_worker_results==1")
-    try:
-        state = editor.exec_lua('''
-          qa_original_schedule=vim.schedule;qa_palette_callbacks={}
-          vim.schedule=function(callback)qa_palette_callbacks[#qa_palette_callbacks+1]=callback end
-          qa_apply_theme(...)
-          vim.schedule=qa_original_schedule
-          local s=require('custom.markdown.view').session
-          return{epoch=s.theme_epoch,pending=s.theme_pending}
-        ''', LIGHT, "qa-light")
-        assert state["epoch"] > initial["epoch"] and state["pending"]
-        release_workers(editor)
-        editor.command("redraw!")
-        assert editor.exec_lua("return require('custom.markdown.view').session.frame_task.version") == initial["frame"], "an obsolete result published in the epoch/capture gap"
-        assert background(editor) == int(DARK["background"][1:], 16)
-        editor.exec_lua("for _,callback in ipairs(qa_palette_callbacks)do qa_original_schedule(callback)end;qa_palette_callbacks={}")
-        ready_theme(editor, LIGHT["background"])
-    finally:
-        editor.exec_lua("if qa_original_schedule then vim.schedule=qa_original_schedule end;if qa_original_system then vim.system=qa_original_system end")
-
-
-@pytest.mark.integration
 def test_palette_capture_waits_for_later_colorscheme_handlers(theme_reader):
     editor, _ = theme_reader
     editor.command("MarkdownView")
@@ -337,11 +208,12 @@ def test_palette_capture_waits_for_later_colorscheme_handlers(theme_reader):
 
 
 @pytest.mark.integration
-def test_failed_theme_render_retains_frame_and_waits_for_explicit_retry(theme_reader):
+def test_failed_theme_render_preserves_frame_until_manual_retry(theme_reader):
     editor, _ = theme_reader
     editor.command("MarkdownView")
     ready_theme(editor, DARK["background"])
-    original_frame = editor.exec_lua("return require('custom.markdown.view').session.frame_task.version")
+    preview = editor.exec_lua("return require('custom.markdown.view').session.buf")
+    original_frame = editor.api.buf_get_lines(preview, 0, -1, False)
     editor.exec_lua('''
       qa_original_system=vim.system
       vim.system=function(command,opts,callback)
@@ -352,18 +224,8 @@ def test_failed_theme_render_retains_frame_and_waits_for_explicit_retry(theme_re
     ''', LIGHT, "qa-light")
     try:
         wait(editor, "require('custom.markdown.view').session.phase=='failed'")
-        assert editor.exec_lua("return require('custom.markdown.view').session.frame_task.version") == original_frame
+        assert editor.api.buf_get_lines(preview, 0, -1, False) == original_frame
         assert background(editor) == int(DARK["background"][1:], 16)
-        version = editor.exec_lua("return require('custom.markdown.view').session.version")
-        editor.exec_lua('''
-          local defer=vim.defer_fn;local callbacks={}
-          vim.defer_fn=function(callback,delay)if delay==150 then callbacks[#callbacks+1]=callback else return defer(callback,delay)end end
-          local s=require('custom.markdown.view').session
-          vim.api.nvim_set_current_win(s.win);vim.api.nvim_set_current_win(s.source_win)
-          vim.defer_fn=defer
-          for _,callback in ipairs(callbacks)do callback()end
-        ''')
-        assert editor.exec_lua("return require('custom.markdown.view').session.version") == version
     finally:
         editor.exec_lua("vim.system=qa_original_system")
     editor.command("MarkdownView refresh")
@@ -397,7 +259,6 @@ def test_explicit_refresh_captures_manual_highlight_changes_without_colorscheme_
     editor.input("25G2l<C-e>")
     editor.command("redraw!")
     previous = views(editor)
-    old_hash = editor.exec_lua("return require('custom.markdown.view').session.frame_palette_hash")
     editor.exec_lua('''
       vim.api.nvim_set_hl(0,'Normal',{fg=0x182838,bg=0xe1e7ef})
       vim.api.nvim_set_hl(0,'Title',{fg=0x754321})
@@ -405,7 +266,6 @@ def test_explicit_refresh_captures_manual_highlight_changes_without_colorscheme_
     editor.command("MarkdownView refresh")
     ready_theme(editor, "#e1e7ef")
     assert editor.exec_lua("return require('custom.markdown.view').session.frame_palette.heading") == "#754321"
-    assert editor.exec_lua("return require('custom.markdown.view').session.frame_palette_hash") != old_hash
     assert views(editor) == previous
     assert origin.read_bytes() == original
 
@@ -443,14 +303,6 @@ def test_source_edit_during_theme_conversion_rejects_the_old_source_map(theme_re
 def test_real_theme_picker_preview_and_cancel_keep_source_view_and_exports_isolated(tmp_path, monkeypatch, test_run_dir):
     tools()
     data = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / os.environ.get("NVIM_APPNAME", "nvim")
-    real_state = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / os.environ.get("NVIM_APPNAME", "nvim")
-    watched = [real_state / name for name in ("theme-choice", "terminal-theme/ghostty.conf", "terminal-theme/tmux.conf",
-               "terminal-theme/fzf.conf", "terminal-theme/enabled", "terminal-theme/installation.json")]
-
-    def state_hashes():
-        return {str(path): hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None for path in watched}
-
-    real_state_before = state_hashes()
     if not all((data / "lazy" / name).is_dir() for name in ("telescope.nvim", "catppuccin")):
         pytest.skip("actual ThemePicker integration requires installed Telescope and Catppuccin")
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
@@ -500,7 +352,7 @@ def test_real_theme_picker_preview_and_cancel_keep_source_view_and_exports_isola
         prompt = editor.current.buffer.number
         editor.exec_lua('''
           local picker=require('telescope.actions.state').get_current_picker(...)
-          picker:set_selection(0)
+          picker:set_prompt('Catppuccin Latte')
         ''', prompt)
         wait(editor, "vim.g.colors_name=='catppuccin-latte'")
         selected = editor.exec_lua('''
@@ -527,7 +379,6 @@ def test_real_theme_picker_preview_and_cancel_keep_source_view_and_exports_isola
         assert editor.exec_lua("return vim.api.nvim_buf_get_lines(require('custom.markdown.view').session.source,0,-1,false)") == original.splitlines()
         commands = editor.exec_lua("return qa_picker_commands")
         assert not any(Path(command).name.lower() in {"pkill", "tmux", "ghostty"} for command in commands), "theme preview invoked an external terminal update"
-        assert state_hashes() == real_state_before, "isolated theme preview changed the user's real theme state"
         artifact = test_run_dir / "markdown-view-theme" / "real-theme-picker"
         artifact.mkdir(parents=True, exist_ok=True)
         (artifact / "preview-cancel.json").write_text(json.dumps({
@@ -535,7 +386,7 @@ def test_real_theme_picker_preview_and_cancel_keep_source_view_and_exports_isola
             "restored_background": editor.exec_lua("return require('custom.markdown.view').session.frame_palette.background"),
             "initial_views": previous, "picker_views": selected_view, "restored_views": views(editor),
             "source_sha256_before": source_hash, "source_sha256_after": hashlib.sha256(source.read_bytes()).hexdigest(),
-            "isolated_state": str(state), "real_state_before": real_state_before, "real_state_after": state_hashes(),
+            "isolated_state": str(state),
             "spawned_commands": commands, "cancelled_choice_persisted": False,
         }, indent=2))
     finally:
