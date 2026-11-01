@@ -72,59 +72,98 @@ function M.model(buf, node, equations)
 end
 
 local function cell_layout(tokens, width, measure)
-  local result = { lines = { {} }, images = {} }
-  local x, pending = 0, false
-  local function newline()
-    result.lines[#result.lines + 1] = {}
-    x, pending = 0, false
+  local result = { lines = {}, images = {} }
+  local fragments, x, pending, after_display = {}, 0, false, false
+  -- A table line has a typographic height, not necessarily one terminal row.
+  -- Keep matrices/fractions at their natural scale and align adjacent prose
+  -- around their middle, instead of shrinking every inline image to one row.
+  local function newline(force)
+    if #fragments == 0 and not force then return end
+    local height, first = 1, #result.lines + 1
+    for _, fragment in ipairs(fragments) do
+      height = math.max(height, fragment.height or 1)
+    end
+    local baseline = math.floor((height - 1) / 2) + 1
+    for y = 1, height do
+      local chunks, used = {}, 0
+      for _, fragment in ipairs(fragments) do
+        local top = fragment.height and math.floor((height - fragment.height) / 2) + 1 or baseline
+        if fragment.height and y >= top and y < top + fragment.height or not fragment.height and y == baseline then
+          if fragment.col > used then chunks[#chunks + 1] = { string.rep(' ', fragment.col - used), 'Normal' } end
+          chunks[#chunks + 1] = { fragment.text or string.rep(' ', fragment.width), fragment.bold and 'MarkdownTablePreviewBold' or 'Normal' }
+          used = fragment.col + fragment.width
+        end
+      end
+      result.lines[#result.lines + 1] = chunks
+    end
+    for _, fragment in ipairs(fragments) do
+      if fragment.token then
+        result.images[#result.images + 1] = {
+          token = fragment.token,
+          row = first + math.floor((height - fragment.height) / 2),
+          col = fragment.col,
+          width = fragment.width,
+          height = fragment.height,
+        }
+      end
+    end
+    fragments, x, pending = {}, 0, false
   end
   local function add(text, bold)
-    local line = result.lines[#result.lines]
-    line[#line + 1] = { text, bold and 'MarkdownTablePreviewBold' or 'Normal' }
-    x = x + vim.fn.strdisplaywidth(text)
+    if after_display then
+      result.lines[#result.lines + 1] = {}
+      after_display = false
+    end
+    local size = vim.fn.strdisplaywidth(text)
+    fragments[#fragments + 1] = { text = text, col = x, width = size, bold = bold }
+    x = x + size
   end
   for _, token in ipairs(tokens) do
     if token.newline then
-      newline()
+      newline(true)
+      after_display = false
     elseif token.space then
       pending = x > 0
     elseif token.src then
       local size = measure(token, width)
       if token.display then
-        if x > 0 then newline() end
+        newline(false)
         -- One visual blank line separates a display equation from its label.
-        if #result.lines > 1 then newline() end
+        if #result.lines > 0 then result.lines[#result.lines + 1] = {} end
         local offset = math.max(0, math.floor((width - size.width) / 2))
-        result.images[#result.images + 1] = { token = token, row = #result.lines, col = offset, width = size.width, height = size.height }
-        for i = 1, size.height do
-          if i > 1 then newline() end
-          add(string.rep(' ', offset + size.width))
-        end
-        newline()
+        fragments = { { token = token, col = offset, width = size.width, height = size.height } }
+        newline(false)
+        after_display = true
       else
-        if x + (pending and 1 or 0) + size.width > width then newline() end
+        if x + (pending and 1 or 0) + size.width > width then newline(false) end
         if pending then add ' ' end
-        result.images[#result.images + 1] = { token = token, row = #result.lines, col = x, width = size.width, height = 1 }
-        add(string.rep(' ', size.width))
+        if after_display then
+          result.lines[#result.lines + 1] = {}
+          after_display = false
+        end
+        fragments[#fragments + 1] = { token = token, col = x, width = size.width, height = size.height }
+        x = x + size.width
         pending = false
       end
     elseif token.text then
       local text = token.text
-      if x + (pending and 1 or 0) + vim.fn.strdisplaywidth(text) > width then newline() end
+      if x + (pending and 1 or 0) + vim.fn.strdisplaywidth(text) > width then newline(false) end
       if pending then add ' ' end
       pending = false
       -- Long words are split by characters, not bytes (vaults can use Unicode).
       for i = 0, vim.fn.strchars(text) - 1 do
         local char = vim.fn.strcharpart(text, i, 1)
-        if x + vim.fn.strdisplaywidth(char) > width then newline() end
+        if x + vim.fn.strdisplaywidth(char) > width then newline(false) end
         add(char, token.bold)
       end
     end
   end
+  newline(#result.lines == 0)
   return result
 end
 
-function M.layout(model, width, measure)
+function M.layout(model, width, measure, opts)
+  opts = opts or {}
   local count = #model.rows[1]
   local available = math.max(count, width - count * 3 - 1)
   local demands, total = {}, 0
@@ -160,13 +199,22 @@ function M.layout(model, width, measure)
   border('┌', '┬', '┐')
   for ri, row in ipairs(model.rows) do
     local first = ri == 1 and 1 or #result.lines + 1
-    local cells, height = {}, 1
+    local cells, height, source_anchor = {}, 1, false
     for col = 1, count do
       cells[col] = cell_layout(row[col] or {}, widths[col], measure)
       height = math.max(height, #cells[col].lines)
+      if opts.source_anchor then
+        for _, image in ipairs(cells[col].images) do
+          source_anchor = source_anchor or image.height > 1
+        end
+      end
     end
-    local first_row = #result.lines + 2 -- top padding + first content row
-    for y = 0, height + 1 do
+    -- A wrapped physical source line can add continuation screen rows. Keep a
+    -- tall image wholly in virtual lines so its encoded rows remain adjacent;
+    -- the physical line is just a native cursor anchor in that case.
+    local anchor = #result.lines + 1
+    local first_row = anchor + (source_anchor and 1 or 0)
+    for y = source_anchor and 0 or 1, height do
       local line = '│'
       for col, cell in ipairs(cells) do
         line = line .. ' '
@@ -194,7 +242,7 @@ function M.layout(model, width, measure)
     elseif ri > 1 then
       border('├', '┼', '┤')
     end
-    result.groups[#result.groups + 1] = { source = model.source_rows[ri], first = first, last = #result.lines, anchor = first_row }
+    result.groups[#result.groups + 1] = { source = model.source_rows[ri], first = first, last = #result.lines, anchor = anchor }
     if ri == 1 then
       if #model.rows == 1 then
         border('└', '┴', '┘')
@@ -281,7 +329,9 @@ function M.open()
       local info = vim.fn.getwininfo(win)[1]
       local layout = M.layout(model, info.width - info.textoff, function(token, width)
         local img = images[token.src]
-        if img:ready() then return Snacks.image.util.fit(img.file, { width = width, height = token.display and 8 or 1 }, { info = img.info }) end
+        if img:ready() then
+          return require('custom.markdown.inline').fit(img, width) or Snacks.image.util.fit(img.file, { width = width, height = 8 }, { info = img.info })
+        end
         return { width = math.min(width, token.display and 16 or 3), height = token.display and 4 or 1 }
       end)
       vim.bo[buf].modifiable = true

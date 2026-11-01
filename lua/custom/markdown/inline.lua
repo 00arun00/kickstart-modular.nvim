@@ -3,16 +3,19 @@ local M = {}
 local installed = false
 local font_pt, above_em, below_em = 12, 0.95, 0.4
 
-local function inline(buf, text, row, col)
+local function inline(buf, text)
   if vim.bo[buf].filetype ~= 'markdown' or text:sub(1, 1) ~= '$' or text:sub(1, 2) == '$$' or text:sub(-1) ~= '$' or text:find '\n' then return false end
-  -- Table math already has its own layout/sizing policy.
+  return true
+end
+
+local function in_table(buf, row, col)
   local parser = vim.treesitter.get_parser(buf, 'markdown')
   local node = parser:parse()[1]:root():named_descendant_for_range(row, col, row, col)
   while node do
-    if node:type() == 'pipe_table' then return false end
+    if node:type() == 'pipe_table' then return true end
     node = node:parent()
   end
-  return true
+  return false
 end
 
 function M.setup()
@@ -23,7 +26,7 @@ function M.setup()
   doc.transforms.latex = function(img, ctx)
     local text = vim.trim(img.content or '')
     local r = img.range
-    if img.ext ~= 'math.tex' or not r or not inline(ctx.buf, text, r[1] - 1, r[2]) then return latex(img, ctx) end
+    if img.ext ~= 'math.tex' or not r or not inline(ctx.buf, text) then return latex(img, ctx) end
     local cell = Snacks.image.terminal.size()
     local aspect = cell.cell_width / cell.cell_height
     -- lrbox starts with \begin, so Snacks preserves our text-style math rather
@@ -56,6 +59,19 @@ function M.setup()
   end
 end
 
+-- Shared compact inline sizing. Table layout owns tall image line boxes, while
+-- prose keeps the ordinary placement path for structures taller than a row.
+function M.fit(img, limit)
+  local src, info = img.src or '', img.info
+  if not (src:match '%.inline%-math%.tex$' and info) then return end
+  local height = font_pt * (above_em + below_em) / 72.27 * info.dpi.height
+  if info.size.height > height + 2 then return end
+  local cell = Snacks.image.terminal.size()
+  local width = math.max(1, math.floor(info.size.width / info.size.height * cell.cell_height / cell.cell_width + 0.5))
+  if width > (limit or math.huge) then return end
+  return { width = width, height = 1 }
+end
+
 -- Called by the existing document placement hook, after image conversion.
 function M.prepare(p)
   if p._markdown_inline then return end
@@ -66,20 +82,16 @@ function M.prepare(p)
     local src, info, r = self.img.src or '', self.img.info, self.opts.range
     if not (self.opts.inline and self.opts.type == 'math' and src:match '%.inline%-math%.tex$' and info and r and r[1] == r[3]) then return result end
     local text = table.concat(vim.api.nvim_buf_get_text(self.buf, r[1] - 1, r[2], r[3] - 1, r[4], {}))
-    if not inline(self.buf, text, r[1] - 1, r[2]) then return result end
-    -- PDF points -> raster pixels. Allow a pixel of rasterization rounding at
-    -- either edge. Oversize structures retain Snacks' existing fallback.
-    local height = font_pt * (above_em + below_em) / 72.27 * info.dpi.height
-    if info.size.height > height + 2 then return result end
-    local cell = Snacks.image.terminal.size()
-    local width = math.max(1, math.floor(info.size.width / info.size.height * cell.cell_height / cell.cell_width + 0.5))
+    if not inline(self.buf, text) or in_table(self.buf, r[1] - 1, r[2]) then return result end
     local limit = self.opts.max_width or math.huge
     for _, win in ipairs(self:wins()) do
       local view = vim.fn.getwininfo(win)[1]
       limit = math.min(limit, view.width - view.textoff)
     end
-    if width > limit then return result end
-    result.loc.width, result.loc.height = width, 1
+    local size = M.fit(self.img, limit)
+    if size then
+      result.loc.width, result.loc.height = size.width, size.height
+    end
     return result
   end
 end

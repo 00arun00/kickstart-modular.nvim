@@ -75,7 +75,7 @@ local function check(width)
   for _, line in ipairs(lines) do
     assert(vim.fn.strdisplaywidth(line) == width, 'table borders are misaligned')
   end
-  local image_ids = {}
+  local image_ids, maximum_image_width = {}, 0
   for _, mark in ipairs(grids()) do
     local row, d = mark[2] + 1, mark[4]
     assert(not d.conceal and not d.virt_lines, 'cell image changed row geometry')
@@ -85,15 +85,16 @@ local function check(width)
       image_width = image_width + vim.fn.strdisplaywidth(chunk[1])
       image_ids[chunk[2]] = true
     end
+    maximum_image_width = math.max(maximum_image_width, image_width)
     local under = vim.fn.strcharpart(lines[row], d.virt_text_win_col, image_width)
     assert(under:match '^ +$', 'equation overlapped native text or a border')
   end
   assert(vim.tbl_count(image_ids) == 7, 'missing per-cell equation placement')
   assert(vim.deep_equal(vim.api.nvim_buf_get_lines(buf, 0, -1, false), source))
   assert(vim.api.nvim_buf_get_changedtick(buf) == tick and not vim.bo[buf].modified, 'source note was modified')
-  return #lines
+  return maximum_image_width
 end
-local initial = check(vim.api.nvim_win_get_width(win))
+local initial_image_width = check(vim.api.nvim_win_get_width(win))
 vim.cmd 'vsplit'
 local other = vim.api.nvim_get_current_win()
 vim.api.nvim_win_set_buf(other, buf)
@@ -106,7 +107,10 @@ assert(
   ),
   'preview did not reflow after resizing'
 )
-assert(check(vim.api.nvim_win_get_width(win)) >= initial, 'narrow layout did not wrap')
+-- Narrowing can reduce a tall equation's footprint while wrapping prose, so
+-- total row count is not monotonic. The checks above retain every equation,
+-- source label, clear image rectangle and border at the new width.
+assert(check(vim.api.nvim_win_get_width(win)) <= initial_image_width, 'narrower table enlarged an equation beyond its previous footprint')
 vim.api.nvim_win_close(other, true)
 vim.api.nvim_win_close(win, true)
 assert(not vim.api.nvim_buf_is_valid(target), 'preview buffer was not cleaned up')

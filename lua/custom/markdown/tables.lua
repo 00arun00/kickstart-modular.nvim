@@ -190,8 +190,8 @@ end
 local function compose(buf, entry, state, width)
   local layout = require('custom.markdown.table_preview').layout(entry.model, width, function(token, limit)
     local img = state.images[token.src].img
-    return Snacks.image.util.fit(img.file, { width = limit, height = token.display and 8 or 1 }, { info = img.info })
-  end)
+    return require('custom.markdown.inline').fit(img, limit) or Snacks.image.util.fit(img.file, { width = limit, height = 8 }, { info = img.info })
+  end, { source_anchor = true })
   local spans = {}
   for _, hl in ipairs(layout.highlights) do
     local row = hl[1] + 1
