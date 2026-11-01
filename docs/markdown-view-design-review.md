@@ -1,5 +1,10 @@
 # Markdown reading design review
 
+> Historical design/review record. The current automated suite checks source
+> preservation, editor behavior, lifecycle, and public render outputs. Font- and
+> pixel-dependent appearance assertions and implementation-counter checks were
+> removed in the test cleanup. Use the fixture notes for visual review.
+
 This review compares the native source-buffer renderer, continuous rich view,
 and paginated rich view using the same source documents. The aim is comfortable
 reading with coherent mathematical layout, while source editing stays native.
@@ -98,8 +103,8 @@ prose; moving only the equation below it changes the reading order. Correct
 presentation needs source-backed paragraph-fragment layout. The rich view can
 typeset this case correctly without that additional native presentation layer.
 This limitation must not be reported as satisfying all native display-math cases.
-It is represented by a strict expected-failure test, rather than counted as a
-passing centering case.
+It remains documented in the fixture corpus for manual review. CI no longer
+requires that unsupported case to keep failing.
 
 Very wide continuous prose also needs a deliberate reading-measure policy.
 A universal narrow document column would constrain wide figures and tables;
@@ -123,7 +128,7 @@ images and review records. The final design run is
 `.test-results/run-1snzcqs4/`.
 
 ```sh
-make test-python SUITE=integration FILE='markdown_view_design or markdown_native_design'
+make test-python SUITE=integration FILE=markdown_view_design
 make test-python SUITE=all FILE=markdown_view
 ```
 

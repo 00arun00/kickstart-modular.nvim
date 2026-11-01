@@ -76,14 +76,13 @@ policies. Source text, native motions and Reading mode behavior are unchanged.
 Very tall structures or formulas exceeding the available width retain Snacks'
 existing fallback; multi-row inline layout is outside this first step.
 
-    make test-lua SUITE=integration FILE=markdown_inline
-    make test-python SUITE=integration FILE=markdown_inline_raster
+    make test-python SUITE=integration FILE='markdown_document or markdown_reading'
 
-The parser/placement test uses deterministic metadata. The optional raster test
-uses real Tectonic, ImageMagick and Ghostscript, checking shared canvas height,
-compact inline placement, increasing expression width, transparency, and the same
-rho glyph dimensions/baseline inside a longer expression. It skips when those
-external tools are absent.
+The automated checks cover source preservation, native motions, reading/editing
+transitions, and obsolete conversion results with controlled conversion I/O.
+Review inline scale, baseline, and overflow using the fixture notes in
+`tests/fixtures/markdown_view/`. CI does not compare glyph pixels or duplicate
+Snacks' private placement calculations.
 
 ## Reading mode
 
@@ -179,7 +178,7 @@ this experiment. The separate preview command below remains available for
 comparison.
 
 ```sh
-make test-lua SUITE=integration FILE=markdown_tables
+make test-python SUITE=integration FILE=markdown_reading
 ```
 
 The inline integration test covers equation placements, ordinary-table

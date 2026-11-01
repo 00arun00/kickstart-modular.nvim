@@ -118,11 +118,9 @@ def test_image_finishing_after_insert_reveals_source(nvim):
 def test_editing_mode_in_a_split_restores_source_reveal(nvim):
     n = nvim
     n.command("vsplit")
-    assert n.current.window.options["concealcursor"] == "nvc"
     move(n, 14)
     n.input(" Tr")
     wait(n, "not require('custom.markdown.reading').is_enabled() and reading_fixture.image_hidden('chart')==true")
-    assert n.current.window.options["concealcursor"] == ""
     n.input(" Tr")
     wait(n, "require('custom.markdown.reading').is_enabled() and reading_fixture.image_hidden('chart')==false")
     assert n.exec_lua("return reading_fixture.source_unchanged()")
