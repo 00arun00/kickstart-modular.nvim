@@ -4,13 +4,11 @@ import hashlib
 import json
 import os
 import subprocess
-import warnings
 from pathlib import Path
 
-import pynvim
 import pytest
 
-from test_markdown_view import reader as base_reader, tools, wait
+from test_markdown_view import reader as base_reader, wait
 
 ROOT = Path(__file__).resolve().parents[2]
 pytestmark = pytest.mark.python
@@ -300,98 +298,75 @@ def test_source_edit_during_theme_conversion_rejects_the_old_source_map(theme_re
 
 
 @pytest.mark.integration
-def test_real_theme_picker_preview_and_cancel_keep_source_view_and_exports_isolated(tmp_path, monkeypatch, test_run_dir):
-    tools()
-    data = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / os.environ.get("NVIM_APPNAME", "nvim")
-    if not all((data / "lazy" / name).is_dir() for name in ("telescope.nvim", "catppuccin")):
+def test_real_theme_picker_preview_and_cancel_keep_source_view_and_exports_isolated(base_reader, tmp_path, test_run_dir):
+    editor, source = base_reader
+    plugins = Path(editor.vars["markdown_view_test_plugins"])
+    if not all((plugins / name).is_dir() for name in ("telescope.nvim", "plenary.nvim", "catppuccin")):
         pytest.skip("actual ThemePicker integration requires installed Telescope and Catppuccin")
-    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
-    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
-    source = tmp_path / "Theme picker source.md"
-    original = "# Theme picker source\n\n" + "\n\n".join(
-        f"## Passage {index}\n\nReading a stable passage while the selected theme changes should preserve location and focus."
-        for index in range(20)
-    ) + "\n"
-    source.write_text(original)
+    original = source.read_text()
     source_hash = hashlib.sha256(source.read_bytes()).hexdigest()
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", message=".*get_child_watcher.*", category=DeprecationWarning)
-        editor = pynvim.attach("child", argv=[
-            "nvim", "--embed", "--cmd", "lua vim.opt.rtp:prepend(" + json.dumps(str(ROOT)) + ");vim.lsp.start=function()return nil end",
-            "-u", str(ROOT / "init.lua"), "-n", "-i", "NONE",
-        ])
-    try:
-        editor.ui_attach(180, 45, rgb=True)
-        editor.exec_lua('''
-          local source=...
-          pcall(function()require('noice').disable()end)
-          local terminal=Snacks.image.terminal
-          terminal.env=function()return{supported=true,placeholders=true}end
-          terminal.size=function()return{cell_width=10,cell_height=20,scale=1}end
-          terminal.request=function()end
-          vim.o.background='dark';vim.cmd.colorscheme('catppuccin-mocha')
-          vim.cmd('edit '..vim.fn.fnameescape(source))
-          vim.cmd 'MarkdownView'
-        ''', str(source))
-        wait(editor, "(function()local s=require('custom.markdown.view').session;return s and s.ready end)()")
-        editor.exec_lua("vim.api.nvim_set_current_win(require('custom.markdown.view').session.win)")
-        editor.input("28G3l<C-e>")
-        editor.command("redraw!")
-        previous = views(editor)
-        old_background = editor.exec_lua("return require('custom.markdown.view').session.frame_palette.background")
-        editor.exec_lua('''
-          qa_picker_commands={};qa_picker_system=vim.system
-          vim.system=function(command,...)
-            qa_picker_commands[#qa_picker_commands+1]=command[1]
-            return qa_picker_system(command,...)
-          end
-        ''')
-        editor.command("ThemePicker")
-        wait(editor, "vim.bo.filetype=='TelescopePrompt'")
-        picker_win = editor.current.window.handle
-        prompt = editor.current.buffer.number
-        editor.exec_lua('''
-          local picker=require('telescope.actions.state').get_current_picker(...)
-          picker:set_prompt('Catppuccin Latte')
-        ''', prompt)
-        wait(editor, "vim.g.colors_name=='catppuccin-latte'")
-        selected = editor.exec_lua('''
-          local s=require('custom.markdown.view').session
-          return vim.api.nvim_win_call(s.source_win,function()
-            return string.format('#%06x',vim.api.nvim_get_hl(0,{name='Normal',link=false}).bg)
-          end)
-        ''')
-        assert selected != old_background
-        ready_theme(editor, selected)
-        assert editor.current.window.handle == picker_win, "a themed frame stole focus from ThemePicker"
-        assert views(editor)["preview"] == previous["preview"]
-        selected_view = views(editor)
-        editor.exec_lua("require('telescope.actions').close(...)", prompt)
-        wait(editor, "vim.g.colors_name=='catppuccin-mocha'")
-        ready_theme(editor, old_background)
-        assert views(editor) == previous, "cancelling the real theme picker lost the reading position"
-        state = Path(editor.funcs.stdpath("state"))
-        assert state.is_relative_to(tmp_path / "state")
-        assert not (state / "theme-choice").exists(), "a cancelled preview persisted a theme selection"
-        assert not (state / "terminal-theme/enabled").exists()
-        assert not (state / "terminal-theme/installation.json").exists()
-        assert source.read_text() == original
-        assert editor.exec_lua("return vim.api.nvim_buf_get_lines(require('custom.markdown.view').session.source,0,-1,false)") == original.splitlines()
-        commands = editor.exec_lua("return qa_picker_commands")
-        assert not any(Path(command).name.lower() in {"pkill", "tmux", "ghostty"} for command in commands), "theme preview invoked an external terminal update"
-        artifact = test_run_dir / "markdown-view-theme" / "real-theme-picker"
-        artifact.mkdir(parents=True, exist_ok=True)
-        (artifact / "preview-cancel.json").write_text(json.dumps({
-            "initial_background": old_background, "preview_background": selected,
-            "restored_background": editor.exec_lua("return require('custom.markdown.view').session.frame_palette.background"),
-            "initial_views": previous, "picker_views": selected_view, "restored_views": views(editor),
-            "source_sha256_before": source_hash, "source_sha256_after": hashlib.sha256(source.read_bytes()).hexdigest(),
-            "isolated_state": str(state),
-            "spawned_commands": commands, "cancelled_choice_persisted": False,
-        }, indent=2))
-    finally:
-        try:
-            editor.command("qa!")
-        except EOFError:
-            pass
-        editor.close()
+    editor.exec_lua('''
+      local plugins=...
+      for _,name in ipairs{'catppuccin','plenary.nvim','telescope.nvim'}do vim.opt.rtp:append(plugins..'/'..name)end
+      require('catppuccin').setup{}
+      require('telescope').setup{}
+      require('custom.theme').setup()
+      vim.o.background='dark';vim.cmd.colorscheme('catppuccin-mocha')
+    ''', str(plugins))
+    editor.command("MarkdownView")
+    wait(editor, "(function()local s=require('custom.markdown.view').session;return s and s.ready end)()")
+    editor.exec_lua("vim.api.nvim_set_current_win(require('custom.markdown.view').session.win)")
+    editor.input("28G3l<C-e>")
+    editor.command("redraw!")
+    previous = views(editor)
+    old_background = editor.exec_lua("return require('custom.markdown.view').session.frame_palette.background")
+    editor.exec_lua('''
+      qa_picker_commands={};qa_picker_system=vim.system
+      vim.system=function(command,...)
+        qa_picker_commands[#qa_picker_commands+1]=command[1]
+        return qa_picker_system(command,...)
+      end
+    ''')
+    editor.command("ThemePicker")
+    wait(editor, "vim.bo.filetype=='TelescopePrompt'")
+    picker_win = editor.current.window.handle
+    prompt = editor.current.buffer.number
+    editor.exec_lua('''
+      local picker=require('telescope.actions.state').get_current_picker(...)
+      picker:set_prompt('Catppuccin Latte')
+    ''', prompt)
+    wait(editor, "vim.g.colors_name=='catppuccin-latte'")
+    selected = editor.exec_lua('''
+      local s=require('custom.markdown.view').session
+      return vim.api.nvim_win_call(s.source_win,function()
+        return string.format('#%06x',vim.api.nvim_get_hl(0,{name='Normal',link=false}).bg)
+      end)
+    ''')
+    assert selected != old_background
+    ready_theme(editor, selected)
+    assert editor.current.window.handle == picker_win, "a themed frame stole focus from ThemePicker"
+    assert views(editor)["preview"] == previous["preview"]
+    selected_view = views(editor)
+    editor.exec_lua("require('telescope.actions').close(...)", prompt)
+    wait(editor, "vim.g.colors_name=='catppuccin-mocha'")
+    ready_theme(editor, old_background)
+    assert views(editor) == previous, "cancelling the real theme picker lost the reading position"
+    state = Path(editor.funcs.stdpath("state"))
+    assert state.is_relative_to(tmp_path / "state")
+    assert not (state / "theme-choice").exists(), "a cancelled preview persisted a theme selection"
+    assert not (state / "terminal-theme/enabled").exists()
+    assert not (state / "terminal-theme/installation.json").exists()
+    assert source.read_text() == original
+    assert editor.exec_lua("return vim.api.nvim_buf_get_lines(require('custom.markdown.view').session.source,0,-1,false)") == original.splitlines()
+    commands = editor.exec_lua("return qa_picker_commands")
+    assert not any(Path(command).name.lower() in {"pkill", "tmux", "ghostty"} for command in commands), "theme preview invoked an external terminal update"
+    artifact = test_run_dir / "markdown-view-theme" / "real-theme-picker"
+    artifact.mkdir(parents=True, exist_ok=True)
+    (artifact / "preview-cancel.json").write_text(json.dumps({
+        "initial_background": old_background, "preview_background": selected,
+        "restored_background": editor.exec_lua("return require('custom.markdown.view').session.frame_palette.background"),
+        "initial_views": previous, "picker_views": selected_view, "restored_views": views(editor),
+        "source_sha256_before": source_hash, "source_sha256_after": hashlib.sha256(source.read_bytes()).hexdigest(),
+        "isolated_state": str(state),
+        "spawned_commands": commands, "cancelled_choice_persisted": False,
+    }, indent=2))
