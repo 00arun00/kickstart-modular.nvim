@@ -7,6 +7,7 @@ local images, isolates bad assets, and adapts the output to terminal cells.
 import json
 import math
 import os
+import plistlib
 import re
 import signal
 import subprocess
@@ -21,6 +22,37 @@ ROOT = Path(__file__).resolve().parent
 MAX_PIXELS = 80_000_000
 IMAGE_SUFFIXES = {'.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.bmp', '.tif', '.tiff'}
 child = None
+
+
+def write_palette(outdir, supplied):
+    """Write immutable generation-local color inputs, including code syntax."""
+    colors = dict(background='#ffffff', foreground='#35394a', muted='#687185',
+                  heading='#346b70', link='#397b85', math='#35394a',
+                  panel='#f3f5f7', header='#edf3f3', border='#d8dde2',
+                  code='#35394a', figure_background='#ffffff')
+    syntax = dict(comment='#687185', keyword='#9357a2', string='#467536',
+                  function='#246b93', type='#8c6827', constant='#a45b31',
+                  operator='#397b85', punctuation='#35394a', tag='#a5454a')
+    supplied = supplied if isinstance(supplied, dict) else {}
+    for role in colors:
+        value = supplied.get(role)
+        if isinstance(value, str) and re.fullmatch(r'#[0-9a-fA-F]{6}', value):
+            colors[role] = value.lower()
+    for role in syntax:
+        value = supplied.get('syntax', {}).get(role) if isinstance(supplied.get('syntax'), dict) else None
+        if isinstance(value, str) and re.fullmatch(r'#[0-9a-fA-F]{6}', value):
+            syntax[role] = value.lower()
+    colors['syntax'] = syntax
+    (outdir / 'palette.json').write_text(json.dumps(colors), encoding='utf-8')
+    scopes = dict(comment='comment', keyword='keyword, storage', string='string',
+                  function='entity.name.function, support.function',
+                  type='entity.name.type, support.type, support.class',
+                  constant='constant', operator='keyword.operator',
+                  punctuation='punctuation', tag='entity.name.tag')
+    settings = [{'settings': {'foreground': colors['code'], 'background': colors['panel']}}]
+    settings.extend({'scope': scopes[role], 'settings': {'foreground': value}} for role, value in syntax.items())
+    (outdir / 'code.tmTheme').write_bytes(plistlib.dumps({'name': 'Neovim', 'settings': settings}))
+    return colors
 
 
 class CommandError(RuntimeError):
@@ -275,6 +307,7 @@ def render(request):
     warnings = []
     outdir = Path(request['output']).resolve()
     outdir.mkdir(parents=True, exist_ok=True)
+    palette = write_palette(outdir, request.get('palette'))
     origin = Path(request['origin']).resolve()
     cwd = origin.parent if origin.parent.is_dir() else outdir
     pandoc, typst = request.get('pandoc', 'pandoc'), request.get('typst', 'typst')
@@ -321,7 +354,7 @@ def render(request):
                 raise ValueError('Rendered note exceeds the image-size limit; try a narrower view or a smaller note')
             image = source.convert('RGB')
             rows = math.ceil(image.height / ch)
-            normalized = Image.new('RGB', (pixel_width, rows * round(ch)), 'white')
+            normalized = Image.new('RGB', (pixel_width, rows * round(ch)), palette['background'])
             normalized.paste(image, (0, 0))
             pages[page] = {'start': canvas_rows, 'rows': rows, 'width': image.width, 'height': image.height}
             for start in range(0, rows, 120):
@@ -340,7 +373,8 @@ def render(request):
     if not points:
         points = [{'source': 1, 'col': 0, 'end_source': 1, 'row': 1}]
     result = dict(tiles=tiles, points=points, rows=canvas_rows, columns=cols, mode=request['mode'],
-                  source_lines=request['text'].count('\n') + 1, pages=len(paths), pixel_width=pixel_width, warnings=list(dict.fromkeys(warnings)))
+                  source_lines=request['text'].count('\n') + 1, pages=len(paths), pixel_width=pixel_width,
+                  palette=palette, warnings=list(dict.fromkeys(warnings)))
     (outdir / 'manifest.json').write_text(json.dumps(result), encoding='utf-8')
     return result
 

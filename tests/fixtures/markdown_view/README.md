@@ -23,6 +23,7 @@ native limitation visible rather than counting it as supported.
 | `04-figures-and-assets.md` | Small/wide figures, natural document size, equivalent embed forms, failed assets |
 | `05-pagination.md` | Mixed content crossing pages, table/code continuation, final markers |
 | `06-narrow-layout.md` | Long equations, long code, constrained tables, nested available width |
+| `07-theme-material.md` | Light/dark surfaces, semantic code/math colours, transparent authored figures |
 
 The diagrams are deliberately simple local PNGs so ordinary figure review does
 not depend on the separate native SVG decoder issue. The invalid SVG file is an
