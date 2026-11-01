@@ -97,6 +97,9 @@ jobs:
         run: |
           make test-setup
           bash scripts/setup-python.sh
+      - name: Set up optional rich Markdown tools
+        if: env.TEST_SUITE == 'integration'
+        run: bash scripts/setup-markdown-view.sh
       - name: Set up kernel environment
         if: env.TEST_SUITE == 'kernel'
         run: make test-setup-kernel

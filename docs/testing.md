@@ -79,6 +79,14 @@ setup: `scripts/setup-python.sh`, Lazy, Mason, Tree-sitter, and
 `~/.local/share/nvim`; an incomplete installation may trigger normal editor setup.
 Chainsaw checks also need Python, Rust/rustfmt, Clang++, LuaJIT, rg, and Mason's Ruff.
 
+Rich Markdown view integration cases also use Pandoc 3.13 and Typst 0.15.1.
+`bash scripts/setup-markdown-view.sh` installs verified releases in Neovim's data
+directory; tools on `PATH` also work. The Editor CI job provisions these tools.
+Select the worker and native canvas/lifecycle checks with
+`make test SUITE=all FILE=markdown_view`. Cancellation cases run in the fast
+suite without installed rendering tools; real rendering cases skip if the
+optional tools are absent.
+
 Each script receives a disposable project/config directory and isolated
 state, cache, logs, and Jupyter runtime paths. Fast cases also receive an empty
 Neovim data directory. Full-config cases retain installed plugin data. The small

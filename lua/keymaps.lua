@@ -41,6 +41,7 @@ vim.diagnostic.config {
 }
 
 require('custom.markdown.reading').setup()
+require('custom.markdown.view').setup()
 
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
 

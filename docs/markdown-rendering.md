@@ -1,5 +1,9 @@
 # Markdown rendering experiments
 
+For the optional synchronized typeset split, see
+[Rich Markdown view](rich-markdown-view.md). Its `<Space>Tv` shortcut is separate
+from the source-buffer Reading mode described below.
+
 ## Retained mathematical presentation
 
 Markdown mathematics is rendered across the source buffer, including equations
