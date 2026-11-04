@@ -50,6 +50,11 @@ vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagn
 -- `j` appears with a slight delay.
 vim.keymap.set('i', 'jk', '<Esc>', { desc = 'Exit insert mode' })
 
+-- Karabiner sends Ctrl+Backspace as Option/Alt+Backspace through Ghostty.
+vim.keymap.set({ 'i', 'c' }, '<M-BS>', '<C-w>', {
+  desc = 'Delete previous word',
+})
+
 -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
 -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
 -- is not what someone will guess without a bit more experience.
