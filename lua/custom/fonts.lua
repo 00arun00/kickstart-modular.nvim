@@ -21,6 +21,67 @@ M.presets = {
   },
   { id = 'plex', label = 'IBM Plex Mono', family = 'IBM Plex Mono', cask = 'font-ibm-plex-mono', detail = '15pt · line height +12% · top padding 6pt' },
   { id = 'commit', label = 'Commit Mono', family = 'CommitMono', cask = 'font-commit-mono', detail = '15pt · line height +12% · top padding 6pt' },
+  {
+    id = 'monaspace-neon',
+    label = 'Monaspace Neon',
+    family = 'Monaspace Neon',
+    cask = 'font-monaspace',
+    detail = '15pt · line height +12% · top padding 6pt',
+  },
+  {
+    id = 'monaspace-argon',
+    label = 'Monaspace Argon',
+    family = 'Monaspace Argon',
+    cask = 'font-monaspace',
+    detail = '15pt · line height +12% · top padding 6pt',
+  },
+  {
+    id = 'monaspace-xenon',
+    label = 'Monaspace Xenon',
+    family = 'Monaspace Xenon',
+    cask = 'font-monaspace',
+    detail = '15pt · line height +12% · top padding 6pt',
+  },
+  {
+    id = 'monaspace-krypton',
+    label = 'Monaspace Krypton',
+    family = 'Monaspace Krypton',
+    cask = 'font-monaspace',
+    detail = '15pt · line height +12% · top padding 6pt',
+  },
+  {
+    id = 'monaspace-radon',
+    label = 'Monaspace Radon',
+    family = 'Monaspace Radon',
+    cask = 'font-monaspace',
+    detail = '15pt · line height +12% · top padding 6pt',
+  },
+  { id = 'geist', label = 'Geist Mono', family = 'Geist Mono', cask = 'font-geist-mono', detail = '15pt · line height +12% · top padding 6pt' },
+  { id = 'martian', label = 'Martian Mono', family = 'Martian Mono', cask = 'font-martian-mono', detail = '15pt · line height +12% · top padding 6pt' },
+  { id = 'iosevka', label = 'Iosevka', family = 'Iosevka', cask = 'font-iosevka', detail = '15pt · line height +12% · top padding 6pt' },
+  {
+    id = 'google-sans-code',
+    label = 'Google Sans Code',
+    family = 'Google Sans Code',
+    cask = 'font-google-sans-code',
+    detail = '15pt · line height +12% · top padding 6pt',
+  },
+  { id = 'victor', label = 'Victor Mono', family = 'Victor Mono', cask = 'font-victor-mono', detail = '15pt · line height +12% · top padding 6pt' },
+  {
+    id = 'departure',
+    label = 'Departure Mono',
+    family = 'Departure Mono',
+    cask = 'font-departure-mono',
+    detail = '15pt · line height +12% · top padding 6pt',
+  },
+  { id = '0xproto', label = '0xProto', family = '0xProto', cask = 'font-0xproto', detail = '15pt · line height +12% · top padding 6pt' },
+  {
+    id = 'intel-one',
+    label = 'Intel One Mono',
+    family = 'Intel One Mono',
+    cask = 'font-intel-one-mono',
+    detail = '15pt · line height +12% · top padding 6pt',
+  },
 }
 local function dir() return vim.fn.stdpath 'state' .. '/terminal-font' end
 local function read(path)
@@ -117,13 +178,13 @@ function M.install_font(id, done)
   assert(uv.os_uname().sysname == 'Darwin', 'Install this font with your system font manager, then reopen FontPicker')
   local brew = vim.fn.exepath 'brew'
   assert(brew ~= '', 'Homebrew is required for in-picker installation; install the font manually and reopen FontPicker')
-  if installing[id] then return vim.notify(preset.label .. ' is already installing') end
+  if installing[preset.cask] then return vim.notify(preset.label .. ' package is already installing') end
   local choice = vim.fn.confirm('Install ' .. preset.label .. ' with Homebrew?\n\nbrew install --cask ' .. preset.cask, '&No\n&Install', 1)
   if choice ~= 2 then return end
   local log = dir() .. '/install-' .. id .. '.log'
   local output = ''
   write(log, '')
-  installing[id] = true
+  installing[preset.cask] = { log = log }
   local function stream(err, chunk)
     vim.schedule(function()
       output = output .. (chunk or err or '')
@@ -141,7 +202,7 @@ function M.install_font(id, done)
     env = { HOMEBREW_NO_AUTO_UPDATE = '1' },
   }, function(result)
     vim.schedule(function()
-      installing[id] = nil
+      installing[preset.cask] = nil
       output = output .. (result.stdout or '') .. (result.stderr or '')
       local saved = pcall(write, log, output)
       if result.code == 0 then
@@ -155,7 +216,7 @@ function M.install_font(id, done)
     end)
   end)
   if not ok then
-    installing[id] = nil
+    installing[preset.cask] = nil
     install_changed()
     error(err)
   end
@@ -253,7 +314,7 @@ function M.pick()
           ordinal = item.label,
           display = (current == item.id and '● ' or '  ')
             .. item.label
-            .. (installing[item.id] and ' [installing…]' or missing and ' [not installed]' or ''),
+            .. (installing[item.cask] and ' [installing…]' or missing and ' [not installed]' or ''),
         }
       end,
     }
@@ -266,8 +327,8 @@ function M.pick()
     previewer = require('telescope.previewers').new_buffer_previewer {
       define_preview = function(self, entry)
         local lines = require('custom.font_profiles').lines(entry.value, available[entry.value.family])
-        if installing[entry.value.id] then
-          local log = dir() .. '/install-' .. entry.value.id .. '.log'
+        if installing[entry.value.cask] then
+          local log = installing[entry.value.cask].log
           local output = vim.split((read(log) or ''):gsub('\r', '\n'), '\n', { trimempty = true })
           local progress = { 'INSTALLING — Homebrew is running (5 minute limit)', 'Log: ' .. log }
           for i = math.max(1, #output - 5), #output do
