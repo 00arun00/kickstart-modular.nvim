@@ -57,7 +57,88 @@ local profiles = {
     customization = 'Smart spacing, alternate glyphs, and customizable font builds.',
     source = 'https://commitmono.com/',
   },
+  geist = {
+    purpose = 'Programming and interface design',
+    character = 'Precise, minimal, Swiss-inspired',
+    ligatures = 'No operator-ligature set assumed for this distribution.',
+    italics = 'Matching italic faces.',
+    customization = 'Static weights and variable-weight faces in the Homebrew package.',
+    source = 'https://vercel.com/font',
+  },
+  martian = {
+    purpose = 'Programming and technical interfaces',
+    character = 'Architectural, substantial, industrial',
+    ligatures = 'Do not assume programming operator ligatures.',
+    italics = 'This package provides upright styles; terminal italics may be synthesized.',
+    customization = 'Static weights and widths; this preset selects the standard-width family.',
+    source = 'https://evilmartians.com/products/martian-mono',
+  },
+  iosevka = {
+    purpose = 'Programming, terminals, and technical documents',
+    character = 'Narrow, meticulous, compact',
+    ligatures = 'Supported by the standard Iosevka build; terminal shaping settings decide usage.',
+    italics = 'Italic and oblique styles are included in the collection.',
+    customization = 'Many weights and alternate glyphs; custom upstream builds offer further choices.',
+    source = 'https://github.com/be5invis/Iosevka',
+  },
+  ['google-sans-code'] = {
+    purpose = 'Programming',
+    character = 'Clean, approachable, contemporary',
+    ligatures = 'No programming-ligature set assumed; stylistic alternates are available.',
+    italics = 'Separate Roman and Italic variable fonts.',
+    customization = 'Variable weight from 300 to 800 and stylistic character sets.',
+    source = 'https://github.com/googlefonts/googlesans-code',
+  },
+  victor = {
+    purpose = 'Programming',
+    character = 'Slender, expressive, cursive',
+    ligatures = 'Programming ligatures supported.',
+    italics = 'Distinctive cursive italics plus oblique styles; themes must request italics to show them.',
+    customization = 'Multiple static weights and OpenType character alternatives.',
+    source = 'https://github.com/rubjo/victor-mono',
+  },
+  departure = {
+    purpose = 'Pixel-style interfaces and terminal experiments',
+    character = 'Retro-futuristic, pixel-based, deliberately stylized',
+    ligatures = 'No programming-ligature set assumed.',
+    italics = 'Regular face only; bold and italic may be synthesized.',
+    customization = 'Single static face. Pixel edges depend on font size and display scaling.',
+    source = 'https://departuremono.com/',
+  },
+  ['0xproto'] = {
+    purpose = 'Programming',
+    character = 'Clear, contemporary, carefully differentiated',
+    ligatures = 'Includes shaping features such as texture healing; usage depends on terminal settings.',
+    italics = 'Regular, bold, and italic faces in the package.',
+    customization = 'Alternate glyphs; package also supplies separate ZxProto and TxProto families.',
+    source = 'https://github.com/0xType/0xProto',
+  },
+  ['intel-one'] = {
+    purpose = 'Programming, with a focus on character recognition',
+    character = 'Substantial, distinctive, technical',
+    ligatures = 'Do not assume programming operator ligatures.',
+    italics = 'Matching italics for four weights.',
+    customization = 'Light, regular, medium, and bold static weights.',
+    source = 'https://github.com/intel/intel-one-mono',
+  },
 }
+
+for id, character in pairs {
+  neon = 'Restrained neo-grotesque sans',
+  argon = 'Warm humanist sans',
+  xenon = 'Editorial slab serif',
+  krypton = 'Engineered mechanical sans',
+  radon = 'Expressive handwriting',
+} do
+  profiles['monaspace-' .. id] = {
+    purpose = 'Programming',
+    character = character,
+    ligatures = 'Coding ligatures and texture healing; OpenType settings control their use.',
+    italics = 'Matching italic faces.',
+    customization = 'Static weights and widths in this package; preset uses the standard-width family.',
+    source = 'https://monaspace.githubnext.com/',
+  }
+end
 
 function M.lines(item, installed)
   local p = assert(profiles[item.id], 'Missing font profile: ' .. item.id)
@@ -96,6 +177,7 @@ function M.lines(item, installed)
   }
   if item.cask then lines[#lines + 1] = 'Homebrew package: ' .. item.cask end
   if item.id == 'recursive' then lines[#lines + 1] = 'Package also includes the other Recursive Code faces.' end
+  if item.cask == 'font-monaspace' then lines[#lines + 1] = 'One package installs all five Monaspace designs and their static weights/widths.' end
   vim.list_extend(lines, {
     item.family and not installed and 'Enter: confirm installation (No selected by default).' or 'Enter: apply and remember across Ghostty.',
     'Esc: close without changing typography.',

@@ -22,6 +22,8 @@ local function read(path) return table.concat(vim.fn.readfile(path), '\n') end
 vim.fn.writefile({'font-family = Existing Font', 'font-size = 13'}, config)
 vim.g.font_sync = {ghostty_config=config}
 local available = true
+local expanded_available = false
+local expected_cask = 'font-lilex'
 local reloads = 0
 local installs, pending = 0, nil
 local stream_output
@@ -38,13 +40,19 @@ vim.system = function(args, opts, callback)
   if args[1] == '/fake/brew' then
     assert(opts.timeout == 300000 and opts.stdin == false)
     stream_output = opts.stdout
-    assert(args[2] == 'install' and args[3] == '--cask' and args[4] == 'font-lilex')
+    assert(args[2] == 'install' and args[3] == '--cask' and args[4] == expected_cask)
     installs, pending = installs + 1, callback
     return {}
   end
   local stdout = ''
   if args[2] == '+version' then stdout = 'Ghostty 1.3.1'
-  elseif args[2] == '+list-fonts' then stdout = available and 'iA Writer Mono V\nLilex\n' or ''
+  elseif args[2] == '+list-fonts' then
+    stdout = available and 'iA Writer Mono V\nLilex\n' or ''
+    if expanded_available then
+      for _, item in ipairs(api.presets) do
+        if item.family then stdout = stdout .. item.family .. '\n' end
+      end
+    end
   elseif args[1] == 'pkill' then reloads = reloads + 1
   else error('unexpected command') end
   return {wait=function() return {code=0,stdout=stdout} end}
@@ -104,6 +112,14 @@ assert(installs == previous + 1, 'timeout must release installing state for retr
 pending({code=1,stderr='retry failed'})
 assert(vim.wait(1000, function() return read(state .. '/install-lilex.log') == 'retry failed' end))
 assert(not pcall(api.install_font, 'arbitrary-package'))
+-- All five Monaspace designs share one package and one in-flight installer.
+expected_cask = 'font-monaspace'
+previous = installs
+api.install_font('monaspace-neon')
+api.install_font('monaspace-xenon')
+assert(installs == previous + 1, 'same-package font entries launched duplicate installers')
+pending({code=0,stdout='installed all Monaspace designs'})
+assert(vim.wait(1000, function() return read(state .. '/install-monaspace-neon.log') == 'installed all Monaspace designs' end))
 api.select('writer')
 assert(api.current() == 'writer')
 assert(read(state .. '/ghostty.conf'):find('iA Writer Mono V', 1, true))
@@ -121,6 +137,22 @@ assert(read(config) == 'font-family = Existing Font\nfont-size = 13\n# unrelated
 assert(vim.fn.filereadable(manifest.backup) == 1)
 assert(reloads == 4)
 api.install()
+-- Every new preset applies its actual installed family and survives selection
+-- round trips; applying fonts never rewrites the underlying Ghostty settings.
+expanded_available = true
+local additions = {
+  'monaspace-neon', 'monaspace-argon', 'monaspace-xenon', 'monaspace-krypton', 'monaspace-radon',
+  'geist', 'martian', 'iosevka', 'google-sans-code', 'victor', 'departure', '0xproto', 'intel-one',
+}
+for _, id in ipairs(additions) do
+  api.select(id)
+  assert(api.current() == id, 'font choice was not remembered: ' .. id)
+  local preset
+  for _, item in ipairs(api.presets) do if item.id == id then preset = item end end
+  assert(read(state .. '/ghostty.conf'):find('font-family = ' .. preset.family, 1, true))
+  assert(read(config):find('font-family = Existing Font', 1, true), 'font selection rewrote original settings')
+end
+api.select('original')
 local modified = read(config):gsub('# END nvim%-font%-sync', '# edited end marker')
 vim.fn.writefile(vim.split(modified, '\n', {plain=true}), config)
 assert(not pcall(api.uninstall), 'edited block must not be removed')

@@ -3,10 +3,22 @@
 `Space T f` or `:FontPicker` opens the fuzzy typography picker:
 
 - JetBrains Mono (baseline): no font overrides; use your existing Ghostty configuration.
-- iA Writer Mono: 15pt, 12% extra cell height, 20pt horizontal / 14pt vertical padding.
+- iA Writer Mono: 15pt, 12% extra cell height, no horizontal padding, 6pt top padding.
 - Lilex: the same spacious settings with Lilex.
 - Maple Mono, Recursive Mono Casual, IBM Plex Mono, and Commit Mono: the same
   spacious settings, available to install from the picker after confirmation.
+- Monaspace Neon, Argon, Xenon, Krypton, and Radon: five separate entries from
+  one package, using the standard-width static families.
+- Geist Mono, Martian Mono, Iosevka, Google Sans Code, Victor Mono,
+  Departure Mono, 0xProto, and Intel One Mono.
+
+The picker has 20 entries including the preserved baseline. All added families
+are free fonts. Font files remain system installations rather than repository
+assets. The new entries use the same 15pt / +12% cell height baseline; compare
+actual letter size, weight, and spacing rather than assuming equal point sizes
+look equally large. Departure Mono is a pixel design and particularly sensitive
+to size and display scaling. Martian Mono has upright styles; Departure Mono has
+only a regular face, so terminal bold/italic synthesis may be used.
 
 Recursive Mono Casual uses the `Rec Mono Casual` face from Homebrew's
 `font-recursive-code` package, which also installs the other Recursive Code faces.
@@ -17,6 +29,7 @@ describes capabilities of the selected distribution; **Our preset** describes
 what the generated config actually sets. Ligatures, alternate glyphs, and variable
 axes are inherited from Ghostty, not explicitly switched on or off by the picker.
 Italic faces are available, but the colour theme decides which text uses them.
+Some families have only upright faces; their individual profiles identify this.
 The specimen always renders in the active terminal font, not the highlighted
 candidate. Preview text wraps; use Telescope's preview scrolling for long profiles.
 
@@ -34,6 +47,9 @@ selected by default. Confirm Install to run in the background; the list refreshe
 Press Enter again to apply. Installation never changes the active preset by itself.
 Duplicate installs are suppressed, and errors point to a saved installation log.
 Closing the picker does not cancel an installation already in progress.
+Entries from one shared package, such as the five Monaspace designs, share one
+in-flight installer and progress log. Installing any Monaspace entry installs
+the other designs too.
 While installing, the preview shows recent Homebrew output and the live log path.
 An open or reopened picker refreshes on progress and completion. Installations
 have a five-minute timeout and close standard input so prompts cannot wait unseen.
@@ -42,6 +58,11 @@ Alternatively, install the fonts separately:
 
 ```sh
 brew install --cask font-ia-writer-mono font-lilex
+
+# The complete free-font expansion (Monaspace installs all five designs):
+brew install --cask font-monaspace font-geist-mono font-martian-mono \
+  font-iosevka font-google-sans-code font-victor-mono font-departure-mono \
+  font-0xproto font-intel-one-mono
 ```
 
 Run `:FontSetup!` once before using the picker. It detects Ghostty >= 1.2 and its existing config,
@@ -67,3 +88,24 @@ compatible with earlier selections.
 
 Font sources: [iA Writer](https://github.com/iaolo/iA-Fonts) and
 [Lilex](https://github.com/mishamyrt/Lilex). Font files are not bundled in this repo.
+
+## Code and Markdown compatibility
+
+Code, ordinary Neovim UI, and native Markdown overlays use the active terminal
+font. This includes overlay prose, headings, table text/borders, and task markers.
+The fonts are monospaced, so code indentation and native text tables keep their
+cell grid. Unicode and Nerd Font symbols still depend on glyph coverage and
+Ghostty's fallback fonts; ordinary upstream font packages are not Nerd Font
+patched editions.
+
+Rich Markdown uses a separate Typst-rendered PNG document. Its body remains
+Georgia, headings and table headers Avenir Next, and code Menlo, as configured
+in `lua/custom/markdown/view/style.typ`. Terminal font selection does not change
+those embedded fonts. Inline/display equations and authored images also retain
+their own rendered typography.
+
+Font changes can alter cell geometry and wrapping. Resize the terminal once or
+reopen the rich pane if image placement appears stale after a font change.
+Test a code file, a Markdown overlay note with tables/tasks/equations, and the
+rich reader. The rich reader should still work while retaining its independent
+document typography.
